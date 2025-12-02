@@ -130,6 +130,35 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/butActionAd"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:background="?android:attr/selectableItemBackground"
+                android:gravity="center">
+
+                <ImageView
+                    android:id="@+id/butActionAdIcon"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginRight="8dp"
+                    android:layout_marginEnd="8dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="12dp"
+                    tools:src="@drawable/ic_ad_analysis" />
+
+                <TextView
+                    android:id="@+id/butActionAdText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Button"
+                    android:textColor="?android:attr/textColorPrimary"
+                    tools:text="Analyze ads" />
+
+            </LinearLayout>
+
+            <LinearLayout
                 android:id="@+id/butAction2"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"

@@ -12,6 +12,7 @@ import androidx.work.WorkerParameters;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.errors.BadRequestException;
+import com.openai.errors.OpenAIIoException;
 import com.openai.models.ChatModel;
 import com.openai.models.audio.AudioModel;
 import com.openai.models.audio.AudioResponseFormat;
@@ -46,7 +47,7 @@ public class AdAnalysisWorker extends Worker {
     public static final String DATA_FEED_ITEM_ID = "feedItemId";
     private static final String TAG = "AdAnalysisWorker";
     private static final String MODEL_NAME = "gpt-5-nano";
-    private static final long TRANSCRIPTION_CHUNK_SECONDS = 600; // 10 minutes
+    private static final long TRANSCRIPTION_CHUNK_SECONDS = 300; // 5 minutes
     private static final long MAX_OPENAI_AUDIO_BYTES = 25L * 1024L * 1024L; // 25 MiB hard limit
 
     public AdAnalysisWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
@@ -134,13 +135,8 @@ public class AdAnalysisWorker extends Worker {
                 long sizeBytes = Files.size(chunkPath);
                 Log.i(TAG, "Transcribing chunk " + index + "/" + chunkPaths.size()
                         + ": " + chunkPath.getFileName() + " (" + formatBytes(sizeBytes) + ")");
-                TranscriptionCreateParams transcriptionParams = TranscriptionCreateParams.builder()
-                        .model(AudioModel.WHISPER_1)
-                        .file(chunkPath)
-                        .responseFormat(AudioResponseFormat.VTT)
-                        .build();
-                TranscriptionCreateResponse transcription = client.audio().transcriptions()
-                        .create(transcriptionParams);
+                TranscriptionCreateResponse transcription =
+                        transcribeChunkWithRetry(client, chunkPath, 2);
                 combinedVtt.append(applyOffset(transcription.asTranscription().text(), offsetSeconds));
                 offsetSeconds += TRANSCRIPTION_CHUNK_SECONDS;
                 Log.i(TAG, "Chunk " + index + " done, combined transcript length="
@@ -327,6 +323,31 @@ public class AdAnalysisWorker extends Worker {
             if (size > MAX_OPENAI_AUDIO_BYTES) {
                 Log.e(TAG, "Chunk too large for OpenAI (" + formatBytes(size) + "): " + chunkPath);
                 throw new IOException("Audio chunk exceeds 25 MB limit: " + chunkPath.getFileName());
+            }
+        }
+    }
+
+    private TranscriptionCreateResponse transcribeChunkWithRetry(OpenAIClient client, Path chunkPath, int maxRetries)
+            throws Exception {
+        TranscriptionCreateParams transcriptionParams = TranscriptionCreateParams.builder()
+                .model(AudioModel.WHISPER_1)
+                .file(chunkPath)
+                .responseFormat(AudioResponseFormat.VTT)
+                .build();
+        int attempt = 0;
+        while (true) {
+            try {
+                attempt++;
+                return client.audio().transcriptions().create(transcriptionParams);
+            } catch (OpenAIIoException e) {
+                boolean last = attempt > maxRetries;
+                Log.w(TAG, "Transcription attempt " + attempt + " failed for chunk "
+                        + chunkPath.getFileName() + ": " + e.getMessage()
+                        + (last ? " (giving up)" : " (retrying)"));
+                if (last) {
+                    throw e;
+                }
+                Thread.sleep(500L * attempt);
             }
         }
     }

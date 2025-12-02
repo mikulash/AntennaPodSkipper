@@ -35,6 +35,7 @@ import de.danoeh.antennapod.actionbutton.PlayActionButton;
 import de.danoeh.antennapod.actionbutton.PlayLocalActionButton;
 import de.danoeh.antennapod.actionbutton.StreamActionButton;
 import de.danoeh.antennapod.actionbutton.VisitWebsiteActionButton;
+import de.danoeh.antennapod.actionbutton.AnalyzeAdsActionButton;
 import de.danoeh.antennapod.activity.MainActivity;
 import de.danoeh.antennapod.databinding.FeeditemFragmentBinding;
 import de.danoeh.antennapod.event.EpisodeDownloadEvent;
@@ -51,6 +52,7 @@ import de.danoeh.antennapod.playback.service.PlaybackStatus;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.preferences.UsageStatistics;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
+import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.ui.appstartintent.OnlineFeedviewActivityStarter;
 import de.danoeh.antennapod.ui.cleaner.ShownotesCleaner;
 import de.danoeh.antennapod.ui.common.Converter;
@@ -99,6 +101,7 @@ public class ItemFragment extends Fragment {
 
     private ItemActionButton actionButton1;
     private ItemActionButton actionButton2;
+    private ItemActionButton actionButtonAd;
     private Disposable disposable;
     private PlaybackController controller;
     private FeeditemFragmentBinding viewBinding;
@@ -139,6 +142,12 @@ public class ItemFragment extends Fragment {
                 return; // Not loaded yet
             }
             actionButton1.onClick(getContext());
+        });
+        viewBinding.butActionAd.setOnClickListener(v -> {
+            if (actionButtonAd == null) {
+                return;
+            }
+            actionButtonAd.onClick(getContext());
         });
         viewBinding.butAction2.setOnClickListener(v -> {
             if (actionButton2 instanceof DownloadActionButton && UserPreferences.isStreamOverDownload()
@@ -303,6 +312,7 @@ public class ItemFragment extends Fragment {
         if (media == null) {
             actionButton1 = new MarkAsPlayedActionButton(item);
             actionButton2 = new VisitWebsiteActionButton(item);
+            actionButtonAd = null;
             viewBinding.noMediaLabel.setVisibility(View.VISIBLE);
         } else {
             viewBinding.noMediaLabel.setVisibility(View.GONE);
@@ -327,12 +337,26 @@ public class ItemFragment extends Fragment {
             } else {
                 actionButton2 = new DeleteActionButton(item);
             }
+            actionButtonAd = new AnalyzeAdsActionButton(item);
         }
 
         viewBinding.butAction1Text.setText(actionButton1.getLabel());
         viewBinding.butAction1Text.setTransformationMethod(null);
         viewBinding.butAction1Icon.setImageResource(actionButton1.getDrawable());
         viewBinding.butAction1.setVisibility(actionButton1.getVisibility());
+
+        if (actionButtonAd != null) {
+            if (AdSegmentStore.hasAnalysis(requireContext(), item.getId())) {
+                viewBinding.butActionAdText.setText(R.string.ad_analysis_again);
+            } else {
+                viewBinding.butActionAdText.setText(actionButtonAd.getLabel());
+            }
+            viewBinding.butActionAdText.setTransformationMethod(null);
+            viewBinding.butActionAdIcon.setImageResource(actionButtonAd.getDrawable());
+            viewBinding.butActionAd.setVisibility(actionButtonAd.getVisibility());
+        } else {
+            viewBinding.butActionAd.setVisibility(View.GONE);
+        }
 
         viewBinding.butAction2Text.setText(actionButton2.getLabel());
         viewBinding.butAction2Text.setTransformationMethod(null);

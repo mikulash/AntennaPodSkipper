@@ -21,13 +21,25 @@ public final class AdAnalysisWorkScheduler {
     }
 
     public static void enqueueIfNeeded(Context context, FeedMedia media) {
+        enqueue(context, media, true, ExistingWorkPolicy.KEEP);
+    }
+
+    public static void enqueueManual(Context context, FeedMedia media) {
+        enqueue(context, media, false, ExistingWorkPolicy.REPLACE);
+    }
+
+    private static void enqueue(Context context, FeedMedia media, boolean respectPreference,
+                                ExistingWorkPolicy policy) {
         if (media == null || media.getItem() == null) {
             return;
         }
-        if (!UserPreferences.isAutoAdAnalysisEnabled()) {
+        if (respectPreference && !UserPreferences.isAutoAdAnalysisEnabled()) {
             return;
         }
         if (TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))) {
+            return;
+        }
+        if (TextUtils.isEmpty(media.getLocalFileUrl())) {
             return;
         }
         Data input = new Data.Builder()
@@ -47,7 +59,7 @@ public final class AdAnalysisWorkScheduler {
 
         WorkManager.getInstance(context).enqueueUniqueWork(
                 UNIQUE_PREFIX + media.getItem().getId(),
-                ExistingWorkPolicy.KEEP,
+                policy,
                 request);
     }
 }
