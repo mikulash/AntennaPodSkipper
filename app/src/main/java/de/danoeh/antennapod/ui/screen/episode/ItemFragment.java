@@ -53,6 +53,8 @@ import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.preferences.UsageStatistics;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.storage.database.AdSegmentStore;
+import de.danoeh.antennapod.model.ad.AdAnalysisResult;
+import de.danoeh.antennapod.model.ad.AdSegment;
 import de.danoeh.antennapod.ui.appstartintent.OnlineFeedviewActivityStarter;
 import de.danoeh.antennapod.ui.cleaner.ShownotesCleaner;
 import de.danoeh.antennapod.ui.common.Converter;
@@ -295,6 +297,7 @@ public class ItemFragment extends Fragment {
                 .apply(options)
                 .into(viewBinding.imgvCover);
         updateButtons();
+        updateAdSegmentsSummary();
     }
 
     private void updateButtons() {
@@ -362,6 +365,39 @@ public class ItemFragment extends Fragment {
         viewBinding.butAction2Text.setTransformationMethod(null);
         viewBinding.butAction2Icon.setImageResource(actionButton2.getDrawable());
         viewBinding.butAction2.setVisibility(actionButton2.getVisibility());
+    }
+
+    private void updateAdSegmentsSummary() {
+        if (item == null || item.getMedia() == null) {
+            viewBinding.adSegmentsContainer.setVisibility(View.GONE);
+            return;
+        }
+        AdAnalysisResult result = AdSegmentStore.load(requireContext(), item.getId());
+        if (result == null) {
+            viewBinding.adSegmentsContent.setText(R.string.ad_segments_not_analyzed);
+            viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
+            return;
+        }
+        if (result.getSegments().isEmpty()) {
+            viewBinding.adSegmentsContent.setText(R.string.ad_segments_empty);
+            viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
+            return;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < result.getSegments().size(); i++) {
+            AdSegment seg = result.getSegments().get(i);
+            if (i > 0) {
+                sb.append("\n");
+            }
+            Log.d(TAG, "updateAdSegmentsSummary: " + seg);
+            Log.d(TAG, "FROM: " + seg.getStartSeconds() + " TO: " + seg.getEndSeconds());
+
+            sb.append(Converter.getDurationStringLong((int) (seg.getStartSeconds() * 1000)));
+            sb.append(" - ");
+            sb.append(Converter.getDurationStringLong((int) (seg.getEndSeconds() * 1000)));
+        }
+        viewBinding.adSegmentsContent.setText(sb.toString());
+        viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
     }
 
     @Override

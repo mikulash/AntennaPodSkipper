@@ -226,11 +226,6 @@
             android:background="?android:attr/dividerVertical"
             android:text="@string/no_media_label" />
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="?android:attr/dividerVertical" />
-
     </LinearLayout>
 
     <de.danoeh.antennapod.ui.view.NestedScrollableHost
@@ -239,11 +234,54 @@
         android:layout_below="@id/header"
         app:preferVertical="3">
 
-        <de.danoeh.antennapod.ui.view.ShownotesWebView
-            android:id="@+id/webvDescription"
+        <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:foreground="?android:windowContentOverlay" />
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <de.danoeh.antennapod.ui.view.ShownotesWebView
+                    android:id="@+id/webvDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:foreground="?android:windowContentOverlay" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="?android:attr/dividerVertical" />
+
+                <LinearLayout
+                    android:id="@+id/adSegmentsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/adSegmentsTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/ad_segments_title"
+                        android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+                        android:textColor="?android:attr/textColorPrimary" />
+
+                    <TextView
+                        android:id="@+id/adSegmentsContent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                        android:textColor="?android:attr/textColorSecondary"
+                        tools:text="00:10 - 01:02\n12:15 - 13:00" />
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
 
     </de.danoeh.antennapod.ui.view.NestedScrollableHost>
 

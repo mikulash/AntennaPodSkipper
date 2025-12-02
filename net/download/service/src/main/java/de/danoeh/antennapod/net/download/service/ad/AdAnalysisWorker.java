@@ -101,6 +101,7 @@ public class AdAnalysisWorker extends Worker {
                         ? ""
                         : completion.choices().get(0).message().content().orElse("");
             }
+            Log.i(TAG, "Model response content: " + content);
             Log.i(TAG, "Model response received, raw length=" + (content == null ? 0 : content.length()));
             List<AdSegment> segments = mergeSegments(parseSegments(content));
             Log.i(TAG, "Ad analysis finished: " + segments.size() + " segment(s) detected");

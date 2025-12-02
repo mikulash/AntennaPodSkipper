@@ -1021,4 +1021,7 @@
     <string name="ad_analysis_overwrite_message">This episode already has ad detection results. Running analysis again will overwrite the existing data.</string>
     <string name="ad_analysis_overwrite_confirm">Overwrite and analyze</string>
     <string name="ad_analysis_again">Analyze again</string>
+    <string name="ad_segments_title">Detected ads:</string>
+    <string name="ad_segments_empty">No ads detected.</string>
+    <string name="ad_segments_not_analyzed">Not analyzed yet.</string>
 </resources>

@@ -7,6 +7,7 @@ import android.text.TextUtils;
 import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import de.danoeh.antennapod.model.ad.AdAnalysisResult;
@@ -81,7 +82,7 @@ class AdSkipController {
             if (cachedResult != null) {
                 List<AdSegment> segments = new ArrayList<>(cachedResult.getSegments());
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    segments.sort((a, b) -> Double.compare(a.getStartSeconds(), b.getStartSeconds()));
+                    segments.sort(Comparator.comparingDouble(AdSegment::getStartSeconds));
                 }
                 cachedResult = new AdAnalysisResult(segments, cachedResult.getAnalyzedAtMillis(),
                         cachedResult.getModel(), cachedResult.getError());
