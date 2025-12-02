@@ -46,7 +46,7 @@ import de.danoeh.antennapod.storage.preferences.UserPreferences;
 public class AdAnalysisWorker extends Worker {
     public static final String DATA_FEED_ITEM_ID = "feedItemId";
     private static final String TAG = "AdAnalysisWorker";
-    private static final String MODEL_NAME = "gpt-5-nano";
+    private static final String DEFAULT_MODEL_NAME = "gpt-5-nano";
     private static final long TRANSCRIPTION_CHUNK_SECONDS = 300; // 5 minutes
     private static final long MAX_OPENAI_AUDIO_BYTES = 25L * 1024L * 1024L; // 25 MiB hard limit
 
@@ -84,16 +84,22 @@ public class AdAnalysisWorker extends Worker {
                     .apiKey(apiKey)
                     .build();
 
-            Log.i(TAG, "Ad analysis started for feedItemId=" + feedItemId);
+            Log.i(TAG, "Ad analysis started for feedItemId=" + feedItemId
+                    + ", title=" + item.getTitle());
             String transcript = transcribeInChunks(client, media);
             Log.i(TAG, "Transcription complete, length=" + transcript.length());
 
+            String modelName = OpenAiPreferences.getModel(getApplicationContext());
+            if (TextUtils.isEmpty(modelName)) {
+                modelName = DEFAULT_MODEL_NAME;
+            }
+            ChatModel chatModel = resolveChatModel(modelName);
             ChatCompletionCreateParams chatParams = ChatCompletionCreateParams.builder()
                     .addUserMessage(buildPrompt(transcript, media.getDuration()))
-                    .model(ChatModel.GPT_5_NANO)
+                    .model(chatModel)
                     .build();
 
-            Log.i(TAG, "Requesting ad classification using model " + MODEL_NAME);
+            Log.i(TAG, "Requesting ad classification using model " + modelName);
             ChatCompletion completion = client.chat().completions().create(chatParams);
             String content = null;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -106,7 +112,7 @@ public class AdAnalysisWorker extends Worker {
             List<AdSegment> segments = mergeSegments(parseSegments(content));
             Log.i(TAG, "Ad analysis finished: " + segments.size() + " segment(s) detected");
             AdSegmentStore.save(getApplicationContext(), feedItemId,
-                    new AdAnalysisResult(segments, System.currentTimeMillis(), MODEL_NAME, ""));
+                    new AdAnalysisResult(segments, System.currentTimeMillis(), modelName, ""));
             return Result.success();
         } catch (Exception e) {
             Log.e(TAG, "Ad analysis failed", e);
@@ -207,7 +213,8 @@ public class AdAnalysisWorker extends Worker {
 
     private void saveError(long feedItemId, String error) {
         AdSegmentStore.save(getApplicationContext(), feedItemId,
-                new AdAnalysisResult(Collections.emptyList(), System.currentTimeMillis(), MODEL_NAME, error));
+                new AdAnalysisResult(Collections.emptyList(), System.currentTimeMillis(),
+                        OpenAiPreferences.getModel(getApplicationContext()), error));
     }
 
     private String buildPrompt(String transcript, int durationMs) {
@@ -330,13 +337,13 @@ public class AdAnalysisWorker extends Worker {
 
     private TranscriptionCreateResponse transcribeChunkWithRetry(OpenAIClient client, Path chunkPath, int maxRetries)
             throws Exception {
-        TranscriptionCreateParams transcriptionParams = TranscriptionCreateParams.builder()
-                .model(AudioModel.WHISPER_1)
-                .file(chunkPath)
-                .responseFormat(AudioResponseFormat.VTT)
-                .build();
         int attempt = 0;
         while (true) {
+            TranscriptionCreateParams transcriptionParams = TranscriptionCreateParams.builder()
+                    .model(AudioModel.WHISPER_1)
+                    .file(chunkPath)
+                    .responseFormat(AudioResponseFormat.VTT)
+                    .build();
             try {
                 attempt++;
                 return client.audio().transcriptions().create(transcriptionParams);
@@ -356,5 +363,26 @@ public class AdAnalysisWorker extends Worker {
     private String formatBytes(long bytes) {
         double mb = bytes / (1024.0 * 1024.0);
         return String.format(Locale.US, "%.2f MB", mb);
+    }
+
+    private ChatModel resolveChatModel(String modelName) {
+        if (TextUtils.isEmpty(modelName)) {
+            return ChatModel.GPT_5_NANO;
+        }
+        switch (modelName) {
+            case "gpt-5.1":
+                return ChatModel.GPT_5_1;
+            case "gpt-5-mini":
+                return ChatModel.GPT_5_MINI;
+            case "gpt-5-nano":
+                return ChatModel.GPT_5_NANO;
+            default:
+                try {
+                    return ChatModel.of(modelName);
+                } catch (Exception e) {
+                    Log.w(TAG, "Unknown model " + modelName + ", falling back to default", e);
+                    return ChatModel.GPT_5_NANO;
+                }
+        }
     }
 }

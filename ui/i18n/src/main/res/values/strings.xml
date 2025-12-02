@@ -1013,6 +1013,11 @@
     <string name="pref_openai_api_key_title">OpenAI API key</string>
     <string name="pref_openai_api_key_summary">Paste a valid OpenAI API key to enable ad analysis</string>
     <string name="pref_openai_api_key_set">API key saved securely</string>
+    <string name="pref_openai_model_title">OpenAI model</string>
+    <string name="pref_openai_model_gpt51">gpt-5.1</string>
+    <string name="pref_openai_model_gpt5_mini">gpt-5-mini</string>
+    <string name="pref_openai_model_gpt5_nano">gpt-5-nano</string>
+    <string name="pref_openai_model_default">gpt-5-nano</string>
     <string name="action_analyze_ads">Analyze ads</string>
     <string name="ad_analysis_requires_download">Download the episode first to analyze ads.</string>
     <string name="ad_analysis_missing_key">Add your OpenAI API key to run ad analysis.</string>

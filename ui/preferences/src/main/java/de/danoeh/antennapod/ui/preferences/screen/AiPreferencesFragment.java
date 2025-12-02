@@ -6,17 +6,20 @@ import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
 import androidx.preference.EditTextPreference;
+import androidx.preference.ListPreference;
 
 import de.danoeh.antennapod.ui.preferences.R;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 
 public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private static final String PREF_OPENAI_API_KEY = "prefOpenAiApiKey";
+    private static final String PREF_OPENAI_MODEL = "prefOpenAiModel";
 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         addPreferencesFromResource(R.xml.preferences_ai);
         setupApiKeyPreference();
+        setupModelPreference();
     }
 
     @Override
@@ -41,6 +44,19 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
             return false; // Avoid storing in default shared preferences
         });
         updateApiKeySummary(apiKeyPref);
+    }
+
+    private void setupModelPreference() {
+        ListPreference modelPref = findPreference(PREF_OPENAI_MODEL);
+        if (modelPref == null) {
+            return;
+        }
+        modelPref.setValue(OpenAiPreferences.getModel(requireContext()));
+        modelPref.setOnPreferenceChangeListener((preference, newValue) -> {
+            OpenAiPreferences.setModel(requireContext(), (String) newValue);
+            modelPref.setValue((String) newValue);
+            return false;
+        });
     }
 
     private void updateApiKeySummary(EditTextPreference apiKeyPref) {
