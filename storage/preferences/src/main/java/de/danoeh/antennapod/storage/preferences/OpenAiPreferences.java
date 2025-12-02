@@ -19,7 +19,7 @@ public final class OpenAiPreferences {
     private static final String PREF_NAME = "openai_secure";
     private static final String PREF_API_KEY = "pref_openai_api_key";
     private static final String PREF_MODEL = "pref_openai_model";
-    private static final String DEFAULT_MODEL = "gpt-5.1-mini";
+    private static final String DEFAULT_MODEL = "gpt-5-nano";
 
     private OpenAiPreferences() {
     }

@@ -206,8 +206,8 @@
 
     <string-array name="pref_openai_model_values">
         <item>gpt-5.1</item>
-        <item>gpt-5.1-mini</item>
-        <item>gpt-5.1-nano</item>
+        <item>gpt-5-mini</item>
+        <item>gpt-5-nano</item>
     </string-array>
 
     <string-array name="episode_cleanup_values">
