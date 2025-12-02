@@ -121,6 +121,9 @@ public class MediaDownloadedHandler implements Runnable {
                         .currentTimestamp()
                         .build());
         }
+
+        // Auto-run ad analysis if enabled and configured
+        AdAnalysisWorkScheduler.enqueueIfNeeded(context, media);
     }
 
     @NonNull

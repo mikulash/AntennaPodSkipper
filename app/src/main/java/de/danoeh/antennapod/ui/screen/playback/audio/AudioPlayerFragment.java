@@ -61,6 +61,9 @@ import de.danoeh.antennapod.ui.episodeslist.FeedItemMenuHandler;
 import de.danoeh.antennapod.model.feed.Chapter;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.model.ad.AdSegment;
+import de.danoeh.antennapod.model.ad.AdAnalysisResult;
+import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.model.playback.Playable;
 import de.danoeh.antennapod.playback.cast.CastEnabledActivity;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
@@ -177,6 +180,34 @@ public class AudioPlayerFragment extends Fragment implements
         }
 
         sbPosition.setDividerPos(dividerPos);
+        setAdSegments(media);
+    }
+
+    private void setAdSegments(Playable media) {
+        if (!(media instanceof FeedMedia)) {
+            sbPosition.setAdSegments(null);
+            return;
+        }
+        FeedItem feedItem = ((FeedMedia) media).getItem();
+        if (feedItem == null) {
+            sbPosition.setAdSegments(null);
+            return;
+        }
+        AdAnalysisResult result = AdSegmentStore.load(requireContext(), feedItem.getId());
+        if (result == null || result.getSegments().isEmpty() || duration <= 0) {
+            sbPosition.setAdSegments(null);
+            return;
+        }
+        float[][] normalized = new float[result.getSegments().size()][];
+        for (int i = 0; i < result.getSegments().size(); i++) {
+            AdSegment seg = result.getSegments().get(i);
+            float start = (float) (seg.getStartSeconds() * 1000 / (double) duration);
+            float end = (float) (seg.getEndSeconds() * 1000 / (double) duration);
+            start = Math.max(0f, Math.min(1f, start));
+            end = Math.max(0f, Math.min(1f, end));
+            normalized[i] = new float[]{start, end};
+        }
+        sbPosition.setAdSegments(normalized);
     }
 
     private void setupControlButtons() {
