@@ -81,6 +81,8 @@ public abstract class UserPreferences {
     public static final String PREF_HARDWARE_PREVIOUS_BUTTON = "prefHardwarePreviousButton";
     public static final String PREF_FOLLOW_QUEUE = "prefFollowQueue";
     public static final String PREF_SKIP_KEEPS_EPISODE = "prefSkipKeepsEpisode";
+    public static final String PREF_AD_SKIP_ENABLED = "prefAdSkipEnabled";
+    public static final String PREF_AUTO_AD_ANALYSIS = "prefAutoAdAnalysis";
     public static final String PREF_FAVORITE_KEEPS_EPISODE = "prefFavoriteKeepsEpisode";
     public static final String PREF_AUTO_DELETE = "prefAutoDelete";
     private static final String PREF_AUTO_DELETE_LOCAL = "prefAutoDeleteLocal";
@@ -394,6 +396,14 @@ public abstract class UserPreferences {
 
     public static boolean isFollowQueue() {
         return prefs.getBoolean(PREF_FOLLOW_QUEUE, true);
+    }
+
+    public static boolean isAdSkipEnabled() {
+        return prefs.getBoolean(PREF_AD_SKIP_ENABLED, true);
+    }
+
+    public static boolean isAutoAdAnalysisEnabled() {
+        return prefs.getBoolean(PREF_AUTO_AD_ANALYSIS, true);
     }
 
     /**

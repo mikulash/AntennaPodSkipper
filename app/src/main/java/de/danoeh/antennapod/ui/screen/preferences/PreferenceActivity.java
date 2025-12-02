@@ -20,6 +20,7 @@ import de.danoeh.antennapod.ui.common.ToolbarActivity;
 import de.danoeh.antennapod.ui.preferences.databinding.SettingsActivityBinding;
 import de.danoeh.antennapod.ui.preferences.screen.AutoDownloadPreferencesFragment;
 import de.danoeh.antennapod.ui.preferences.screen.NotificationPreferencesFragment;
+import de.danoeh.antennapod.ui.preferences.screen.AiPreferencesFragment;
 import de.danoeh.antennapod.ui.preferences.screen.synchronization.SynchronizationPreferencesFragment;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -78,6 +79,8 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
             prefFragment = new PlaybackPreferencesFragment();
         } else if (screen == R.xml.preferences_notifications) {
             prefFragment = new NotificationPreferencesFragment();
+        } else if (screen == R.xml.preferences_ai) {
+            prefFragment = new AiPreferencesFragment();
         } else if (screen == R.xml.preferences_swipe) {
             prefFragment = new SwipePreferencesFragment();
         } else if (screen == R.xml.preferences_auto_deletion) {
@@ -101,6 +104,8 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
             return R.string.synchronization_pref;
         } else if (preferences == R.xml.preferences_notifications) {
             return R.string.notification_pref_fragment;
+        } else if (preferences == R.xml.preferences_ai) {
+            return R.string.pref_ai_label;
         } else if (preferences == R.xml.feed_settings) {
             return R.string.feed_settings_label;
         } else if (preferences == R.xml.preferences_swipe) {

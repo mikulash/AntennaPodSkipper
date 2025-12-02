@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <SwitchPreferenceCompat
+            android:key="prefAutoAdAnalysis"
+            android:defaultValue="true"
+            android:title="@string/pref_auto_ad_analysis_title"
+            android:summary="@string/pref_auto_ad_analysis_summary" />
+
+    <SwitchPreferenceCompat
+            android:key="prefAdSkipEnabled"
+            android:defaultValue="true"
+            android:title="@string/pref_ad_skip_enabled_title"
+            android:summary="@string/pref_ad_skip_enabled_summary" />
+
+    <EditTextPreference
+            android:key="prefOpenAiApiKey"
+            android:persistent="false"
+            android:title="@string/pref_openai_api_key_title"
+            android:summary="@string/pref_openai_api_key_summary" />
+
+</PreferenceScreen>

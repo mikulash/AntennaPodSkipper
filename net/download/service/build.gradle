@@ -39,6 +39,7 @@ dependencies {
     implementation "io.reactivex.rxjava3:rxandroid:$rxAndroidVersion"
     implementation "io.reactivex.rxjava3:rxjava:$rxJavaVersion"
     implementation "com.google.guava:guava:31.0.1-android"
+    implementation "com.openai:openai-java:4.8.0"
 
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.robolectric:robolectric:$robolectricVersion"

@@ -166,6 +166,7 @@ public class PlaybackService extends MediaBrowserServiceCompat {
     private PlaybackServiceTaskManager taskManager;
     private SleepTimer sleepTimer;
     private PlaybackServiceStateManager stateManager;
+    private AdSkipController adSkipController;
     private Disposable positionEventTimer;
     private PlaybackServiceNotificationBuilder notificationBuilder;
     private CastStateListener castStateListener;
@@ -255,6 +256,7 @@ public class PlaybackService extends MediaBrowserServiceCompat {
         registerReceiver(audioBecomingNoisy, new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY));
         EventBus.getDefault().register(this);
         taskManager = new PlaybackServiceTaskManager(this, taskManagerCallback);
+        adSkipController = new AdSkipController(this, this);
 
         recreateMediaSessionIfNeeded();
         castStateListener = new CastStateListener(this) {
@@ -851,6 +853,7 @@ public class PlaybackService extends MediaBrowserServiceCompat {
             }
 
             updateMediaSession(newInfo.getPlayerStatus());
+            adSkipController.onPlayableChanged(newInfo.getPlayable());
             switch (newInfo.getPlayerStatus()) {
                 case INITIALIZED:
                     if (mediaPlayer.getPSMPInfo().getPlayable() != null) {
@@ -1857,6 +1860,7 @@ public class PlaybackService extends MediaBrowserServiceCompat {
         positionEventTimer = Observable.interval(1, TimeUnit.SECONDS)
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(number -> {
+                    adSkipController.onProgress(getPlayable(), getCurrentPosition());
                     EventBus.getDefault().post(new PlaybackPositionEvent(getCurrentPosition(), getDuration()));
                     if (Build.VERSION.SDK_INT < 29) {
                         notificationBuilder.updatePosition(getCurrentPosition(), getCurrentPlaybackSpeed());

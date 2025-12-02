@@ -1004,4 +1004,13 @@
 
     <string name="echo_share_heading">My favorite podcasts</string>
     <string name="echo_share">My year %d in podcasts. #AntennaPodEcho</string>
+    <string name="pref_ai_label">AI &amp; Ad Skipping</string>
+    <string name="pref_ai_summary">Configure OpenAI analysis and automatic ad skipping</string>
+    <string name="pref_auto_ad_analysis_title">Analyze new downloads for ads</string>
+    <string name="pref_auto_ad_analysis_summary">Use your OpenAI API key to detect advertisement segments after episodes finish downloading</string>
+    <string name="pref_ad_skip_enabled_title">Skip detected ads during playback</string>
+    <string name="pref_ad_skip_enabled_summary">Automatically jump over detected sponsor or ad blocks while listening</string>
+    <string name="pref_openai_api_key_title">OpenAI API key</string>
+    <string name="pref_openai_api_key_summary">Paste a valid OpenAI API key to enable ad analysis</string>
+    <string name="pref_openai_api_key_set">API key saved securely</string>
 </resources>

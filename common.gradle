@@ -28,7 +28,8 @@ android {
             excludes += ["META-INF/LICENSE.txt",
                          "META-INF/NOTICE.txt",
                          "META-INF/CHANGES",
-                         "META-INF/README.md"]
+                         "META-INF/README.md",
+                         "META-INF/DEPENDENCIES"]
         }
     }
 
