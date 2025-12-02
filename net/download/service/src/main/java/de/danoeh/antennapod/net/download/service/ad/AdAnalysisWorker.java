@@ -6,12 +6,12 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.work.Data;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.errors.BadRequestException;
 import com.openai.models.ChatModel;
 import com.openai.models.audio.AudioModel;
 import com.openai.models.audio.AudioResponseFormat;
@@ -24,6 +24,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -44,8 +45,9 @@ import de.danoeh.antennapod.storage.preferences.UserPreferences;
 public class AdAnalysisWorker extends Worker {
     public static final String DATA_FEED_ITEM_ID = "feedItemId";
     private static final String TAG = "AdAnalysisWorker";
-    private static final String MODEL_NAME = "gpt-4.1-mini";
+    private static final String MODEL_NAME = "gpt-5-nano";
     private static final long TRANSCRIPTION_CHUNK_SECONDS = 600; // 10 minutes
+    private static final long MAX_OPENAI_AUDIO_BYTES = 25L * 1024L * 1024L; // 25 MiB hard limit
 
     public AdAnalysisWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
@@ -81,13 +83,16 @@ public class AdAnalysisWorker extends Worker {
                     .apiKey(apiKey)
                     .build();
 
+            Log.i(TAG, "Ad analysis started for feedItemId=" + feedItemId);
             String transcript = transcribeInChunks(client, media);
+            Log.i(TAG, "Transcription complete, length=" + transcript.length());
 
             ChatCompletionCreateParams chatParams = ChatCompletionCreateParams.builder()
                     .addUserMessage(buildPrompt(transcript, media.getDuration()))
-                    .model(ChatModel.GPT_4_1_MINI)
+                    .model(ChatModel.GPT_5_NANO)
                     .build();
 
+            Log.i(TAG, "Requesting ad classification using model " + MODEL_NAME);
             ChatCompletion completion = client.chat().completions().create(chatParams);
             String content = null;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -95,15 +100,20 @@ public class AdAnalysisWorker extends Worker {
                         ? ""
                         : completion.choices().get(0).message().content().orElse("");
             }
+            Log.i(TAG, "Model response received, raw length=" + (content == null ? 0 : content.length()));
             List<AdSegment> segments = mergeSegments(parseSegments(content));
+            Log.i(TAG, "Ad analysis finished: " + segments.size() + " segment(s) detected");
             AdSegmentStore.save(getApplicationContext(), feedItemId,
                     new AdAnalysisResult(segments, System.currentTimeMillis(), MODEL_NAME, ""));
             return Result.success();
         } catch (Exception e) {
             Log.e(TAG, "Ad analysis failed", e);
-            saveError(feedItemId, e.getMessage());
+            saveError(feedItemId, buildErrorMessage(e));
             String message = e.getMessage() == null ? "" : e.getMessage();
             if (message.contains("401") || message.toLowerCase().contains("unauthorized")) {
+                return Result.failure();
+            }
+            if (shouldNotRetry(e)) {
                 return Result.failure();
             }
             return Result.retry();
@@ -113,10 +123,17 @@ public class AdAnalysisWorker extends Worker {
     private String transcribeInChunks(OpenAIClient client, FeedMedia media) throws Exception {
         List<Path> chunkPaths = AudioChunkUtils.createAudioChunks(getApplicationContext(),
                 media.getLocalFileUrl(), TRANSCRIPTION_CHUNK_SECONDS);
+        Log.i(TAG, "Transcribing " + chunkPaths.size() + " chunk(s) "
+                + "target=" + TRANSCRIPTION_CHUNK_SECONDS + "s each");
+        validateChunkSizes(chunkPaths);
         StringBuilder combinedVtt = new StringBuilder();
         double offsetSeconds = 0;
         try {
+            int index = 1;
             for (Path chunkPath : chunkPaths) {
+                long sizeBytes = Files.size(chunkPath);
+                Log.i(TAG, "Transcribing chunk " + index + "/" + chunkPaths.size()
+                        + ": " + chunkPath.getFileName() + " (" + formatBytes(sizeBytes) + ")");
                 TranscriptionCreateParams transcriptionParams = TranscriptionCreateParams.builder()
                         .model(AudioModel.WHISPER_1)
                         .file(chunkPath)
@@ -126,6 +143,9 @@ public class AdAnalysisWorker extends Worker {
                         .create(transcriptionParams);
                 combinedVtt.append(applyOffset(transcription.asTranscription().text(), offsetSeconds));
                 offsetSeconds += TRANSCRIPTION_CHUNK_SECONDS;
+                Log.i(TAG, "Chunk " + index + " done, combined transcript length="
+                        + combinedVtt.length());
+                index++;
             }
         } finally {
             for (Path chunkPath : chunkPaths) {
@@ -206,10 +226,11 @@ public class AdAnalysisWorker extends Worker {
 
     private List<AdSegment> parseSegments(String rawJson) throws JSONException {
         List<AdSegment> segments = new ArrayList<>();
-        if (TextUtils.isEmpty(rawJson)) {
+        String sanitized = sanitizeJson(rawJson);
+        if (TextUtils.isEmpty(sanitized)) {
             return segments;
         }
-        JSONObject root = new JSONObject(rawJson);
+        JSONObject root = new JSONObject(sanitized);
         JSONArray ads = root.optJSONArray("ads");
         if (ads == null) {
             return segments;
@@ -250,5 +271,68 @@ public class AdAnalysisWorker extends Worker {
         }
         merged.add(current);
         return merged;
+    }
+
+    private boolean shouldNotRetry(Throwable throwable) {
+        String message = throwable.getMessage();
+        String normalized = message == null ? "" : message.toLowerCase(Locale.US);
+        if (normalized.contains("unsupported audio mime type")) {
+            return true;
+        }
+        if (normalized.contains("exceeds 25 mb")) {
+            return true;
+        }
+        if (throwable instanceof BadRequestException) {
+            return normalized.contains("could not be decoded")
+                    || normalized.contains("format is not supported");
+        }
+        Throwable cause = throwable.getCause();
+        return cause != null && shouldNotRetry(cause);
+    }
+
+    private String buildErrorMessage(Throwable throwable) {
+        String message = throwable.getMessage() == null ? "" : throwable.getMessage();
+        if (shouldNotRetry(throwable)) {
+            return message + " (OpenAI supports mp3, mp4/m4a, mpeg/mpga, wav, and webm up to 25 MB per file)";
+        }
+        return message;
+    }
+
+    private String sanitizeJson(String raw) {
+        if (TextUtils.isEmpty(raw)) {
+            return raw;
+        }
+        String cleaned = raw.trim();
+        if (cleaned.startsWith("```")) {
+            int firstNewline = cleaned.indexOf('\n');
+            if (firstNewline >= 0 && firstNewline + 1 < cleaned.length()) {
+                cleaned = cleaned.substring(firstNewline + 1);
+            }
+            if (cleaned.endsWith("```")) {
+                cleaned = cleaned.substring(0, cleaned.lastIndexOf("```"));
+            }
+            cleaned = cleaned.trim();
+        }
+        int start = cleaned.indexOf('{');
+        int end = cleaned.lastIndexOf('}');
+        if (start >= 0 && end >= start) {
+            return cleaned.substring(start, end + 1).trim();
+        }
+        return cleaned;
+    }
+
+    private void validateChunkSizes(List<Path> chunkPaths) throws IOException {
+        for (Path chunkPath : chunkPaths) {
+            long size = Files.size(chunkPath);
+            if (size > MAX_OPENAI_AUDIO_BYTES) {
+                Log.e(TAG, "Chunk too large for OpenAI (" + formatBytes(size) + "): " + chunkPath);
+                throw new IOException("Audio chunk exceeds 25 MB limit: " + chunkPath.getFileName());
+            }
+        }
+    }
+
+    private String formatBytes(long bytes) {
+        double mb = bytes / (1024.0 * 1024.0);
+        return String.format(Locale.US, "%.2f MB", mb);
     }
 }

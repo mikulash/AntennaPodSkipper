@@ -17,6 +17,7 @@ import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Splits an audio file into smaller, valid container chunks using {@link MediaExtractor} and
@@ -26,6 +27,12 @@ import java.util.List;
 public final class AudioChunkUtils {
     private static final String TAG = "AudioChunkUtils";
     private static final int BUFFER_SIZE_BYTES = 256 * 1024;
+    private static final String MIME_MP3 = "audio/mpeg";
+    private static final String MIME_AAC = "audio/mp4a-latm";
+    private static final String MIME_MP4 = "audio/mp4";
+    private static final String MIME_WEBM = "audio/webm";
+    private static final String MIME_WAV = "audio/wav";
+    private static final String MIME_WAVE = "audio/x-wav";
 
     private AudioChunkUtils() {
         // Utility class
@@ -44,6 +51,10 @@ public final class AudioChunkUtils {
         extractor.selectTrack(audioTrackIndex);
         MediaFormat format = extractor.getTrackFormat(audioTrackIndex);
         String mimeType = format.getString(MediaFormat.KEY_MIME);
+        if (!isOpenAiSupportedMime(mimeType)) {
+            extractor.release();
+            throw new IOException("Unsupported audio MIME type for transcription: " + mimeType);
+        }
         long durationUs = format.containsKey(MediaFormat.KEY_DURATION)
                 ? format.getLong(MediaFormat.KEY_DURATION)
                 : -1L;
@@ -62,13 +73,17 @@ public final class AudioChunkUtils {
             startUs = endUs;
         }
         extractor.release();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Log.i(TAG, "Created " + chunkPaths.size() + " chunk(s) from " + filePath
+                    + " (" + (durationUs / 1_000_000L) + "s total)");
+        }
         return chunkPaths;
     }
 
     private static Path writeChunk(Context context, MediaExtractor extractor, MediaFormat format,
                                    String mimeType, long startUs, long endUs) throws IOException {
         extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC);
-        if ("audio/mpeg".equalsIgnoreCase(mimeType)) {
+        if (MIME_MP3.equalsIgnoreCase(mimeType)) {
             Log.w(TAG, "Muxer does not support MIME type " + mimeType + ", writing raw chunk");
             return writeRawChunk(context, extractor, startUs, endUs, ".mp3");
         }
@@ -182,5 +197,18 @@ public final class AudioChunkUtils {
         }
         Log.w(TAG, "No audio track found");
         return -1;
+    }
+
+    private static boolean isOpenAiSupportedMime(String mime) {
+        if (mime == null) {
+            return false;
+        }
+        String normalized = mime.toLowerCase(Locale.US);
+        return normalized.startsWith(MIME_MP3)
+                || normalized.startsWith(MIME_AAC)
+                || normalized.startsWith(MIME_MP4)
+                || normalized.startsWith(MIME_WEBM)
+                || normalized.startsWith(MIME_WAV)
+                || normalized.startsWith(MIME_WAVE);
     }
 }
