@@ -1031,4 +1031,6 @@
     <string name="ad_segments_not_analyzed">Not analyzed yet.</string>
     <string name="ad_segments_tab_ads">Ads</string>
     <string name="ad_segments_tab_transcript">Transcript</string>
+    <string name="ad_analysis_transcribing">Transcribing</string>
+    <string name="ad_analysis_analyzing">Analyzing</string>
 </resources>

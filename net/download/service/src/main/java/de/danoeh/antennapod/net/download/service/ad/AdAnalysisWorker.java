@@ -6,6 +6,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.work.Data;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
@@ -40,6 +41,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import de.danoeh.antennapod.model.ad.AdAnalysisResult;
 import de.danoeh.antennapod.model.ad.AdSegment;
@@ -53,6 +55,8 @@ import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
 
 public class AdAnalysisWorker extends Worker {
     public static final String DATA_FEED_ITEM_ID = "feedItemId";
+    private static final String PROGRESS_KEY_PERCENT = "analysis_progress_percent";
+    private static final String PROGRESS_KEY_STAGE = "analysis_progress_stage";
     private static final String TAG = "AdAnalysisWorker";
     private static final String DEFAULT_MODEL_NAME = "gpt-5-nano";
     private static final long TRANSCRIPTION_CHUNK_SECONDS = 300; // 5 minutes
@@ -95,6 +99,7 @@ public class AdAnalysisWorker extends Worker {
 
             Log.i(TAG, "Ad analysis started for feedItemId=" + feedItemId
                     + ", title=" + item.getTitle());
+            setProgressStage("transcribing", 0);
             String transcript = transcribeInChunks(client, media);
             Log.i(TAG, "Transcription complete, length=" + transcript.length());
 
@@ -109,6 +114,7 @@ public class AdAnalysisWorker extends Worker {
                     .build();
 
             Log.i(TAG, "Requesting ad classification using model " + modelName);
+            setProgressStage("analyzing", 90);
             ChatCompletion completion = client.chat().completions().create(chatParams);
             String content = null;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -126,7 +132,8 @@ public class AdAnalysisWorker extends Worker {
                 Log.w(TAG, "Failed to store transcript", e);
             }
             AdSegmentStore.save(getApplicationContext(), feedItemId,
-                    new AdAnalysisResult(segments, System.currentTimeMillis(), modelName, ""));
+                    new AdAnalysisResult(segments, System.currentTimeMillis(), modelName, "", transcript));
+            setProgressStage("done", 100);
             return Result.success();
         } catch (Exception e) {
             Log.e(TAG, "Ad analysis failed", e);
@@ -150,6 +157,9 @@ public class AdAnalysisWorker extends Worker {
         validateChunkSizes(chunkPaths);
         ExecutorService executor = Executors.newFixedThreadPool(Math.min(4, chunkPaths.size()));
         Map<Integer, Future<String>> futures = new HashMap<>();
+        AtomicInteger doneCount = new AtomicInteger();
+        final int totalChunks = chunkPaths.size();
+        final double totalParts = (totalChunks * 2) + Math.max(1, (totalChunks * 2) / 4.0); // request + success per chunk + analysis weight
         try {
             for (int i = 0; i < chunkPaths.size(); i++) {
                 final int index = i;
@@ -158,10 +168,14 @@ public class AdAnalysisWorker extends Worker {
                     long sizeBytes = Files.size(chunkPath);
                     Log.i(TAG, "Transcribing chunk " + (index + 1) + "/" + chunkPaths.size()
                             + ": " + chunkPath.getFileName() + " (" + formatBytes(sizeBytes) + ")");
+                    int requested = doneCount.incrementAndGet();
+                    setProgressStage("transcribing", calculatePercent(requested, totalParts));
                     TranscriptionCreateResponse transcription = transcribeChunkWithRetry(client, chunkPath, 3);
                     double offsetSeconds = index * TRANSCRIPTION_CHUNK_SECONDS;
                     String adjusted = applyOffset(transcription.asTranscription().text(), offsetSeconds);
                     Log.i(TAG, "Chunk " + (index + 1) + " done, adjusted length=" + adjusted.length());
+                    int finished = doneCount.incrementAndGet();
+                    setProgressStage("transcribing", calculatePercent(finished, totalParts));
                     return adjusted;
                 }));
             }
@@ -172,6 +186,11 @@ public class AdAnalysisWorker extends Worker {
                     combined.append(f.get());
                 }
             }
+            // Analysis weight
+            setProgressStage("analyzing", calculatePercent(doneCount.get(), totalParts));
+            int analysisParts = Math.max(1, (int) Math.round((totalChunks * 2) / 4.0));
+            int finalDone = doneCount.addAndGet(analysisParts);
+            setProgressStage("analyzing", calculatePercent(finalDone, totalParts));
             return combined.toString();
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
@@ -247,7 +266,7 @@ public class AdAnalysisWorker extends Worker {
         }
         AdSegmentStore.save(getApplicationContext(), feedItemId,
                 new AdAnalysisResult(Collections.emptyList(), System.currentTimeMillis(),
-                        modelName, error));
+                        modelName, error, null));
     }
 
     private String buildPrompt(String transcript, int durationMs) {
@@ -398,6 +417,21 @@ public class AdAnalysisWorker extends Worker {
     private String formatBytes(long bytes) {
         double mb = bytes / (1024.0 * 1024.0);
         return String.format(Locale.US, "%.2f MB", mb);
+    }
+
+    private int calculatePercent(int completedParts, double totalParts) {
+        if (totalParts <= 0) {
+            return 0;
+        }
+        return (int) Math.min(100, Math.max(0, Math.round((completedParts / totalParts) * 100)));
+    }
+
+    private void setProgressStage(String stage, int percent) {
+        Data progress = new Data.Builder()
+                .putString(PROGRESS_KEY_STAGE, stage)
+                .putInt(PROGRESS_KEY_PERCENT, percent)
+                .build();
+        setProgressAsync(progress);
     }
 
     private ChatModel resolveChatModel(String modelName) {

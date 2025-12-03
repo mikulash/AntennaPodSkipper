@@ -52,6 +52,7 @@ import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.model.feed.SortOrder;
 import de.danoeh.antennapod.model.playback.Playable;
 import de.danoeh.antennapod.net.sync.serviceinterface.EpisodeAction;
+import de.danoeh.antennapod.storage.database.AdSegmentStore;
 
 /**
  * Provides methods for writing data to AntennaPod's database.
@@ -153,6 +154,10 @@ public class DBWriter {
         if (media.getId() == PlaybackPreferences.getCurrentlyPlayingFeedMediaId()) {
             PlaybackPreferences.writeNoMediaPlaying();
             context.sendBroadcast(MediaButtonStarter.createIntent(context, KeyEvent.KEYCODE_MEDIA_STOP));
+        }
+
+        if (media.getItem() != null) {
+            AdSegmentStore.clear(context, media.getItem().getId());
         }
 
         if (localDelete) {

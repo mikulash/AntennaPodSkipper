@@ -16,6 +16,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.LiveData;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.resource.bitmap.FitCenter;
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners;
@@ -25,6 +26,8 @@ import com.skydoves.balloon.ArrowOrientationRules;
 import com.skydoves.balloon.Balloon;
 import com.skydoves.balloon.BalloonAnimation;
 import com.google.android.material.tabs.TabLayout;
+import androidx.work.WorkInfo;
+import androidx.work.WorkManager;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.StyleSpan;
@@ -79,6 +82,7 @@ import org.greenrobot.eventbus.ThreadMode;
 
 import org.apache.commons.io.FileUtils;
 import java.io.File;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -115,6 +119,10 @@ public class ItemFragment extends Fragment {
     private Disposable disposable;
     private PlaybackController controller;
     private FeeditemFragmentBinding viewBinding;
+    private LiveData<List<WorkInfo>> adWorkLiveData;
+    private boolean isAdAnalysisRunning = false;
+    private String adAnalysisStageLabel = null;
+    private int adAnalysisPercent = -1;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -154,9 +162,23 @@ public class ItemFragment extends Fragment {
             actionButton1.onClick(getContext());
         });
         viewBinding.butActionAd.setOnClickListener(v -> {
-            if (actionButtonAd == null) {
+            if (actionButtonAd == null || item == null) {
                 return;
             }
+            if (isAdAnalysisRunning) {
+                cancelAdAnalysisWork(item.getId());
+                isAdAnalysisRunning = false;
+                adAnalysisStageLabel = null;
+                adAnalysisPercent = -1;
+                viewBinding.circularProgressAd.setVisibility(View.GONE);
+                updateButtons();
+                return;
+            }
+            // Optimistically show progress while work spins up
+            isAdAnalysisRunning = true;
+            adAnalysisStageLabel = getString(R.string.ad_analysis_transcribing);
+            adAnalysisPercent = 0;
+            updateButtons();
             actionButtonAd.onClick(getContext());
         });
         viewBinding.butAction2.setOnClickListener(v -> {
@@ -178,6 +200,9 @@ public class ItemFragment extends Fragment {
             return true;
         });
         setupAdTabs();
+        if (item != null) {
+            observeAdAnalysisWork(item.getId());
+        }
         return viewBinding.getRoot();
     }
 
@@ -326,6 +351,7 @@ public class ItemFragment extends Fragment {
             actionButton2 = new VisitWebsiteActionButton(item);
             actionButtonAd = null;
             viewBinding.noMediaLabel.setVisibility(View.VISIBLE);
+            viewBinding.adSegmentsContainer.setVisibility(View.GONE);
         } else {
             viewBinding.noMediaLabel.setVisibility(View.GONE);
             if (media.getDuration() > 0) {
@@ -349,7 +375,13 @@ public class ItemFragment extends Fragment {
             } else {
                 actionButton2 = new DeleteActionButton(item);
             }
-            actionButtonAd = new AnalyzeAdsActionButton(item);
+            if (media.isDownloaded()) {
+                actionButtonAd = new AnalyzeAdsActionButton(item);
+                viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
+            } else {
+                actionButtonAd = null;
+                viewBinding.adSegmentsContainer.setVisibility(View.GONE);
+            }
         }
 
         viewBinding.butAction1Text.setText(actionButton1.getLabel());
@@ -358,13 +390,27 @@ public class ItemFragment extends Fragment {
         viewBinding.butAction1.setVisibility(actionButton1.getVisibility());
 
         if (actionButtonAd != null) {
-            if (AdSegmentStore.hasAnalysis(requireContext(), item.getId())) {
+            if (isAdAnalysisRunning) {
+                viewBinding.butActionAdText.setText(
+                        TextUtils.isEmpty(adAnalysisStageLabel)
+                                ? getString(R.string.ad_analysis_transcribing)
+                                : adAnalysisStageLabel);
+                viewBinding.circularProgressAd.setVisibility(View.VISIBLE);
+                viewBinding.circularProgressAd.setIndeterminate(adAnalysisPercent < 0);
+                if (adAnalysisPercent >= 0) {
+                    viewBinding.circularProgressAd.setPercentage(
+                            Math.max(0.01f, adAnalysisPercent / 100f), item);
+                }
+            } else if (AdSegmentStore.hasAnalysis(requireContext(), item.getId())) {
                 viewBinding.butActionAdText.setText(R.string.ad_analysis_again);
+                viewBinding.circularProgressAd.setVisibility(View.GONE);
             } else {
                 viewBinding.butActionAdText.setText(actionButtonAd.getLabel());
+                viewBinding.circularProgressAd.setVisibility(View.GONE);
             }
             viewBinding.butActionAdText.setTransformationMethod(null);
             viewBinding.butActionAdIcon.setImageResource(actionButtonAd.getDrawable());
+            viewBinding.butActionAdIcon.setVisibility(isAdAnalysisRunning ? View.INVISIBLE : View.VISIBLE);
             viewBinding.butActionAd.setVisibility(actionButtonAd.getVisibility());
         } else {
             viewBinding.butActionAd.setVisibility(View.GONE);
@@ -377,6 +423,10 @@ public class ItemFragment extends Fragment {
     }
 
     private void updateAdSegmentsSummary() {
+        if (item == null || item.getMedia() == null || !item.getMedia().isDownloaded()) {
+            viewBinding.adSegmentsContainer.setVisibility(View.GONE);
+            return;
+        }
         if (item == null || item.getMedia() == null) {
             viewBinding.adSegmentsContainer.setVisibility(View.GONE);
             return;
@@ -385,14 +435,14 @@ public class ItemFragment extends Fragment {
         AdAnalysisResult result = AdSegmentStore.load(requireContext(), item.getId());
         if (result == null) {
             viewBinding.adSegmentsContent.setText(R.string.ad_segments_not_analyzed);
-            viewBinding.adTranscriptContent.setText(loadTranscriptText(media));
+            viewBinding.adTranscriptContent.setText(loadTranscriptText(media, null));
             viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
             selectAdTab(0);
             return;
         }
         if (result.getSegments().isEmpty()) {
             viewBinding.adSegmentsContent.setText(R.string.ad_segments_empty);
-            viewBinding.adTranscriptContent.setText(loadTranscriptText(media));
+            viewBinding.adTranscriptContent.setText(loadTranscriptText(media, result));
             viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
             selectAdTab(0);
             return;
@@ -422,7 +472,7 @@ public class ItemFragment extends Fragment {
         }
         viewBinding.adSegmentsContent.setText(sb, TextView.BufferType.SPANNABLE);
         viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
-        viewBinding.adTranscriptContent.setText(loadTranscriptText(media));
+        viewBinding.adTranscriptContent.setText(loadTranscriptText(media, result));
         selectAdTab(0);
     }
 
@@ -457,7 +507,13 @@ public class ItemFragment extends Fragment {
         viewBinding.adTranscriptContent.setVisibility(index == 1 ? View.VISIBLE : View.GONE);
     }
 
-    private String loadTranscriptText(FeedMedia media) {
+    private String loadTranscriptText(@Nullable FeedMedia media, @Nullable AdAnalysisResult result) {
+        if (result != null && !TextUtils.isEmpty(result.getTranscript())) {
+            return result.getTranscript();
+        }
+        if (media == null || TextUtils.isEmpty(media.getTranscriptFileUrl())) {
+            return getString(R.string.ad_segments_not_analyzed);
+        }
         try {
             File transcriptFile = new File(media.getTranscriptFileUrl());
             if (transcriptFile.exists()) {
@@ -467,6 +523,77 @@ public class ItemFragment extends Fragment {
             Log.w(TAG, "Failed to load transcript text", e);
         }
         return getString(R.string.ad_segments_not_analyzed);
+    }
+
+    private void observeAdAnalysisWork(long feedItemId) {
+        String tag = "ad-analysis-" + feedItemId;
+        if (adWorkLiveData != null) {
+            adWorkLiveData.removeObservers(getViewLifecycleOwner());
+        }
+        adWorkLiveData = WorkManager.getInstance(requireContext()).getWorkInfosByTagLiveData(tag);
+        adWorkLiveData.observe(getViewLifecycleOwner(), this::updateAdAnalysisProgress);
+    }
+
+    private void cancelAdAnalysisWork(long feedItemId) {
+        String tag = "ad-analysis-" + feedItemId;
+        WorkManager.getInstance(requireContext()).cancelAllWorkByTag(tag);
+    }
+
+    private void updateAdAnalysisProgress(List<WorkInfo> workInfos) {
+        if (workInfos == null || workInfos.isEmpty()) {
+            isAdAnalysisRunning = false;
+            adAnalysisStageLabel = null;
+            adAnalysisPercent = -1;
+            updateButtons();
+            return;
+        }
+        for (WorkInfo info : workInfos) {
+            if (info.getState() == WorkInfo.State.RUNNING) {
+                String stage = info.getProgress().getString("analysis_progress_stage");
+                int percent = info.getProgress().getInt("analysis_progress_percent", -1);
+                showAdAnalysisProgress(stage, percent);
+                return;
+            }
+            if (info.getState() == WorkInfo.State.ENQUEUED) {
+                showAdAnalysisProgress("transcribing", -1);
+                return;
+            }
+            if (info.getState().isFinished()) {
+                isAdAnalysisRunning = false;
+                adAnalysisStageLabel = null;
+                adAnalysisPercent = -1;
+                updateButtons();
+                updateAdSegmentsSummary();
+                return;
+            }
+        }
+        // No running/enqueued work -> reset
+        isAdAnalysisRunning = false;
+        adAnalysisStageLabel = null;
+        adAnalysisPercent = -1;
+        updateButtons();
+        updateAdSegmentsSummary();
+    }
+
+    private void showAdAnalysisProgress(String stage, int percent) {
+        isAdAnalysisRunning = true;
+        adAnalysisStageLabel = mapStageLabel(stage);
+        adAnalysisPercent = percent;
+        viewBinding.circularProgressAd.setVisibility(View.VISIBLE);
+        viewBinding.circularProgressAd.setIndeterminate(percent < 0);
+        if (percent >= 0) {
+            viewBinding.circularProgressAd.setPercentage(Math.max(0.01f, percent / 100f), item);
+        }
+        viewBinding.butActionAdText.setText(adAnalysisStageLabel);
+        viewBinding.butActionAdText.setTransformationMethod(null);
+        viewBinding.butActionAdIcon.setVisibility(View.INVISIBLE);
+    }
+
+    private String mapStageLabel(String stage) {
+        if ("analyzing".equalsIgnoreCase(stage)) {
+            return getString(R.string.ad_analysis_analyzing);
+        }
+        return getString(R.string.ad_analysis_transcribing);
     }
 
     @Override
@@ -536,6 +663,7 @@ public class ItemFragment extends Fragment {
                 viewBinding.header.setVisibility(View.VISIBLE);
                 item = result;
                 onFragmentLoaded();
+                observeAdAnalysisWork(item.getId());
                 itemsLoaded = true;
             }, error -> Log.e(TAG, Log.getStackTraceString(error)));
     }

@@ -43,6 +43,7 @@ public final class AdSegmentStore {
             json.put("analyzedAtMillis", result.getAnalyzedAtMillis());
             json.put("model", result.getModel());
             json.put("error", result.getError());
+            json.put("transcript", result.getTranscript());
             JSONArray ads = new JSONArray();
             for (AdSegment segment : result.getSegments()) {
                 JSONObject obj = new JSONObject();
@@ -94,7 +95,8 @@ public final class AdSegmentStore {
             long analyzedAt = json.optLong("analyzedAtMillis", 0);
             String model = json.optString("model", "");
             String error = json.optString("error", "");
-            return new AdAnalysisResult(segments, analyzedAt, model, error);
+            String transcript = json.optString("transcript", null);
+            return new AdAnalysisResult(segments, analyzedAt, model, error, transcript);
         } catch (IOException | JSONException e) {
             Log.e(TAG, "Failed reading ad analysis", e);
             return null;

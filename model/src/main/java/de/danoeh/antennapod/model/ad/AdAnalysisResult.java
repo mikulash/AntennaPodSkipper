@@ -12,12 +12,19 @@ public class AdAnalysisResult {
     private final long analyzedAtMillis;
     private final String model;
     private final String error;
+    private final String transcript;
 
     public AdAnalysisResult(List<AdSegment> segments, long analyzedAtMillis, String model, String error) {
+        this(segments, analyzedAtMillis, model, error, null);
+    }
+
+    public AdAnalysisResult(List<AdSegment> segments, long analyzedAtMillis, String model,
+                            String error, String transcript) {
         this.segments = segments == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(segments));
         this.analyzedAtMillis = analyzedAtMillis;
         this.model = model;
         this.error = error;
+        this.transcript = transcript;
     }
 
     public List<AdSegment> getSegments() {
@@ -34,6 +41,10 @@ public class AdAnalysisResult {
 
     public String getError() {
         return error;
+    }
+
+    public String getTranscript() {
+        return transcript;
     }
 
     public boolean hasSegments() {

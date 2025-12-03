@@ -138,15 +138,29 @@
                 android:background="?android:attr/selectableItemBackground"
                 android:gravity="center">
 
-                <ImageView
-                    android:id="@+id/butActionAdIcon"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_marginRight="8dp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_marginTop="12dp"
-                    android:layout_marginBottom="12dp"
-                    tools:src="@drawable/ic_ad_analysis" />
+                <FrameLayout
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="4dp"
+                    android:layout_gravity="bottom|end">
+
+                    <de.danoeh.antennapod.ui.common.CircularProgressBar
+                        android:id="@+id/circularProgressAd"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        app:foregroundColor="?android:attr/textColorPrimary" />
+
+                    <ImageView
+                        android:id="@+id/butActionAdIcon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        tools:src="@drawable/ic_ad_analysis" />
+
+                </FrameLayout>
 
                 <TextView
                     android:id="@+id/butActionAdText"
