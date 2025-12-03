@@ -164,13 +164,14 @@ public class AdAnalysisWorker extends Worker {
             for (int i = 0; i < chunkPaths.size(); i++) {
                 final int index = i;
                 final Path chunkPath = chunkPaths.get(i);
-                futures.put(index, executor.submit((Callable<String>) () -> {
+                futures.put(index, executor.submit(() -> {
                     long sizeBytes = Files.size(chunkPath);
                     Log.i(TAG, "Transcribing chunk " + (index + 1) + "/" + chunkPaths.size()
                             + ": " + chunkPath.getFileName() + " (" + formatBytes(sizeBytes) + ")");
                     int requested = doneCount.incrementAndGet();
                     setProgressStage("transcribing", calculatePercent(requested, totalParts));
-                    TranscriptionCreateResponse transcription = transcribeChunkWithRetry(client, chunkPath, 3);
+                    TranscriptionCreateResponse transcription = transcribeChunkWithRetry(
+                            client, chunkPath, index, chunkPaths.size(), 3);
                     double offsetSeconds = index * TRANSCRIPTION_CHUNK_SECONDS;
                     String adjusted = applyOffset(transcription.asTranscription().text(), offsetSeconds);
                     Log.i(TAG, "Chunk " + (index + 1) + " done, adjusted length=" + adjusted.length());
@@ -383,23 +384,27 @@ public class AdAnalysisWorker extends Worker {
         }
     }
 
-    private TranscriptionCreateResponse transcribeChunkWithRetry(OpenAIClient client, Path chunkPath, int maxRetries)
+    private TranscriptionCreateResponse transcribeChunkWithRetry(OpenAIClient client, Path chunkPath,
+                                                                 int chunkIndex, int totalChunks,
+                                                                 int maxRetries)
             throws Exception {
         int attempt = 0;
+        String chunkLabel = (chunkIndex + 1) + "/" + totalChunks;
         while (true) {
             TranscriptionCreateParams transcriptionParams = TranscriptionCreateParams.builder()
                     .model(AudioModel.WHISPER_1)
                     .file(chunkPath)
                     .responseFormat(AudioResponseFormat.VTT)
                     .build();
-            Log.d(TAG, "Transcription attempt " + attempt + " with params: " + transcriptionParams);
+            Log.d(TAG, "Transcription attempt " + attempt + " for chunk " + chunkLabel
+                    + " with params: " + transcriptionParams);
             try {
                 attempt++;
                 return client.audio().transcriptions().create(transcriptionParams);
             } catch (OpenAIIoException e) {
                 boolean last = attempt > maxRetries;
                 Log.w(TAG, "Transcription attempt " + attempt + " failed for chunk "
-                        + chunkPath.getFileName() + ": " + e.getMessage()
+                        + chunkLabel + " (" + chunkPath.getFileName() + "): " + e.getMessage()
                         + (last ? " (giving up)" : " (retrying)"));
                 Log.d(TAG, "ATTEMPT FAILED ERR" + e.toString());
                 if (last) {
