@@ -462,7 +462,16 @@ public class ItemFragment extends Fragment {
             selectAdTab(0);
             return;
         }
+        long totalAdDurationMs = 0;
+        for (AdSegment segment : result.getSegments()) {
+            totalAdDurationMs += Math.max(0, (segment.getEndSeconds() - segment.getStartSeconds()) * 1000);
+        }
         SpannableStringBuilder sb = new SpannableStringBuilder();
+        String totalDurationString = Converter.getDurationStringLong((int) totalAdDurationMs);
+        int totalStart = sb.length();
+        sb.append(getString(R.string.ad_segments_total_length, totalDurationString));
+        sb.setSpan(new StyleSpan(Typeface.BOLD), totalStart, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        sb.append("\n");
         for (int i = 0; i < result.getSegments().size(); i++) {
             AdSegment seg = result.getSegments().get(i);
             if (i > 0) {
