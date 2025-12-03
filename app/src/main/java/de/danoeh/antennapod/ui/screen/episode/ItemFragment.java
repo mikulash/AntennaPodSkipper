@@ -24,6 +24,7 @@ import com.skydoves.balloon.ArrowOrientation;
 import com.skydoves.balloon.ArrowOrientationRules;
 import com.skydoves.balloon.Balloon;
 import com.skydoves.balloon.BalloonAnimation;
+import com.google.android.material.tabs.TabLayout;
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.actionbutton.CancelDownloadActionButton;
 import de.danoeh.antennapod.actionbutton.DeleteActionButton;
@@ -71,6 +72,8 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
+import org.apache.commons.io.FileUtils;
+import java.io.File;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -169,6 +172,7 @@ public class ItemFragment extends Fragment {
             copyToClipboard(requireContext(), viewBinding.txtvTitle.getText().toString());
             return true;
         });
+        setupAdTabs();
         return viewBinding.getRoot();
     }
 
@@ -372,15 +376,20 @@ public class ItemFragment extends Fragment {
             viewBinding.adSegmentsContainer.setVisibility(View.GONE);
             return;
         }
+        FeedMedia media = item.getMedia();
         AdAnalysisResult result = AdSegmentStore.load(requireContext(), item.getId());
         if (result == null) {
             viewBinding.adSegmentsContent.setText(R.string.ad_segments_not_analyzed);
+            viewBinding.adTranscriptContent.setText(loadTranscriptText(media));
             viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
+            selectAdTab(0);
             return;
         }
         if (result.getSegments().isEmpty()) {
             viewBinding.adSegmentsContent.setText(R.string.ad_segments_empty);
+            viewBinding.adTranscriptContent.setText(loadTranscriptText(media));
             viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
+            selectAdTab(0);
             return;
         }
         StringBuilder sb = new StringBuilder();
@@ -398,6 +407,51 @@ public class ItemFragment extends Fragment {
         }
         viewBinding.adSegmentsContent.setText(sb.toString());
         viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
+        viewBinding.adTranscriptContent.setText(loadTranscriptText(media));
+        selectAdTab(0);
+    }
+
+    private void setupAdTabs() {
+        TabLayout tabs = viewBinding.adTabLayout;
+        tabs.removeAllTabs();
+        tabs.addTab(tabs.newTab().setText(R.string.ad_segments_tab_ads));
+        tabs.addTab(tabs.newTab().setText(R.string.ad_segments_tab_transcript));
+        tabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                int pos = tab.getPosition();
+                viewBinding.adSegmentsContent.setVisibility(pos == 0 ? View.VISIBLE : View.GONE);
+                viewBinding.adTranscriptContent.setVisibility(pos == 1 ? View.VISIBLE : View.GONE);
+            }
+
+            @Override public void onTabUnselected(TabLayout.Tab tab) { }
+            @Override public void onTabReselected(TabLayout.Tab tab) { }
+        });
+        selectAdTab(0);
+    }
+
+    private void selectAdTab(int index) {
+        TabLayout tabs = viewBinding.adTabLayout;
+        if (tabs.getTabCount() > index) {
+            TabLayout.Tab tab = tabs.getTabAt(index);
+            if (tab != null) {
+                tab.select();
+            }
+        }
+        viewBinding.adSegmentsContent.setVisibility(index == 0 ? View.VISIBLE : View.GONE);
+        viewBinding.adTranscriptContent.setVisibility(index == 1 ? View.VISIBLE : View.GONE);
+    }
+
+    private String loadTranscriptText(FeedMedia media) {
+        try {
+            File transcriptFile = new File(media.getTranscriptFileUrl());
+            if (transcriptFile.exists()) {
+                return FileUtils.readFileToString(transcriptFile, (String) null);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to load transcript text", e);
+        }
+        return getString(R.string.ad_segments_not_analyzed);
     }
 
     @Override

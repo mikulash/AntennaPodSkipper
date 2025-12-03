@@ -31,8 +31,15 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import de.danoeh.antennapod.model.ad.AdAnalysisResult;
 import de.danoeh.antennapod.model.ad.AdSegment;
@@ -42,6 +49,7 @@ import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
+import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
 
 public class AdAnalysisWorker extends Worker {
     public static final String DATA_FEED_ITEM_ID = "feedItemId";
@@ -57,8 +65,9 @@ public class AdAnalysisWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
-
         long feedItemId = getInputData().getLong(DATA_FEED_ITEM_ID, -1);
+        Log.d(TAG, "Ad analysis started on item: " +feedItemId);
+
         if (feedItemId <= 0) {
             return Result.failure();
         }
@@ -111,6 +120,11 @@ public class AdAnalysisWorker extends Worker {
             Log.i(TAG, "Model response received, raw length=" + (content == null ? 0 : content.length()));
             List<AdSegment> segments = mergeSegments(parseSegments(content));
             Log.i(TAG, "Ad analysis finished: " + segments.size() + " segment(s) detected");
+            try {
+                TranscriptUtils.storeTranscript(media, transcript);
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to store transcript", e);
+            }
             AdSegmentStore.save(getApplicationContext(), feedItemId,
                     new AdAnalysisResult(segments, System.currentTimeMillis(), modelName, ""));
             return Result.success();
@@ -134,23 +148,39 @@ public class AdAnalysisWorker extends Worker {
         Log.i(TAG, "Transcribing " + chunkPaths.size() + " chunk(s) "
                 + "target=" + TRANSCRIPTION_CHUNK_SECONDS + "s each");
         validateChunkSizes(chunkPaths);
-        StringBuilder combinedVtt = new StringBuilder();
-        double offsetSeconds = 0;
+        ExecutorService executor = Executors.newFixedThreadPool(Math.min(4, chunkPaths.size()));
+        Map<Integer, Future<String>> futures = new HashMap<>();
         try {
-            int index = 1;
-            for (Path chunkPath : chunkPaths) {
-                long sizeBytes = Files.size(chunkPath);
-                Log.i(TAG, "Transcribing chunk " + index + "/" + chunkPaths.size()
-                        + ": " + chunkPath.getFileName() + " (" + formatBytes(sizeBytes) + ")");
-                TranscriptionCreateResponse transcription =
-                        transcribeChunkWithRetry(client, chunkPath, 2);
-                combinedVtt.append(applyOffset(transcription.asTranscription().text(), offsetSeconds));
-                offsetSeconds += TRANSCRIPTION_CHUNK_SECONDS;
-                Log.i(TAG, "Chunk " + index + " done, combined transcript length="
-                        + combinedVtt.length());
-                index++;
+            for (int i = 0; i < chunkPaths.size(); i++) {
+                final int index = i;
+                final Path chunkPath = chunkPaths.get(i);
+                futures.put(index, executor.submit((Callable<String>) () -> {
+                    long sizeBytes = Files.size(chunkPath);
+                    Log.i(TAG, "Transcribing chunk " + (index + 1) + "/" + chunkPaths.size()
+                            + ": " + chunkPath.getFileName() + " (" + formatBytes(sizeBytes) + ")");
+                    TranscriptionCreateResponse transcription = transcribeChunkWithRetry(client, chunkPath, 3);
+                    double offsetSeconds = index * TRANSCRIPTION_CHUNK_SECONDS;
+                    String adjusted = applyOffset(transcription.asTranscription().text(), offsetSeconds);
+                    Log.i(TAG, "Chunk " + (index + 1) + " done, adjusted length=" + adjusted.length());
+                    return adjusted;
+                }));
             }
+            StringBuilder combined = new StringBuilder();
+            for (int i = 0; i < chunkPaths.size(); i++) {
+                Future<String> f = futures.get(i);
+                if (f != null) {
+                    combined.append(f.get());
+                }
+            }
+            return combined.toString();
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof Exception) {
+                throw (Exception) cause;
+            }
+            throw e;
         } finally {
+            executor.shutdownNow();
             for (Path chunkPath : chunkPaths) {
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -161,7 +191,6 @@ public class AdAnalysisWorker extends Worker {
                 }
             }
         }
-        return combinedVtt.toString();
     }
 
     private String applyOffset(String vtt, double offsetSeconds) {
@@ -208,13 +237,17 @@ public class AdAnalysisWorker extends Worker {
         seconds -= hours * 3600;
         int minutes = (int) (seconds / 60);
         seconds -= minutes * 60;
-        return String.format(Locale.US,"%02d:%02d:%06.3f", hours, minutes, seconds);
+        return String.format(Locale.US, "%02d:%02d:%06.3f", hours, minutes, seconds);
     }
 
     private void saveError(long feedItemId, String error) {
+        String modelName = OpenAiPreferences.getModel(getApplicationContext());
+        if (TextUtils.isEmpty(modelName)) {
+            modelName = DEFAULT_MODEL_NAME;
+        }
         AdSegmentStore.save(getApplicationContext(), feedItemId,
                 new AdAnalysisResult(Collections.emptyList(), System.currentTimeMillis(),
-                        OpenAiPreferences.getModel(getApplicationContext()), error));
+                        modelName, error));
     }
 
     private String buildPrompt(String transcript, int durationMs) {
@@ -344,6 +377,7 @@ public class AdAnalysisWorker extends Worker {
                     .file(chunkPath)
                     .responseFormat(AudioResponseFormat.VTT)
                     .build();
+            Log.d(TAG, "Transcription attempt " + attempt + " with params: " + transcriptionParams);
             try {
                 attempt++;
                 return client.audio().transcriptions().create(transcriptionParams);
@@ -352,6 +386,7 @@ public class AdAnalysisWorker extends Worker {
                 Log.w(TAG, "Transcription attempt " + attempt + " failed for chunk "
                         + chunkPath.getFileName() + ": " + e.getMessage()
                         + (last ? " (giving up)" : " (retrying)"));
+                Log.d(TAG, "ATTEMPT FAILED ERR" + e.toString());
                 if (last) {
                     throw e;
                 }
