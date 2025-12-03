@@ -25,6 +25,11 @@ import com.skydoves.balloon.ArrowOrientationRules;
 import com.skydoves.balloon.Balloon;
 import com.skydoves.balloon.BalloonAnimation;
 import com.google.android.material.tabs.TabLayout;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.StyleSpan;
+import android.text.style.ForegroundColorSpan;
+import android.graphics.Typeface;
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.actionbutton.CancelDownloadActionButton;
 import de.danoeh.antennapod.actionbutton.DeleteActionButton;
@@ -392,7 +397,7 @@ public class ItemFragment extends Fragment {
             selectAdTab(0);
             return;
         }
-        StringBuilder sb = new StringBuilder();
+        SpannableStringBuilder sb = new SpannableStringBuilder();
         for (int i = 0; i < result.getSegments().size(); i++) {
             AdSegment seg = result.getSegments().get(i);
             if (i > 0) {
@@ -401,11 +406,21 @@ public class ItemFragment extends Fragment {
             Log.d(TAG, "updateAdSegmentsSummary: " + seg);
             Log.d(TAG, "FROM: " + seg.getStartSeconds() + " TO: " + seg.getEndSeconds());
 
+            int startSpan = sb.length();
             sb.append(Converter.getDurationStringLong((int) (seg.getStartSeconds() * 1000)));
             sb.append(" - ");
             sb.append(Converter.getDurationStringLong((int) (seg.getEndSeconds() * 1000)));
+            sb.setSpan(new StyleSpan(Typeface.BOLD), startSpan, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            if (!TextUtils.isEmpty(seg.getReason())) {
+                sb.append("\n");
+                int reasonStart = sb.length();
+                sb.append(seg.getReason());
+                sb.setSpan(new ForegroundColorSpan(ThemeUtils.getColorFromAttr(requireContext(),
+                        android.R.attr.textColorSecondary)), reasonStart, sb.length(),
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
         }
-        viewBinding.adSegmentsContent.setText(sb.toString());
+        viewBinding.adSegmentsContent.setText(sb, TextView.BufferType.SPANNABLE);
         viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
         viewBinding.adTranscriptContent.setText(loadTranscriptText(media));
         selectAdTab(0);
