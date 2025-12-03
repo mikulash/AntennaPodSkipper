@@ -11,18 +11,6 @@ import androidx.work.Data;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
-import com.openai.client.OpenAIClient;
-import com.openai.client.okhttp.OpenAIOkHttpClient;
-import com.openai.errors.BadRequestException;
-import com.openai.errors.OpenAIIoException;
-import com.openai.models.ChatModel;
-import com.openai.models.audio.AudioModel;
-import com.openai.models.audio.AudioResponseFormat;
-import com.openai.models.audio.transcriptions.TranscriptionCreateParams;
-import com.openai.models.audio.transcriptions.TranscriptionCreateResponse;
-import com.openai.models.chat.completions.ChatCompletion;
-import com.openai.models.chat.completions.ChatCompletionCreateParams;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -37,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -50,7 +37,8 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.storage.database.DBReader;
-import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
+import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProvider;
+import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProviderFactory;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
 
@@ -60,9 +48,7 @@ public class AdAnalysisWorker extends Worker {
     private static final String PROGRESS_KEY_PERCENT = "analysis_progress_percent";
     private static final String PROGRESS_KEY_STAGE = "analysis_progress_stage";
     private static final String TAG = "AdAnalysisWorker";
-    private static final String DEFAULT_MODEL_NAME = "gpt-5-nano";
     private static final long TRANSCRIPTION_CHUNK_SECONDS = 300; // 5 minutes
-    private static final long MAX_OPENAI_AUDIO_BYTES = 25L * 1024L * 1024L; // 25 MiB hard limit
 
     public AdAnalysisWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
@@ -89,39 +75,25 @@ public class AdAnalysisWorker extends Worker {
         if (TextUtils.isEmpty(media.getLocalFileUrl())) {
             return Result.success();
         }
-        String apiKey = OpenAiPreferences.getApiKey(getApplicationContext());
-        if (TextUtils.isEmpty(apiKey)) {
-            saveError(feedItemId, "Missing OpenAI API key");
+        AdAnalysisProvider provider;
+        try {
+            provider = AdAnalysisProviderFactory.create(getApplicationContext());
+        } catch (Exception e) {
+            Log.e(TAG, "Ad analysis provider could not be created", e);
+            saveError(feedItemId, e.getMessage(), null);
             return Result.success();
         }
-        try {
-            OpenAIClient client = OpenAIOkHttpClient.builder()
-                    .apiKey(apiKey)
-                    .build();
 
+        try {
             Log.i(TAG, "Ad analysis started for feedItemId=" + feedItemId
                     + ", title=" + item.getTitle());
             setProgressStage("transcribing", 0);
-            String transcript = transcribeInChunks(client, media);
+            String transcript = transcribeInChunks(provider, media);
             Log.i(TAG, "Transcription complete, length=" + transcript.length());
 
-            String modelName = OpenAiPreferences.getModel(getApplicationContext());
-            if (TextUtils.isEmpty(modelName)) {
-                modelName = DEFAULT_MODEL_NAME;
-            }
-            ChatModel chatModel = resolveChatModel(modelName);
-            ChatCompletionCreateParams chatParams = ChatCompletionCreateParams.builder()
-                    .addUserMessage(buildPrompt(transcript, media.getDuration()))
-                    .model(chatModel)
-                    .build();
-
-            Log.i(TAG, "Requesting ad classification using model " + modelName);
+            Log.i(TAG, "Requesting ad classification using model " + provider.getModelName());
             setProgressStage("analyzing", 90);
-            ChatCompletion completion = client.chat().completions().create(chatParams);
-            String content;
-            content = completion.choices().isEmpty()
-                    ? ""
-                    : completion.choices().get(0).message().content().orElse("");
+            String content = provider.analyzeTranscript(buildPrompt(transcript, media.getDuration()));
             Log.i(TAG, "Model response content: " + content);
             Log.i(TAG, "Model response received, raw length=" + content.length());
             List<AdSegment> segments = mergeSegments(parseSegments(content));
@@ -132,29 +104,29 @@ public class AdAnalysisWorker extends Worker {
                 Log.w(TAG, "Failed to store transcript", e);
             }
             AdSegmentStore.save(getApplicationContext(), feedItemId,
-                    new AdAnalysisResult(segments, System.currentTimeMillis(), modelName, "", transcript));
+                    new AdAnalysisResult(segments, System.currentTimeMillis(), provider.getModelName(), "", transcript));
             setProgressStage("done", 100);
             return Result.success();
         } catch (Exception e) {
             Log.e(TAG, "Ad analysis failed", e);
-            saveError(feedItemId, buildErrorMessage(e));
+            saveError(feedItemId, provider.buildErrorMessage(e), provider.getModelName());
             String message = e.getMessage() == null ? "" : e.getMessage();
             if (message.contains("401") || message.toLowerCase().contains("unauthorized")) {
                 return Result.failure();
             }
-            if (shouldNotRetry(e)) {
+            if (provider.shouldNotRetry(e)) {
                 return Result.failure();
             }
             return Result.retry();
         }
     }
 
-    private String transcribeInChunks(OpenAIClient client, FeedMedia media) throws Exception {
+    private String transcribeInChunks(AdAnalysisProvider provider, FeedMedia media) throws Exception {
         List<Path> chunkPaths = AudioChunkUtils.createAudioChunks(getApplicationContext(),
                 media.getLocalFileUrl(), TRANSCRIPTION_CHUNK_SECONDS);
         Log.i(TAG, "Transcribing " + chunkPaths.size() + " chunk(s) "
                 + "target=" + TRANSCRIPTION_CHUNK_SECONDS + "s each");
-        validateChunkSizes(chunkPaths);
+        validateChunkSizes(provider, chunkPaths);
         ExecutorService executor = Executors.newFixedThreadPool(Math.min(4, chunkPaths.size()));
         Map<Integer, Future<String>> futures = new HashMap<>();
         AtomicInteger doneCount = new AtomicInteger();
@@ -170,10 +142,17 @@ public class AdAnalysisWorker extends Worker {
                             + ": " + chunkPath.getFileName() + " (" + formatBytes(sizeBytes) + ")");
                     int requested = doneCount.incrementAndGet();
                     setProgressStage("transcribing", calculatePercent(requested, totalParts));
-                    TranscriptionCreateResponse transcription = transcribeChunkWithRetry(
-                            client, chunkPath, index, chunkPaths.size(), 3);
+                    String transcription;
+                    try {
+                        transcription = provider.transcribeChunk(chunkPath, index, chunkPaths.size(), 2);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Chunk " + (index + 1) + " failed after retries; skipping section", e);
+                        int finished = doneCount.incrementAndGet();
+                        setProgressStage("transcribing", calculatePercent(finished, totalParts));
+                        return "";
+                    }
                     double offsetSeconds = index * TRANSCRIPTION_CHUNK_SECONDS;
-                    String adjusted = applyOffset(transcription.asTranscription().text(), offsetSeconds);
+                    String adjusted = applyOffset(transcription, offsetSeconds);
                     Log.i(TAG, "Chunk " + (index + 1) + " done, adjusted length=" + adjusted.length());
                     int finished = doneCount.incrementAndGet();
                     setProgressStage("transcribing", calculatePercent(finished, totalParts));
@@ -259,9 +238,12 @@ public class AdAnalysisWorker extends Worker {
     }
 
     private void saveError(long feedItemId, String error) {
-        String modelName = OpenAiPreferences.getModel(getApplicationContext());
-        if (TextUtils.isEmpty(modelName)) {
-            modelName = DEFAULT_MODEL_NAME;
+        saveError(feedItemId, error, null);
+    }
+
+    private void saveError(long feedItemId, String error, String modelName) {
+        if (modelName == null) {
+            modelName = "unknown";
         }
         AdSegmentStore.save(getApplicationContext(), feedItemId,
                 new AdAnalysisResult(Collections.emptyList(), System.currentTimeMillis(),
@@ -326,31 +308,6 @@ public class AdAnalysisWorker extends Worker {
         return merged;
     }
 
-    private boolean shouldNotRetry(Throwable throwable) {
-        String message = throwable.getMessage();
-        String normalized = message == null ? "" : message.toLowerCase(Locale.US);
-        if (normalized.contains("unsupported audio mime type")) {
-            return true;
-        }
-        if (normalized.contains("exceeds 25 mb")) {
-            return true;
-        }
-        if (throwable instanceof BadRequestException) {
-            return normalized.contains("could not be decoded")
-                    || normalized.contains("format is not supported");
-        }
-        Throwable cause = throwable.getCause();
-        return cause != null && shouldNotRetry(cause);
-    }
-
-    private String buildErrorMessage(Throwable throwable) {
-        String message = throwable.getMessage() == null ? "" : throwable.getMessage();
-        if (shouldNotRetry(throwable)) {
-            return message + " (OpenAI supports mp3, mp4/m4a, mpeg/mpga, wav, and webm up to 25 MB per file)";
-        }
-        return message;
-    }
-
     private String sanitizeJson(String raw) {
         if (TextUtils.isEmpty(raw)) {
             return raw;
@@ -374,43 +331,16 @@ public class AdAnalysisWorker extends Worker {
         return cleaned;
     }
 
-    private void validateChunkSizes(List<Path> chunkPaths) throws IOException {
+    private void validateChunkSizes(AdAnalysisProvider provider, List<Path> chunkPaths) throws IOException {
+        long maxBytes = provider.getMaxAudioBytes();
+        if (maxBytes <= 0) {
+            return;
+        }
         for (Path chunkPath : chunkPaths) {
             long size = Files.size(chunkPath);
-            if (size > MAX_OPENAI_AUDIO_BYTES) {
-                Log.e(TAG, "Chunk too large for OpenAI (" + formatBytes(size) + "): " + chunkPath);
-                throw new IOException("Audio chunk exceeds 25 MB limit: " + chunkPath.getFileName());
-            }
-        }
-    }
-
-    private TranscriptionCreateResponse transcribeChunkWithRetry(OpenAIClient client, Path chunkPath,
-                                                                 int chunkIndex, int totalChunks,
-                                                                 int maxRetries)
-            throws Exception {
-        int attempt = 0;
-        String chunkLabel = (chunkIndex + 1) + "/" + totalChunks;
-        while (true) {
-            TranscriptionCreateParams transcriptionParams = TranscriptionCreateParams.builder()
-                    .model(AudioModel.WHISPER_1)
-                    .file(chunkPath)
-                    .responseFormat(AudioResponseFormat.VTT)
-                    .build();
-            Log.d(TAG, "Transcription attempt " + attempt + " for chunk " + chunkLabel
-                    + " with params: " + transcriptionParams);
-            try {
-                attempt++;
-                return client.audio().transcriptions().create(transcriptionParams);
-            } catch (OpenAIIoException e) {
-                boolean last = attempt > maxRetries;
-                Log.w(TAG, "Transcription attempt " + attempt + " failed for chunk "
-                        + chunkLabel + " (" + chunkPath.getFileName() + "): " + e.getMessage()
-                        + (last ? " (giving up)" : " (retrying)"));
-                Log.d(TAG, "ATTEMPT FAILED ERR" + e.toString());
-                if (last) {
-                    throw e;
-                }
-                Thread.sleep(500L * attempt);
+            if (size > maxBytes) {
+                Log.e(TAG, "Chunk too large for provider (" + formatBytes(size) + "): " + chunkPath);
+                throw new IOException("Audio chunk exceeds provider limit: " + chunkPath.getFileName());
             }
         }
     }
@@ -433,26 +363,5 @@ public class AdAnalysisWorker extends Worker {
                 .putInt(PROGRESS_KEY_PERCENT, percent)
                 .build();
         setProgressAsync(progress);
-    }
-
-    private ChatModel resolveChatModel(String modelName) {
-        if (TextUtils.isEmpty(modelName)) {
-            return ChatModel.GPT_5_NANO;
-        }
-        switch (modelName) {
-            case "gpt-5.1":
-                return ChatModel.GPT_5_1;
-            case "gpt-5-mini":
-                return ChatModel.GPT_5_MINI;
-            case "gpt-5-nano":
-                return ChatModel.GPT_5_NANO;
-            default:
-                try {
-                    return ChatModel.of(modelName);
-                } catch (Exception e) {
-                    Log.w(TAG, "Unknown model " + modelName + ", falling back to default", e);
-                    return ChatModel.GPT_5_NANO;
-                }
-        }
     }
 }
