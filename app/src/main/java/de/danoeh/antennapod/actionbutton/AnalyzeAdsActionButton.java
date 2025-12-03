@@ -1,11 +1,13 @@
 package de.danoeh.antennapod.actionbutton;
 
 import android.content.Context;
+import android.os.Build;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.Toast;
 
 import androidx.annotation.DrawableRes;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -19,6 +21,7 @@ import de.danoeh.antennapod.net.download.service.ad.AdAnalysisWorkScheduler;
 import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 
+@RequiresApi(api = Build.VERSION_CODES.O)
 public class AnalyzeAdsActionButton extends ItemActionButton {
 
     public AnalyzeAdsActionButton(FeedItem item) {

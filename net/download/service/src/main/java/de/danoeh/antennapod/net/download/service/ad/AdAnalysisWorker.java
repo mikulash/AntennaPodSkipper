@@ -6,6 +6,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.work.Data;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
@@ -53,6 +54,7 @@ import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
 
+@RequiresApi(api = Build.VERSION_CODES.O)
 public class AdAnalysisWorker extends Worker {
     public static final String DATA_FEED_ITEM_ID = "feedItemId";
     private static final String PROGRESS_KEY_PERCENT = "analysis_progress_percent";
@@ -116,14 +118,12 @@ public class AdAnalysisWorker extends Worker {
             Log.i(TAG, "Requesting ad classification using model " + modelName);
             setProgressStage("analyzing", 90);
             ChatCompletion completion = client.chat().completions().create(chatParams);
-            String content = null;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                content = completion.choices().isEmpty()
-                        ? ""
-                        : completion.choices().get(0).message().content().orElse("");
-            }
+            String content;
+            content = completion.choices().isEmpty()
+                    ? ""
+                    : completion.choices().get(0).message().content().orElse("");
             Log.i(TAG, "Model response content: " + content);
-            Log.i(TAG, "Model response received, raw length=" + (content == null ? 0 : content.length()));
+            Log.i(TAG, "Model response received, raw length=" + content.length());
             List<AdSegment> segments = mergeSegments(parseSegments(content));
             Log.i(TAG, "Ad analysis finished: " + segments.size() + " segment(s) detected");
             try {
@@ -202,9 +202,7 @@ public class AdAnalysisWorker extends Worker {
             executor.shutdownNow();
             for (Path chunkPath : chunkPaths) {
                 try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        Files.deleteIfExists(chunkPath);
-                    }
+                    Files.deleteIfExists(chunkPath);
                 } catch (Exception ignored) {
                     // Best-effort cleanup
                 }
@@ -308,9 +306,7 @@ public class AdAnalysisWorker extends Worker {
         if (input.isEmpty()) {
             return input;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            input.sort(Comparator.comparingDouble(AdSegment::getStartSeconds));
-        }
+        input.sort(Comparator.comparingDouble(AdSegment::getStartSeconds));
         List<AdSegment> merged = new ArrayList<>();
         AdSegment current = input.get(0);
         for (int i = 1; i < input.size(); i++) {

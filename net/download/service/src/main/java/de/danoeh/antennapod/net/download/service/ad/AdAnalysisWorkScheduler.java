@@ -1,8 +1,10 @@
 package de.danoeh.antennapod.net.download.service.ad;
 
 import android.content.Context;
+import android.os.Build;
 import android.text.TextUtils;
 
+import androidx.annotation.RequiresApi;
 import androidx.work.Constraints;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
@@ -14,6 +16,7 @@ import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 
+@RequiresApi(api = Build.VERSION_CODES.O)
 public final class AdAnalysisWorkScheduler {
     private static final String UNIQUE_PREFIX = "ad-analysis-";
 

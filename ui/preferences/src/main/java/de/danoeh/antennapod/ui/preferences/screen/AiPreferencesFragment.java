@@ -1,5 +1,6 @@
 package de.danoeh.antennapod.ui.preferences.screen;
 
+import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
 import android.text.TextUtils;
@@ -17,6 +18,10 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            requireActivity().finish();
+            return;
+        }
         addPreferencesFromResource(R.xml.preferences_ai);
         setupApiKeyPreference();
         setupModelPreference();

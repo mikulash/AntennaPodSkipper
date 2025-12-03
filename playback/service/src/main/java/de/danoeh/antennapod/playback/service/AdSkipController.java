@@ -5,6 +5,7 @@ import android.os.Build;
 import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -17,6 +18,7 @@ import de.danoeh.antennapod.model.playback.Playable;
 import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 
+@RequiresApi(api = Build.VERSION_CODES.O)
 class AdSkipController {
     private final Context context;
     private final PlaybackService playbackService;
@@ -81,9 +83,7 @@ class AdSkipController {
             lastSkipTarget = -1;
             if (cachedResult != null) {
                 List<AdSegment> segments = new ArrayList<>(cachedResult.getSegments());
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    segments.sort(Comparator.comparingDouble(AdSegment::getStartSeconds));
-                }
+                segments.sort(Comparator.comparingDouble(AdSegment::getStartSeconds));
                 cachedResult = new AdAnalysisResult(segments, cachedResult.getAnalyzedAtMillis(),
                         cachedResult.getModel(), cachedResult.getError());
             }
