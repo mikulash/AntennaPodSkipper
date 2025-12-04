@@ -173,7 +173,7 @@ public class FeedPreferences implements Serializable {
 
     /**
      * @return true if this feed should be refreshed when everything else is being refreshed
-     * if false the feed should only be refreshed if requested directly.
+     *      if false the feed should only be refreshed if requested directly.
      */
     public boolean getKeepUpdated() {
         return keepUpdated;
