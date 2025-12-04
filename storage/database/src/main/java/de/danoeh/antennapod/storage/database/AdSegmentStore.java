@@ -12,9 +12,12 @@ import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,7 +62,8 @@ public final class AdSegmentStore {
             return;
         }
 
-        try (FileWriter writer = new FileWriter(target, false)) {
+        try (OutputStreamWriter writer = new OutputStreamWriter(
+                new FileOutputStream(target, false), StandardCharsets.UTF_8)) {
             writer.write(json.toString());
         } catch (IOException e) {
             Log.e(TAG, "Failed writing ad analysis ", e);
@@ -72,7 +76,8 @@ public final class AdSegmentStore {
         if (!target.exists()) {
             return null;
         }
-        try (BufferedReader reader = new BufferedReader(new FileReader(target))) {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(new FileInputStream(target), StandardCharsets.UTF_8))) {
             StringBuilder builder = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) {

@@ -444,10 +444,6 @@ public class ItemFragment extends Fragment {
             viewBinding.adSegmentsContainer.setVisibility(View.GONE);
             return;
         }
-        if (item == null || item.getMedia() == null) {
-            viewBinding.adSegmentsContainer.setVisibility(View.GONE);
-            return;
-        }
         if (!AdSegmentStore.hasAnalysis(requireContext(), item.getId())) {
             viewBinding.adSegmentsContainer.setVisibility(View.GONE);
             return;
