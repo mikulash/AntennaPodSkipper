@@ -21,15 +21,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import de.danoeh.antennapod.model.ad.AdAnalysisResult;
 import de.danoeh.antennapod.model.ad.AdSegment;
@@ -39,7 +32,6 @@ import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProvider;
 import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProviderFactory;
-import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
@@ -62,9 +54,6 @@ public class AdAnalysisWorker extends Worker {
 
         if (feedItemId <= 0) {
             return Result.failure();
-        }
-        if (!UserPreferences.isAutoAdAnalysisEnabled()) {
-            return Result.success();
         }
 
         FeedItem item = DBReader.getFeedItem(feedItemId);
@@ -114,72 +103,55 @@ public class AdAnalysisWorker extends Worker {
             if (message.contains("401") || message.toLowerCase().contains("unauthorized")) {
                 return Result.failure();
             }
-            if (provider.shouldNotRetry(e)) {
-                return Result.failure();
-            }
-            return Result.retry();
+            return Result.failure();
         }
     }
 
     private String transcribeInChunks(AdAnalysisProvider provider, FeedMedia media) throws Exception {
         List<Path> chunkPaths = AudioChunkUtils.createAudioChunks(getApplicationContext(),
                 media.getLocalFileUrl(), TRANSCRIPTION_CHUNK_SECONDS);
-        Log.i(TAG, "Transcribing " + chunkPaths.size() + " chunk(s) "
-                + "target=" + TRANSCRIPTION_CHUNK_SECONDS + "s each");
+        Log.i(TAG, "Transcribing " + chunkPaths.size() + " chunk(s) " + "target=" + TRANSCRIPTION_CHUNK_SECONDS + "s each");
         validateChunkSizes(provider, chunkPaths);
-        ExecutorService executor = Executors.newFixedThreadPool(Math.min(4, chunkPaths.size()));
-        Map<Integer, Future<String>> futures = new HashMap<>();
-        AtomicInteger doneCount = new AtomicInteger();
+        int doneCount = 0;
         final int totalChunks = chunkPaths.size();
-        final double totalParts = (totalChunks * 2) + Math.max(1, (totalChunks * 2) / 4.0); // request + success per chunk + analysis weight
+//        final double totalProgressParts = (totalChunks * 2) + Math.max(1, (totalChunks * 2) / 4.0); // request + success per chunk + analysis weight
+        final double totalProgressParts = (totalChunks * 2) + 4; // request + success per chunk + analysis weight
+        StringBuilder combined = new StringBuilder();
         try {
             for (int i = 0; i < chunkPaths.size(); i++) {
-                final int index = i;
                 final Path chunkPath = chunkPaths.get(i);
-                futures.put(index, executor.submit(() -> {
-                    long sizeBytes = Files.size(chunkPath);
-                    Log.i(TAG, "Transcribing chunk " + (index + 1) + "/" + chunkPaths.size()
-                            + ": " + chunkPath.getFileName() + " (" + formatBytes(sizeBytes) + ")");
-                    int requested = doneCount.incrementAndGet();
-                    setProgressStage("transcribing", calculatePercent(requested, totalParts));
-                    String transcription;
-                    try {
-                        transcription = provider.transcribeChunk(chunkPath, index, chunkPaths.size(), 2);
-                    } catch (Exception e) {
-                        Log.e(TAG, "Chunk " + (index + 1) + " failed after retries; skipping section", e);
-                        int finished = doneCount.incrementAndGet();
-                        setProgressStage("transcribing", calculatePercent(finished, totalParts));
-                        return "";
+                try {
+                    if (chunkPath == null || !Files.exists(chunkPath)) {
+                        Log.e(TAG, "Chunk " + (i + 1) + " missing on disk; skipping section");
+                        doneCount++;
+                        setProgressStage("transcribing", calculatePercent(doneCount, totalProgressParts));
+                        continue;
                     }
-                    double offsetSeconds = index * TRANSCRIPTION_CHUNK_SECONDS;
+                    long sizeBytes = Files.size(chunkPath);
+                    Log.i(TAG, "Transcribing chunk " + (i + 1) + "/" + chunkPaths.size()
+                            + ": " + chunkPath.getFileName() + " (" + formatBytes(sizeBytes) + ")");
+                    doneCount++;
+                    setProgressStage("transcribing", calculatePercent(doneCount, totalProgressParts));
+                    String transcription = provider.transcribeChunk(chunkPath, i, chunkPaths.size(), 2);
+                    Log.d(TAG, "Chunk transcription " + (i + 1) + " done, length=" + transcription.length());
+                    double offsetSeconds = i * TRANSCRIPTION_CHUNK_SECONDS;
                     String adjusted = applyOffset(transcription, offsetSeconds);
-                    Log.i(TAG, "Chunk " + (index + 1) + " done, adjusted length=" + adjusted.length());
-                    int finished = doneCount.incrementAndGet();
-                    setProgressStage("transcribing", calculatePercent(finished, totalParts));
-                    return adjusted;
-                }));
-            }
-            StringBuilder combined = new StringBuilder();
-            for (int i = 0; i < chunkPaths.size(); i++) {
-                Future<String> f = futures.get(i);
-                if (f != null) {
-                    combined.append(f.get());
+                    Log.i(TAG, "Chunk " + (i + 1) + " done, adjusted length=" + adjusted.length());
+                    doneCount++;
+                    setProgressStage("transcribing", calculatePercent(doneCount, totalProgressParts));
+                    combined.append(adjusted);
+                } catch (Exception e) {
+                    Log.e(TAG, "Chunk " + (i + 1) + " failed after retries; skipping section", e);
+                    doneCount++;
+                    setProgressStage("transcribing", calculatePercent(doneCount, totalProgressParts));
                 }
             }
             // Analysis weight
-            setProgressStage("analyzing", calculatePercent(doneCount.get(), totalParts));
-            int analysisParts = Math.max(1, (int) Math.round((totalChunks * 2) / 4.0));
-            int finalDone = doneCount.addAndGet(analysisParts);
-            setProgressStage("analyzing", calculatePercent(finalDone, totalParts));
+            setProgressStage("analyzing", calculatePercent(doneCount, totalProgressParts));
+            int finalDone = doneCount + 4;
+            setProgressStage("analyzing", calculatePercent(finalDone, totalProgressParts));
             return combined.toString();
-        } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof Exception) {
-                throw (Exception) cause;
-            }
-            throw e;
         } finally {
-            executor.shutdownNow();
             for (Path chunkPath : chunkPaths) {
                 try {
                     Files.deleteIfExists(chunkPath);

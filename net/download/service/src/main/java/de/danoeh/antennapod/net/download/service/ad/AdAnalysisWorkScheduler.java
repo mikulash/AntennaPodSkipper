@@ -12,9 +12,11 @@ import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 
+import de.danoeh.antennapod.model.feed.Feed;
+import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
-import de.danoeh.antennapod.storage.preferences.UserPreferences;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
 public final class AdAnalysisWorkScheduler {
@@ -36,7 +38,10 @@ public final class AdAnalysisWorkScheduler {
         if (media == null || media.getItem() == null) {
             return;
         }
-        if (respectPreference && !UserPreferences.isAutoAdAnalysisEnabled()) {
+        FeedItem item = media.getItem();
+        Feed feed = item.getFeed();
+        FeedPreferences feedPreferences = feed != null ? feed.getPreferences() : null;
+        if (respectPreference && (feedPreferences == null || !feedPreferences.isAutoAdAnalysisEnabled())) {
             return;
         }
         if (TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))) {
@@ -46,7 +51,7 @@ public final class AdAnalysisWorkScheduler {
             return;
         }
         Data input = new Data.Builder()
-                .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, media.getItem().getId())
+                .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, item.getId())
                 .build();
 
         Constraints constraints = new Constraints.Builder()

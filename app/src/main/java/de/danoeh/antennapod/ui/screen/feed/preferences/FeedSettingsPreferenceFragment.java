@@ -60,6 +60,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     private static final String PREF_AUTO_SKIP = "feedAutoSkip";
     private static final String PREF_NOTIFICATION = "episodeNotification";
     private static final String PREF_TAGS = "tags";
+    private static final String PREF_AUTO_AD_ANALYSIS = "autoAdAnalysis";
 
     private Feed feed;
     private Disposable disposable;
@@ -239,6 +240,15 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
             TagSettingsDialog.newInstance(Collections.singletonList(feedPreferences))
                     .show(getChildFragmentManager(), TagSettingsDialog.TAG);
             return true;
+        });
+        SwitchPreferenceCompat autoAdPreference = findPreference(PREF_AUTO_AD_ANALYSIS);
+        autoAdPreference.setChecked(feedPreferences.isAutoAdAnalysisEnabled());
+        autoAdPreference.setOnPreferenceChangeListener((preference, newValue) -> {
+            boolean enabled = Boolean.TRUE.equals(newValue);
+            feedPreferences.setAutoAdAnalysisEnabled(enabled);
+            DBWriter.setFeedPreferences(feedPreferences);
+            autoAdPreference.setChecked(enabled);
+            return false;
         });
         SwitchPreferenceCompat notificationPreference = findPreference(PREF_NOTIFICATION);
         notificationPreference.setChecked(feedPreferences.getShowEpisodeNotification());

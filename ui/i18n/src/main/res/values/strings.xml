@@ -1006,8 +1006,8 @@
     <string name="echo_share">My year %d in podcasts. #AntennaPodEcho</string>
     <string name="pref_ai_label">AI &amp; Ad Skipping</string>
     <string name="pref_ai_summary">Configure OpenAI analysis and automatic ad skipping</string>
-    <string name="pref_auto_ad_analysis_title">Analyze new downloads for ads</string>
-    <string name="pref_auto_ad_analysis_summary">Use your OpenAI API key to detect advertisement segments after episodes finish downloading</string>
+    <string name="pref_auto_ad_analysis_title">Automatic ad analysis</string>
+    <string name="pref_auto_ad_analysis_summary">Configure this per podcast in its settings or analyze individual episodes from their detail screen.</string>
     <string name="pref_ad_skip_enabled_title">Skip detected ads during playback</string>
     <string name="pref_ad_skip_enabled_summary">Automatically jump over detected sponsor or ad blocks while listening</string>
     <string name="pref_openai_api_key_title">OpenAI API key</string>
@@ -1026,6 +1026,8 @@
     <string name="ad_analysis_overwrite_message">This episode already has ad detection results. Running analysis again will overwrite the existing data.</string>
     <string name="ad_analysis_overwrite_confirm">Overwrite and analyze</string>
     <string name="ad_analysis_again">Analyze again</string>
+    <string name="feed_auto_ad_analysis_title">Auto analyze this podcast after download</string>
+    <string name="feed_auto_ad_analysis_summary">Run ad detection automatically for new downloads from this podcast.</string>
     <string name="ad_segments_title">Ads</string>
     <string name="ad_segments_total_length">Total ad length: %1$s</string>
     <string name="ad_segments_empty">No ads detected.</string>

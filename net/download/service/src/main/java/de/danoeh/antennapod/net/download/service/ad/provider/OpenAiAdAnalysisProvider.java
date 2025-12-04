@@ -19,6 +19,8 @@ import com.openai.models.audio.transcriptions.TranscriptionCreateResponse;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 
@@ -61,6 +63,9 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
         int attempt = 0;
         String chunkLabel = (chunkIndex + 1) + "/" + totalChunks;
         while (true) {
+            if (chunkPath == null || !Files.exists(chunkPath)) {
+                throw new IOException("Chunk file missing: " + chunkPath);
+            }
             TranscriptionCreateParams transcriptionParams = TranscriptionCreateParams.builder()
                     .model(AudioModel.WHISPER_1)
                     .file(chunkPath)
@@ -72,13 +77,14 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
                 attempt++;
                 TranscriptionCreateResponse response = client.audio().transcriptions()
                         .create(transcriptionParams);
+                Log.d(TAG, "Transcription "+chunkLabel+" response received OK");
                 return response.asTranscription().text();
             } catch (OpenAIIoException e) {
                 boolean last = attempt > maxRetries;
                 Log.w(TAG, "Transcription attempt " + attempt + " failed for chunk "
                         + chunkLabel + " (" + chunkPath.getFileName() + "): " + e.getMessage()
-                        + (last ? " (giving up)" : " (retrying)"));
-                Log.d(TAG, "ATTEMPT FAILED ERR" + e);
+                        + (last ? " (giving up)" : " (retrying)"), e);
+                Log.e(TAG, "ATTEMPT FAILED ERR " + e + "|" + e.getCause() + "|" + e.getMessage() + "|" + e.getCause());
                 if (last) {
                     throw e;
                 }
