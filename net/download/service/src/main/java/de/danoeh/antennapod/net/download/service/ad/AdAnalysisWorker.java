@@ -114,7 +114,6 @@ public class AdAnalysisWorker extends Worker {
         validateChunkSizes(provider, chunkPaths);
         int doneCount = 0;
         final int totalChunks = chunkPaths.size();
-//        final double totalProgressParts = (totalChunks * 2) + Math.max(1, (totalChunks * 2) / 4.0); // request + success per chunk + analysis weight
         final double totalProgressParts = (totalChunks * 2) + 4; // request + success per chunk + analysis weight
         StringBuilder combined = new StringBuilder();
         try {

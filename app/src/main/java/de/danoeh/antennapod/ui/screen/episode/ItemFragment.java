@@ -178,11 +178,6 @@ public class ItemFragment extends Fragment {
                 updateButtons();
                 return;
             }
-            // Optimistically show progress while work spins up
-            isAdAnalysisRunning = true;
-            adAnalysisStageLabel = getString(R.string.ad_analysis_transcribing);
-            adAnalysisPercent = 0;
-            updateButtons();
             actionButtonAd.onClick(getContext());
         });
         viewBinding.butAction2.setOnClickListener(v -> {
