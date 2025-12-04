@@ -1037,4 +1037,8 @@
     <string name="ad_segments_tab_transcript">Transcript</string>
     <string name="ad_analysis_transcribing">Transcribing</string>
     <string name="ad_analysis_analyzing">Analyzing</string>
+    <string name="pref_ai_stats_category">Statistics</string>
+    <string name="pref_ai_audio_transcribed">Audio Transcribed</string>
+    <string name="pref_ai_analysis_tokens">Analysis Tokens</string>
+    <string name="pref_ai_total_cost">Total Estimated Cost</string>
 </resources>

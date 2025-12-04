@@ -21,6 +21,10 @@ public final class OpenAiPreferences {
     private static final String PREF_MODEL = "pref_openai_model";
     private static final String DEFAULT_MODEL = "gpt-5-nano";
 
+    private static final String PREF_TOTAL_AUDIO_DURATION = "pref_openai_total_audio_duration";
+    private static final String PREF_TOTAL_ANALYSIS_TOKENS = "pref_openai_total_analysis_tokens";
+    private static final String PREF_TOTAL_COST = "pref_openai_total_cost_micros";
+
     private OpenAiPreferences() {
     }
 
@@ -65,6 +69,49 @@ public final class OpenAiPreferences {
         }
     }
 
+    public static long getTotalAudioDuration(Context context) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        return prefs == null ? 0 : prefs.getLong(PREF_TOTAL_AUDIO_DURATION, 0);
+    }
+
+    public static void addAudioDuration(Context context, long durationMs) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return;
+        }
+        long current = prefs.getLong(PREF_TOTAL_AUDIO_DURATION, 0);
+        prefs.edit().putLong(PREF_TOTAL_AUDIO_DURATION, current + durationMs).apply();
+    }
+
+    public static long getTotalAnalysisTokens(Context context) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        return prefs == null ? 0 : prefs.getLong(PREF_TOTAL_ANALYSIS_TOKENS, 0);
+    }
+
+    public static void addAnalysisTokens(Context context, long tokens) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return;
+        }
+        long current = prefs.getLong(PREF_TOTAL_ANALYSIS_TOKENS, 0);
+        prefs.edit().putLong(PREF_TOTAL_ANALYSIS_TOKENS, current + tokens).apply();
+    }
+
+    public static long getTotalCostMicros(Context context) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        return prefs == null ? 0 : prefs.getLong(PREF_TOTAL_COST, 0);
+    }
+
+    public static void addCost(Context context, double costDollars) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return;
+        }
+        long currentMicros = prefs.getLong(PREF_TOTAL_COST, 0);
+        long addMicros = (long) (costDollars * 1_000_000.0);
+        prefs.edit().putLong(PREF_TOTAL_COST, currentMicros + addMicros).apply();
+    }
+
     @Nullable
     private static SharedPreferences getEncryptedPrefs(Context context) {
         try {
@@ -76,8 +123,7 @@ public final class OpenAiPreferences {
                     PREF_NAME,
                     masterKey,
                     EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            );
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
         } catch (GeneralSecurityException | IOException e) {
             Log.e(TAG, "Unable to open encrypted preferences", e);
             return null;
