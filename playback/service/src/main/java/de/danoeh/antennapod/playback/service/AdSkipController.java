@@ -85,7 +85,7 @@ class AdSkipController {
                 List<AdSegment> segments = new ArrayList<>(cachedResult.getSegments());
                 segments.sort(Comparator.comparingDouble(AdSegment::getStartSeconds));
                 cachedResult = new AdAnalysisResult(segments, cachedResult.getAnalyzedAtMillis(),
-                        cachedResult.getModel(), cachedResult.getError());
+                        cachedResult.getModel(), cachedResult.getError(), cachedResult.getTranscript());
             }
         }
     }
