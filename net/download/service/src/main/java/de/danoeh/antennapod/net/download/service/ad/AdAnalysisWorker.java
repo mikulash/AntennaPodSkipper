@@ -46,7 +46,7 @@ public class AdAnalysisWorker extends Worker {
     private static final String PROGRESS_KEY_PERCENT = "analysis_progress_percent";
     private static final String PROGRESS_KEY_STAGE = "analysis_progress_stage";
     private static final String TAG = "AdAnalysisWorker";
-    private static final long TRANSCRIPTION_CHUNK_SECONDS = 300; // 5 minutes
+    private static final long TRANSCRIPTION_CHUNK_SECONDS = 150; // 2.5 minutes
 
     public AdAnalysisWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);

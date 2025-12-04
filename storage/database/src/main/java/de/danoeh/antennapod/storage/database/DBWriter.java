@@ -242,6 +242,7 @@ public class DBWriter {
                     }
                 }
             }
+            clearAdAnalysisData(context, item);
         }
 
         PodDBAdapter adapter = PodDBAdapter.getInstance();
@@ -263,6 +264,21 @@ public class DBWriter {
 
         BackupManager backupManager = new BackupManager(context);
         backupManager.dataChanged();
+    }
+
+    private static void clearAdAnalysisData(@NonNull Context context, @Nullable FeedItem item) {
+        if (item == null) {
+            return;
+        }
+        AdSegmentStore.clear(context, item.getId());
+        FeedMedia media = item.getMedia();
+        if (media == null || media.getTranscriptFileUrl() == null) {
+            return;
+        }
+        File transcriptFile = new File(media.getTranscriptFileUrl());
+        if (transcriptFile.exists() && !transcriptFile.delete()) {
+            Log.d(TAG, "Deletion of transcript file failed.");
+        }
     }
 
     /**
