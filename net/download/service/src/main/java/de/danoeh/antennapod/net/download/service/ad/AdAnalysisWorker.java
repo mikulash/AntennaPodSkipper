@@ -12,6 +12,7 @@ import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.openai.errors.UnauthorizedException;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -36,6 +37,7 @@ import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProvider;
 import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProviderFactory;
 import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
+
 import org.greenrobot.eventbus.EventBus;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
@@ -54,7 +56,7 @@ public class AdAnalysisWorker extends Worker {
     @Override
     public Result doWork() {
         long feedItemId = getInputData().getLong(DATA_FEED_ITEM_ID, -1);
-        Log.d(TAG, "Ad analysis started on item: " +feedItemId);
+        Log.d(TAG, "Ad analysis started on item: " + feedItemId);
 
         if (feedItemId <= 0) {
             return Result.failure();

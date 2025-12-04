@@ -77,7 +77,7 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
                 attempt++;
                 TranscriptionCreateResponse response = client.audio().transcriptions()
                         .create(transcriptionParams);
-                Log.d(TAG, "Transcription "+chunkLabel+" response received OK");
+                Log.d(TAG, "Transcription " + chunkLabel + " response received OK");
                 return response.asTranscription().text();
             } catch (OpenAIIoException e) {
                 boolean last = attempt > maxRetries;

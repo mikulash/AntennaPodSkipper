@@ -36,6 +36,7 @@ import de.danoeh.antennapod.ui.screen.playback.PlayButton;
 import de.danoeh.antennapod.ui.screen.playback.SleepTimerDialog;
 import de.danoeh.antennapod.ui.screen.playback.TranscriptDialogFragment;
 import de.danoeh.antennapod.ui.screen.playback.VariableSpeedDialog;
+
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
@@ -283,25 +284,25 @@ public class AudioPlayerFragment extends Fragment implements
             disposable.dispose();
         }
         disposable = Maybe.<Playable>create(emitter -> {
-            Playable media = controller.getMedia();
-            if (media != null) {
-                if (includingChapters) {
-                    ChapterUtils.loadChapters(media, getContext(), false);
-                }
-                emitter.onSuccess(media);
-            } else {
-                emitter.onComplete();
-            }
-        })
-        .subscribeOn(Schedulers.io())
-        .observeOn(AndroidSchedulers.mainThread())
-        .subscribe(media -> {
-            updateUi(media);
-            if (media.getChapters() == null && !includingChapters) {
-                loadMediaInfo(true);
-            }
-        }, error -> Log.e(TAG, Log.getStackTraceString(error)),
-            () -> updateUi(null));
+                    Playable media = controller.getMedia();
+                    if (media != null) {
+                        if (includingChapters) {
+                            ChapterUtils.loadChapters(media, getContext(), false);
+                        }
+                        emitter.onSuccess(media);
+                    } else {
+                        emitter.onComplete();
+                    }
+                })
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(media -> {
+                            updateUi(media);
+                            if (media.getChapters() == null && !includingChapters) {
+                                loadMediaInfo(true);
+                            }
+                        }, error -> Log.e(TAG, Log.getStackTraceString(error)),
+                        () -> updateUi(null));
     }
 
     private PlaybackController newPlaybackController() {
@@ -453,7 +454,7 @@ public class AudioPlayerFragment extends Fragment implements
                     sbPosition.highlightCurrentChapter();
                 }
                 txtvSeek.setText(controller.getMedia().getChapters().get(newChapterIndex).getTitle()
-                                + "\n" + Converter.getDurationStringLong(position));
+                        + "\n" + Converter.getDurationStringLong(position));
             } else {
                 txtvSeek.setText(Converter.getDurationStringLong(position));
             }

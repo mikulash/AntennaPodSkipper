@@ -7,11 +7,13 @@ import android.net.Uri;
 import android.util.Log;
 
 import android.view.KeyEvent;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.documentfile.provider.DocumentFile;
 
 import com.google.common.util.concurrent.Futures;
+
 import de.danoeh.antennapod.event.DownloadLogEvent;
 
 import de.danoeh.antennapod.model.feed.FeedItemFilter;
@@ -20,6 +22,7 @@ import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterfa
 import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
 import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
 import de.danoeh.antennapod.ui.appstartintent.MediaButtonStarter;
+
 import org.greenrobot.eventbus.EventBus;
 
 import java.io.File;
@@ -167,8 +170,8 @@ public class DBWriter {
             if (media.getItem().getFeed().getState() != Feed.STATE_NOT_SUBSCRIBED) {
                 SynchronizationQueue.getInstance().enqueueEpisodeAction(
                         new EpisodeAction.Builder(media.getItem(), EpisodeAction.DELETE)
-                            .currentTimestamp()
-                            .build());
+                                .currentTimestamp()
+                                .build());
             }
 
             EventBus.getDefault().post(FeedItemEvent.updated(media.getItem()));
@@ -309,7 +312,7 @@ public class DBWriter {
      * current date regardless of the current value.
      *
      * @param media FeedMedia that should be added to the playback history.
-     * @param date LastPlayedTimeHistory for <code>media</code>
+     * @param date  LastPlayedTimeHistory for <code>media</code>
      */
     public static Future<?> addItemToPlaybackHistory(final FeedMedia media, Date date) {
         return runOnDbThread(() -> {
@@ -345,9 +348,9 @@ public class DBWriter {
      * Inserts a FeedItem in the queue at the specified index. The 'read'-attribute of the FeedItem will be set to
      * true. If the FeedItem is already in the queue, the queue will not be modified.
      *
-     * @param context             A context that is used for opening a database connection.
-     * @param itemId              ID of the FeedItem that should be added to the queue.
-     * @param index               Destination index. Must be in range 0..queue.size()
+     * @param context A context that is used for opening a database connection.
+     * @param itemId  ID of the FeedItem that should be added to the queue.
+     * @param index   Destination index. Must be in range 0..queue.size()
      * @throws IndexOutOfBoundsException if index < 0 || index >= queue.size()
      */
     public static Future<?> addQueueItemAt(final Context context, final long itemId, final int index) {
@@ -379,8 +382,8 @@ public class DBWriter {
      * Appends FeedItem objects to the end of the queue. The 'read'-attribute of all items will be set to true.
      * If a FeedItem is already in the queue, the FeedItem will not change its position in the queue.
      *
-     * @param context  A context that is used for opening a database connection.
-     * @param items    FeedItem objects that should be added to the queue.
+     * @param context A context that is used for opening a database connection.
+     * @param items   FeedItem objects that should be added to the queue.
      */
     public static Future<?> addQueueItem(final Context context, final FeedItem... items) {
         return runOnDbThread(() -> {
@@ -634,7 +637,7 @@ public class DBWriter {
                 EventBus.getDefault().post(event);
             }
         } else {
-            Log.w(TAG, "moveToTop: " + moveToTop +  " - Queue was not modified.");
+            Log.w(TAG, "moveToTop: " + moveToTop + " - Queue was not modified.");
         }
         adapter.close();
     }
@@ -662,11 +665,11 @@ public class DBWriter {
     /**
      * Sets the 'read'-attribute of all specified FeedItems
      *
-     * @param played  New value of the 'read'-attribute, one of FeedItem.PLAYED, FeedItem.NEW,
-     *                FeedItem.UNPLAYED
+     * @param played          New value of the 'read'-attribute, one of FeedItem.PLAYED, FeedItem.NEW,
+     *                        FeedItem.UNPLAYED
      * @param broadcastUpdate true if this operation should trigger a UnreadItemsUpdate broadcast.
-     *        This option is usually set to true
-     * @param itemIds IDs of the FeedItems.
+     *                        This option is usually set to true
+     * @param itemIds         IDs of the FeedItems.
      */
     public static Future<?> markItemPlayed(final int played, final boolean broadcastUpdate,
                                            final long... itemIds) {
@@ -916,7 +919,8 @@ public class DBWriter {
     public static Future<?> reorderQueue(@Nullable SortOrder sortOrder, final boolean broadcastUpdate) {
         if (sortOrder == null) {
             Log.w(TAG, "reorderQueue() - sortOrder is null. Do nothing.");
-            return runOnDbThread(() -> { });
+            return runOnDbThread(() -> {
+            });
         }
         final Permutor<FeedItem> permutor = FeedItemPermutors.getPermutor(sortOrder);
         return runOnDbThread(() -> {

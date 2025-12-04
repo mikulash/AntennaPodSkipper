@@ -14,9 +14,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.LiveData;
+
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.resource.bitmap.FitCenter;
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners;
@@ -26,13 +28,16 @@ import com.skydoves.balloon.ArrowOrientationRules;
 import com.skydoves.balloon.Balloon;
 import com.skydoves.balloon.BalloonAnimation;
 import com.google.android.material.tabs.TabLayout;
+
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
+
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.StyleSpan;
 import android.text.style.ForegroundColorSpan;
 import android.graphics.Typeface;
+
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.actionbutton.CancelDownloadActionButton;
 import de.danoeh.antennapod.actionbutton.DeleteActionButton;
@@ -76,11 +81,13 @@ import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
+
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
 import org.apache.commons.io.FileUtils;
+
 import java.io.File;
 import java.util.List;
 import java.util.Locale;
@@ -487,7 +494,7 @@ public class ItemFragment extends Fragment {
                 int reasonStart = sb.length();
                 sb.append(seg.getReason());
                 sb.setSpan(new ForegroundColorSpan(ThemeUtils.getColorFromAttr(requireContext(),
-                        android.R.attr.textColorSecondary)), reasonStart, sb.length(),
+                                android.R.attr.textColorSecondary)), reasonStart, sb.length(),
                         Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             }
         }
@@ -510,8 +517,13 @@ public class ItemFragment extends Fragment {
                 viewBinding.adTranscriptContent.setVisibility(pos == 1 ? View.VISIBLE : View.GONE);
             }
 
-            @Override public void onTabUnselected(TabLayout.Tab tab) { }
-            @Override public void onTabReselected(TabLayout.Tab tab) { }
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+            }
         });
         selectAdTab(0);
     }
@@ -688,18 +700,18 @@ public class ItemFragment extends Fragment {
             viewBinding.progbarLoading.setVisibility(View.VISIBLE);
         }
         disposable = Observable.fromCallable(this::loadInBackground)
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe(result -> {
-                viewBinding.progbarLoading.setVisibility(View.GONE);
-                viewBinding.header.setVisibility(View.VISIBLE);
-                item = result;
-                onFragmentLoaded();
-                if (isAdAnalysisSupported()) {
-                    observeAdAnalysisWork(item.getId());
-                }
-                itemsLoaded = true;
-            }, error -> Log.e(TAG, Log.getStackTraceString(error)));
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(result -> {
+                    viewBinding.progbarLoading.setVisibility(View.GONE);
+                    viewBinding.header.setVisibility(View.VISIBLE);
+                    item = result;
+                    onFragmentLoaded();
+                    if (isAdAnalysisSupported()) {
+                        observeAdAnalysisWork(item.getId());
+                    }
+                    itemsLoaded = true;
+                }, error -> Log.e(TAG, Log.getStackTraceString(error)));
     }
 
     @Nullable

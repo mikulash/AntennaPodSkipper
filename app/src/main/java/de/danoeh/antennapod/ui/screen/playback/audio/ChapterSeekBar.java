@@ -6,6 +6,7 @@ import android.graphics.Paint;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
+
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.ui.common.ThemeUtils;
 
@@ -54,6 +55,7 @@ public class ChapterSeekBar extends androidx.appcompat.widget.AppCompatSeekBar {
 
     /**
      * Sets the relative positions of the chapter dividers.
+     *
      * @param dividerPos of the chapter dividers relative to the duration of the media.
      */
     public void setDividerPos(final float[] dividerPos) {
