@@ -331,9 +331,13 @@
                             android:textColor="?android:attr/textColorSecondary"
                             android:visibility="gone"
                             tools:text="WEBVTT transcript text here..." />
+
                     </LinearLayout>
+
                 </com.google.android.material.card.MaterialCardView>
+
             </LinearLayout>
+
         </androidx.core.widget.NestedScrollView>
 
     </de.danoeh.antennapod.ui.view.NestedScrollableHost>
