@@ -269,49 +269,70 @@
                     android:layout_height="1dp"
                     android:background="?android:attr/dividerVertical" />
 
-                <LinearLayout
+                <com.google.android.material.card.MaterialCardView
                     android:id="@+id/adSegmentsContainer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp"
-                    android:visibility="gone">
+                    android:layout_marginHorizontal="16dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="8dp"
+                    android:visibility="gone"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="2dp"
+                    app:strokeColor="?attr/colorControlHighlight"
+                    app:strokeWidth="1dp">
 
-                    <TextView
-                        android:id="@+id/adSegmentsTitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/ad_segments_title"
-                        android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-                        android:textColor="?android:attr/textColorPrimary" />
-
-                    <com.google.android.material.tabs.TabLayout
-                        android:id="@+id/adTabLayout"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp" />
+                        android:orientation="vertical"
+                        android:padding="16dp">
 
-                    <TextView
-                        android:id="@+id/adSegmentsContent"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:lineSpacingExtra="4dp"
-                        android:typeface="monospace"
-                        android:textAppearance="@style/TextAppearance.AppCompat.Small"
-                        android:textColor="?android:attr/textColorSecondary"
-                        tools:text="00:10 - 01:02\n12:15 - 13:00" />
+                        <TextView
+                            android:id="@+id/adSegmentsTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/ad_segments_title"
+                            android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+                            android:textColor="?android:attr/textColorPrimary" />
 
-                    <TextView
-                        android:id="@+id/adTranscriptContent"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:textAppearance="@style/TextAppearance.AppCompat.Small"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:visibility="gone"
-                        tools:text="WEBVTT transcript text here..." />
-                </LinearLayout>
+                        <com.google.android.material.tabs.TabLayout
+                            android:id="@+id/adTabLayout"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            app:tabIndicatorFullWidth="false"
+                            app:tabIndicatorColor="?attr/colorAccent"
+                            app:tabRippleColor="?attr/colorControlHighlight"
+                            app:tabMode="fixed" />
+
+                        <TextView
+                            android:id="@+id/adSegmentsContent"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:padding="12dp"
+                            android:lineSpacingExtra="4dp"
+                            android:typeface="monospace"
+                            android:background="?android:attr/colorBackground"
+                            android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                            android:textColor="?android:attr/textColorSecondary"
+                            tools:text="00:10 - 01:02\n12:15 - 13:00" />
+
+                        <TextView
+                            android:id="@+id/adTranscriptContent"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:padding="12dp"
+                            android:lineSpacingExtra="4dp"
+                            android:background="?android:attr/colorBackground"
+                            android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                            android:textColor="?android:attr/textColorSecondary"
+                            android:visibility="gone"
+                            tools:text="WEBVTT transcript text here..." />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
         </androidx.core.widget.NestedScrollView>
 
