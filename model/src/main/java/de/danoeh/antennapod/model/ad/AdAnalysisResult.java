@@ -20,7 +20,9 @@ public class AdAnalysisResult {
 
     public AdAnalysisResult(List<AdSegment> segments, long analyzedAtMillis, String model,
                             String error, String transcript) {
-        this.segments = segments == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(segments));
+        this.segments = segments == null
+                ? Collections.emptyList() 
+                : Collections.unmodifiableList(new ArrayList<>(segments));
         this.analyzedAtMillis = analyzedAtMillis;
         this.model = model;
         this.error = error;

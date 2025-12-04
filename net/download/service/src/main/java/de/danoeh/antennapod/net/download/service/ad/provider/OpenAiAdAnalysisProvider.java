@@ -16,6 +16,7 @@ import com.openai.models.audio.AudioModel;
 import com.openai.models.audio.AudioResponseFormat;
 import com.openai.models.audio.transcriptions.TranscriptionCreateParams;
 import com.openai.models.audio.transcriptions.TranscriptionCreateResponse;
+import com.openai.models.audio.transcriptions.Transcription;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 
@@ -25,6 +26,7 @@ import java.nio.file.Path;
 import java.util.Locale;
 
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
+import de.danoeh.antennapod.storage.preferences.OpenAiUsageStatistics;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
@@ -32,18 +34,20 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
     private static final String DEFAULT_MODEL_NAME = "gpt-5-nano";
     private static final long MAX_OPENAI_AUDIO_BYTES = 25L * 1024L * 1024L; // 25 MiB hard limit
 
+    private final Context context;
     private final OpenAIClient client;
     private final String modelName;
 
     public OpenAiAdAnalysisProvider(Context context) {
-        String apiKey = OpenAiPreferences.getApiKey(context);
+        this.context = context.getApplicationContext();
+        String apiKey = OpenAiPreferences.getApiKey(this.context);
         if (TextUtils.isEmpty(apiKey)) {
             throw new IllegalStateException("Missing OpenAI API key");
         }
         this.client = OpenAIOkHttpClient.builder()
                 .apiKey(apiKey)
                 .build();
-        String storedModel = OpenAiPreferences.getModel(context);
+        String storedModel = OpenAiPreferences.getModel(this.context);
         this.modelName = TextUtils.isEmpty(storedModel) ? DEFAULT_MODEL_NAME : storedModel;
     }
 
@@ -78,6 +82,7 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
                 TranscriptionCreateResponse response = client.audio().transcriptions()
                         .create(transcriptionParams);
                 Log.d(TAG, "Transcription " + chunkLabel + " response received OK");
+                recordTranscriptionUsage(response);
                 return response.asTranscription().text();
             } catch (OpenAIIoException e) {
                 boolean last = attempt > maxRetries;
@@ -101,6 +106,9 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
                 .model(chatModel)
                 .build();
         ChatCompletion completion = client.chat().completions().create(chatParams);
+        completion.usage().ifPresent(usage ->
+                OpenAiUsageStatistics.recordAnalysisUsage(context,
+                        usage.promptTokens(), usage.completionTokens()));
         if (completion.choices().isEmpty()) {
             throw new IllegalStateException("AI provider returned no choices");
         }
@@ -132,6 +140,21 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
             return message + " (OpenAI supports mp3, mp4/m4a, mpeg/mpga, wav, and webm up to 25 MB per file)";
         }
         return message;
+    }
+
+    private void recordTranscriptionUsage(TranscriptionCreateResponse response) {
+        try {
+            Transcription transcription = response.asTranscription();
+            long tokens = transcription.usage()
+                    .flatMap(usage -> usage.tokens().map(t -> t.totalTokens()))
+                    .orElse(0L);
+            double durationSeconds = transcription.usage()
+                    .flatMap(usage -> usage.duration().map(d -> d.seconds()))
+                    .orElse(0d);
+            OpenAiUsageStatistics.recordTranscriptionUsage(context, tokens, durationSeconds);
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to record transcription usage", e);
+        }
     }
 
     private ChatModel resolveChatModel(String selectedModel) {

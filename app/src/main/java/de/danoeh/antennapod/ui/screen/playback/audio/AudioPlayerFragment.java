@@ -284,25 +284,25 @@ public class AudioPlayerFragment extends Fragment implements
             disposable.dispose();
         }
         disposable = Maybe.<Playable>create(emitter -> {
-                    Playable media = controller.getMedia();
-                    if (media != null) {
-                        if (includingChapters) {
-                            ChapterUtils.loadChapters(media, getContext(), false);
-                        }
-                        emitter.onSuccess(media);
-                    } else {
-                        emitter.onComplete();
-                    }
-                })
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(media -> {
-                            updateUi(media);
-                            if (media.getChapters() == null && !includingChapters) {
-                                loadMediaInfo(true);
-                            }
-                        }, error -> Log.e(TAG, Log.getStackTraceString(error)),
-                        () -> updateUi(null));
+            Playable media = controller.getMedia();
+            if (media != null) {
+                if (includingChapters) {
+                    ChapterUtils.loadChapters(media, getContext(), false);
+                }
+                emitter.onSuccess(media);
+            } else {
+                emitter.onComplete();
+            }
+        })
+        .subscribeOn(Schedulers.io())
+        .observeOn(AndroidSchedulers.mainThread())
+        .subscribe(media -> {
+            updateUi(media);
+            if (media.getChapters() == null && !includingChapters) {
+                loadMediaInfo(true);
+            }
+        }, error -> Log.e(TAG, Log.getStackTraceString(error)),
+            () -> updateUi(null));
     }
 
     private PlaybackController newPlaybackController() {
@@ -393,7 +393,6 @@ public class AudioPlayerFragment extends Fragment implements
         TimeSpeedConverter converter = new TimeSpeedConverter(controller.getCurrentPlaybackSpeedMultiplier());
         int currentPosition = converter.convert(event.getPosition());
         int duration = converter.convert(event.getDuration());
-        int remainingTime = converter.convert(Math.max(event.getDuration() - event.getPosition(), 0));
         @Nullable Playable media = controller.getMedia();
         if (media != null) {
             currentChapterIndex = Chapter.getAfterPosition(media.getChapters(), currentPosition);
@@ -407,6 +406,7 @@ public class AudioPlayerFragment extends Fragment implements
         txtvPosition.setContentDescription(getString(R.string.position,
                 Converter.getDurationStringLocalized(getContext(), currentPosition)));
         showTimeLeft = UserPreferences.shouldShowRemainingTime();
+        int remainingTime = converter.convert(Math.max(event.getDuration() - event.getPosition(), 0));
         if (showTimeLeft) {
             txtvLength.setContentDescription(getString(R.string.remaining_time,
                     Converter.getDurationStringLocalized(getContext(), remainingTime)));

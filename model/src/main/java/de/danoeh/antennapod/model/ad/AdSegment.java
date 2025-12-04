@@ -37,10 +37,13 @@ public class AdSegment {
     @NonNull
     @Override
     public String toString() {
-        return "AdSegment{" +
-                "startSeconds=" + startSeconds +
-                ", endSeconds=" + endSeconds +
-                ", confidence=" + confidence +
-                '}';
+        return "AdSegment{"
+                + "startSeconds="
+                + startSeconds
+                + ", endSeconds="
+                + endSeconds
+                + ", confidence="
+                + confidence
+                + '}';
     }
 }

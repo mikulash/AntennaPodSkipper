@@ -99,7 +99,8 @@ public class AdAnalysisWorker extends Worker {
                 Log.w(TAG, "Failed to store transcript", e);
             }
             AdSegmentStore.save(getApplicationContext(), feedItemId,
-                    new AdAnalysisResult(segments, System.currentTimeMillis(), provider.getModelName(), "", transcript));
+                    new AdAnalysisResult(segments, System.currentTimeMillis(), provider.getModelName(), "",
+                            transcript));
             setProgressStage("done", 100);
             return Result.success();
         } catch (Exception e) {
@@ -118,7 +119,8 @@ public class AdAnalysisWorker extends Worker {
     private String transcribeInChunks(AdAnalysisProvider provider, FeedMedia media) throws Exception {
         List<Path> chunkPaths = AudioChunkUtils.createAudioChunks(getApplicationContext(),
                 media.getLocalFileUrl(), TRANSCRIPTION_CHUNK_SECONDS);
-        Log.i(TAG, "Transcribing " + chunkPaths.size() + " chunk(s) " + "target=" + TRANSCRIPTION_CHUNK_SECONDS + "s each");
+        Log.i(TAG, "Transcribing " + chunkPaths.size() + " chunk(s) " + "target=" + TRANSCRIPTION_CHUNK_SECONDS
+                + "s each");
         validateChunkSizes(provider, chunkPaths);
         int doneCount = 0;
         final int totalChunks = chunkPaths.size();
@@ -233,14 +235,16 @@ public class AdAnalysisWorker extends Worker {
     }
 
     private String buildPrompt(String transcript, int durationMs) {
-        return "You are a classifier that only finds advertisement or sponsor segments in podcasts. " +
-                "An advertisement is a sponsor read, mid-roll, pre-roll, post-roll, or explicit promotion (coupon codes, giveaways, discounts). " +
-                "Do not tag normal banter, housekeeping, or episode content as ads. " +
-                "Use seconds from start of episode for times. Respond ONLY with valid JSON matching {\"ads\":[{\"startSeconds\":number,\"endSeconds\":number,\"reason\":string,\"confidence\":number}]} and nothing else.\n\n" +
-                "Episode duration seconds: " + durationMs / 1000f + "\n" +
-                "Transcript (WebVTT):\n\n" +
-                transcript +
-                "\n\nAgain, output only the JSON structure.";
+        return "You are a classifier that only finds advertisement or sponsor segments in podcasts. "
+                + "An advertisement is a sponsor read, mid-roll, pre-roll, post-roll,"
+                + " or explicit promotion (coupon codes, giveaways, discounts). "
+                + "Do not tag normal banter, housekeeping, or episode content as ads. "
+                + "Use seconds from start of episode for times. "
+                + "Respond ONLY with valid JSON matching {\"ads\":[{\"startSeconds\":number,\"endSeconds\":number,\""
+                + "reason\":string,\"confidence\":number}]} and nothing else.\n\n"
+                + "Episode duration seconds: " + durationMs / 1000f + "\n"
+                + "Transcript (WebVTT):\n\n"
+                + transcript + "\n\nAgain, output only the JSON structure.";
     }
 
     private List<AdSegment> parseSegments(String rawJson) throws JSONException {

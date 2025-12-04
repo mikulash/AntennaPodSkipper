@@ -115,32 +115,32 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
 
         long feedId = getArguments().getLong(EXTRA_FEED_ID);
         disposable = Maybe.create((MaybeOnSubscribe<Feed>) emitter -> {
-                    Feed feed = DBReader.getFeed(feedId, false, 0, 0);
-                    if (feed != null) {
-                        emitter.onSuccess(feed);
-                    } else {
-                        emitter.onComplete();
-                    }
-                })
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(result -> {
-                    feed = result;
-                    feedPreferences = feed.getPreferences();
+            Feed feed = DBReader.getFeed(feedId, false, 0, 0);
+            if (feed != null) {
+                emitter.onSuccess(feed);
+            } else {
+                emitter.onComplete();
+            }
+        })
+        .subscribeOn(Schedulers.io())
+        .observeOn(AndroidSchedulers.mainThread())
+        .subscribe(result -> {
+            feed = result;
+            feedPreferences = feed.getPreferences();
 
-                    setupPreferences();
-                    updateAutoDeleteSummary();
-                    updateAutoDownloadEnabledSummary();
-                    updateNewEpisodesActionSummary();
+            setupPreferences();
+            updateAutoDeleteSummary();
+            updateAutoDownloadEnabledSummary();
+            updateNewEpisodesActionSummary();
 
-                    if (feed.isLocalFeed()) {
-                        findPreference(PREF_AUTHENTICATION).setVisible(false);
-                        findPreference(PREF_CATEGORY_AUTO_DOWNLOAD).setVisible(false);
-                    }
+            if (feed.isLocalFeed()) {
+                findPreference(PREF_AUTHENTICATION).setVisible(false);
+                findPreference(PREF_CATEGORY_AUTO_DOWNLOAD).setVisible(false);
+            }
 
-                    findPreference(PREF_SCREEN).setVisible(true);
-                }, error -> Log.d(TAG, Log.getStackTraceString(error)), () -> {
-                });
+            findPreference(PREF_SCREEN).setVisible(true);
+        }, error -> Log.d(TAG, Log.getStackTraceString(error)), () -> {
+        });
     }
 
     @Override
