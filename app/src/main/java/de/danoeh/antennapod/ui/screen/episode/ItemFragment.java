@@ -476,8 +476,6 @@ public class ItemFragment extends Fragment {
             if (i > 0) {
                 sb.append("\n");
             }
-            Log.d(TAG, "updateAdSegmentsSummary: " + seg);
-            Log.d(TAG, "FROM: " + seg.getStartSeconds() + " TO: " + seg.getEndSeconds());
 
             int startSpan = sb.length();
             sb.append(Converter.getDurationStringLong((int) (seg.getStartSeconds() * 1000)));

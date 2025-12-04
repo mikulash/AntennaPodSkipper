@@ -34,7 +34,7 @@ public final class AdSegmentStore {
     public static void save(@NonNull Context context, long feedItemId, @NonNull AdAnalysisResult result) {
         File dir = context.getDir(DIRECTORY, Context.MODE_PRIVATE);
         if (!dir.exists() && !dir.mkdirs()) {
-            Log.e(TAG, "Could not create ad segment directory" + dir.getAbsolutePath());
+            Log.e(TAG, "Could not create ad segment directory " + dir.getAbsolutePath());
             return;
         }
         File target = new File(dir, fileName(feedItemId));
@@ -55,14 +55,14 @@ public final class AdSegmentStore {
             }
             json.put("ads", ads);
         } catch (JSONException e) {
-            Log.e(TAG, "Could not serialize ad analysis", e);
+            Log.e(TAG, "Could not serialize ad analysis ", e);
             return;
         }
 
         try (FileWriter writer = new FileWriter(target, false)) {
             writer.write(json.toString());
         } catch (IOException e) {
-            Log.e(TAG, "Failed writing ad analysis", e);
+            Log.e(TAG, "Failed writing ad analysis ", e);
         }
     }
 
@@ -111,7 +111,7 @@ public final class AdSegmentStore {
     public static void clear(@NonNull Context context, long feedItemId) {
         File target = new File(context.getDir(DIRECTORY, Context.MODE_PRIVATE), fileName(feedItemId));
         if (target.exists() && !target.delete()) {
-            Log.w(TAG, "Failed to delete ad analysis file" + target.getAbsolutePath());
+            Log.w(TAG, "Failed to delete ad analysis file " + target.getAbsolutePath());
         }
     }
 
