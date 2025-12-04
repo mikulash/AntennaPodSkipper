@@ -2,6 +2,7 @@ package de.danoeh.antennapod.net.download.service.episode;
 
 import android.content.Context;
 import android.media.MediaMetadataRetriever;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -122,8 +123,9 @@ public class MediaDownloadedHandler implements Runnable {
                         .build());
         }
 
-        // Auto-run ad analysis if enabled and configured
-        AdAnalysisWorkScheduler.enqueueIfNeeded(context, media);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            AdAnalysisWorkScheduler.enqueueIfNeeded(context, media);
+        }
     }
 
     @NonNull
