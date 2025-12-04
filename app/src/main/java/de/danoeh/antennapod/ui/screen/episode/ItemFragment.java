@@ -441,6 +441,10 @@ public class ItemFragment extends Fragment {
             viewBinding.adSegmentsContainer.setVisibility(View.GONE);
             return;
         }
+        if (!AdSegmentStore.hasAnalysis(requireContext(), item.getId())) {
+            viewBinding.adSegmentsContainer.setVisibility(View.GONE);
+            return;
+        }
         FeedMedia media = item.getMedia();
         AdAnalysisResult result = AdSegmentStore.load(requireContext(), item.getId());
         if (result == null) {

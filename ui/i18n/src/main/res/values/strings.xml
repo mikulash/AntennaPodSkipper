@@ -1021,6 +1021,7 @@
     <string name="action_analyze_ads">Analyze ads</string>
     <string name="ad_analysis_requires_download">Download the episode first to analyze ads.</string>
     <string name="ad_analysis_missing_key">Add your OpenAI API key to run ad analysis.</string>
+    <string name="ad_analysis_invalid_key">Ad analysis failed: Your OpenAI API key is invalid. Update the key in settings.</string>
     <string name="ad_analysis_requested">Ad analysis requested.</string>
     <string name="ad_analysis_overwrite_title">Replace existing analysis?</string>
     <string name="ad_analysis_overwrite_message">This episode already has ad detection results. Running analysis again will overwrite the existing data.</string>

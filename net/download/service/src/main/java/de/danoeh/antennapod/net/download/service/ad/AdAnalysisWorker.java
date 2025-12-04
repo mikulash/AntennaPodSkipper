@@ -11,6 +11,7 @@ import androidx.work.Data;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import com.openai.errors.UnauthorizedException;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -24,6 +25,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
+import de.danoeh.antennapod.ui.i18n.R;
+import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.ad.AdAnalysisResult;
 import de.danoeh.antennapod.model.ad.AdSegment;
 import de.danoeh.antennapod.model.feed.FeedItem;
@@ -33,6 +36,7 @@ import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProvider;
 import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProviderFactory;
 import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
+import org.greenrobot.eventbus.EventBus;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class AdAnalysisWorker extends Worker {
@@ -98,10 +102,12 @@ public class AdAnalysisWorker extends Worker {
             return Result.success();
         } catch (Exception e) {
             Log.e(TAG, "Ad analysis failed", e);
-            saveError(feedItemId, provider.buildErrorMessage(e), provider.getModelName());
-            String message = e.getMessage() == null ? "" : e.getMessage();
-            if (message.contains("401") || message.toLowerCase().contains("unauthorized")) {
-                return Result.failure();
+            if (isUnauthorized(e)) {
+                AdSegmentStore.clear(getApplicationContext(), feedItemId);
+                notifyInvalidApiKey();
+            }
+            if (!isUnauthorized(e)) {
+                saveError(feedItemId, provider.buildErrorMessage(e), provider.getModelName());
             }
             return Result.failure();
         }
@@ -140,6 +146,9 @@ public class AdAnalysisWorker extends Worker {
                     setProgressStage("transcribing", calculatePercent(doneCount, totalProgressParts));
                     combined.append(adjusted);
                 } catch (Exception e) {
+                    if (isUnauthorized(e)) {
+                        throw e;
+                    }
                     Log.e(TAG, "Chunk " + (i + 1) + " failed after retries; skipping section", e);
                     doneCount++;
                     setProgressStage("transcribing", calculatePercent(doneCount, totalProgressParts));
@@ -334,5 +343,31 @@ public class AdAnalysisWorker extends Worker {
                 .putInt(PROGRESS_KEY_PERCENT, percent)
                 .build();
         setProgressAsync(progress);
+    }
+
+    private boolean isUnauthorized(Throwable throwable) {
+        if (throwable == null) {
+            return false;
+        }
+        if (throwable instanceof UnauthorizedException) {
+            return true;
+        }
+        String message = throwable.getMessage();
+        if (message != null) {
+            String normalized = message.toLowerCase(Locale.US);
+            if (normalized.contains("unauthorized") || normalized.contains("401")) {
+                return true;
+            }
+        }
+        return isUnauthorized(throwable.getCause());
+    }
+
+    private void notifyInvalidApiKey() {
+        try {
+            EventBus.getDefault().post(new MessageEvent(
+                    getApplicationContext().getString(R.string.ad_analysis_invalid_key)));
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to notify user about invalid OpenAI API key", e);
+        }
     }
 }
