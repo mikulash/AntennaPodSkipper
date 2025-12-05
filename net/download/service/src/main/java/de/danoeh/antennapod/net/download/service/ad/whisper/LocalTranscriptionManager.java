@@ -38,26 +38,37 @@ import java.util.zip.ZipInputStream;
 public class LocalTranscriptionManager {
     private static final String TAG = "LocalTranscriptionMgr";
 
-    // Vosk model URLs - small English model for on-device transcription
+    // Vosk model URLs - English models for on-device transcription
     public static final String MODEL_SMALL = "small";
+    public static final String MODEL_MEDIUM = "medium";
     public static final String MODEL_LARGE = "large";
 
     private static final String MODEL_URL_SMALL =
             "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip";
+    private static final String MODEL_URL_MEDIUM =
+            "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip";
     private static final String MODEL_URL_LARGE =
             "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip";
 
     // Model sizes for progress tracking
-    private static final long MODEL_SIZE_SMALL = 40_000_000L;   // ~40 MB
+    private static final long MODEL_SIZE_SMALL = 40_000_000L;    // ~40 MB
+    private static final long MODEL_SIZE_MEDIUM = 128_000_000L;  // ~128 MB
     private static final long MODEL_SIZE_LARGE = 1_800_000_000L; // ~1.8 GB
+
+    // Minimum available memory required for each model (with safety margin)
+    private static final long MIN_MEMORY_SMALL = 100_000_000L;   // 100 MB
+    private static final long MIN_MEMORY_MEDIUM = 300_000_000L;  // 300 MB
+    private static final long MIN_MEMORY_LARGE = 2_500_000_000L; // 2.5 GB
 
     // Audio processing constants
     private static final int SAMPLE_RATE = 16000;
 
     private final Context context;
     private Model model;
-    private boolean isModelLoaded = false;
-    private String loadedModelName = null;
+    private volatile boolean isModelLoaded = false;
+    private volatile boolean isModelLoading = false;
+    private volatile String loadedModelName = null;
+    private volatile Exception loadingException = null;
 
     public LocalTranscriptionManager(Context context) {
         this.context = context.getApplicationContext();
@@ -78,9 +89,19 @@ public class LocalTranscriptionManager {
      * Returns the model directory for a specific model.
      */
     public File getModelPath(String modelName) {
-        String dirName = MODEL_SMALL.equals(modelName)
-                ? "vosk-model-small-en-us-0.15"
-                : "vosk-model-en-us-0.22";
+        String dirName;
+        switch (modelName) {
+            case MODEL_SMALL:
+                dirName = "vosk-model-small-en-us-0.15";
+                break;
+            case MODEL_MEDIUM:
+                dirName = "vosk-model-en-us-0.22-lgraph";
+                break;
+            case MODEL_LARGE:
+            default:
+                dirName = "vosk-model-en-us-0.22";
+                break;
+        }
         return new File(getModelDirectory(), dirName);
     }
 
@@ -107,7 +128,45 @@ public class LocalTranscriptionManager {
      * Gets the expected model size for download progress.
      */
     public long getModelSize(String modelName) {
-        return MODEL_SMALL.equals(modelName) ? MODEL_SIZE_SMALL : MODEL_SIZE_LARGE;
+        switch (modelName) {
+            case MODEL_SMALL:
+                return MODEL_SIZE_SMALL;
+            case MODEL_MEDIUM:
+                return MODEL_SIZE_MEDIUM;
+            case MODEL_LARGE:
+            default:
+                return MODEL_SIZE_LARGE;
+        }
+    }
+
+    /**
+     * Gets the minimum memory required to load a model.
+     */
+    public long getMinMemoryRequired(String modelName) {
+        switch (modelName) {
+            case MODEL_SMALL:
+                return MIN_MEMORY_SMALL;
+            case MODEL_MEDIUM:
+                return MIN_MEMORY_MEDIUM;
+            case MODEL_LARGE:
+            default:
+                return MIN_MEMORY_LARGE;
+        }
+    }
+
+    /**
+     * Checks if there's enough available memory to load a model.
+     */
+    public boolean hasEnoughMemory(String modelName) {
+        Runtime runtime = Runtime.getRuntime();
+        long maxMemory = runtime.maxMemory();
+        long usedMemory = runtime.totalMemory() - runtime.freeMemory();
+        long availableMemory = maxMemory - usedMemory;
+
+        long required = getMinMemoryRequired(modelName);
+        Log.d(TAG, "Memory check for " + modelName + ": available=" + (availableMemory / 1_000_000)
+                + "MB, required=" + (required / 1_000_000) + "MB");
+        return availableMemory >= required;
     }
 
     /**
@@ -131,7 +190,19 @@ public class LocalTranscriptionManager {
      */
     public boolean downloadModel(String modelName, DownloadProgressListener listener)
             throws IOException {
-        String modelUrl = MODEL_SMALL.equals(modelName) ? MODEL_URL_SMALL : MODEL_URL_LARGE;
+        String modelUrl;
+        switch (modelName) {
+            case MODEL_SMALL:
+                modelUrl = MODEL_URL_SMALL;
+                break;
+            case MODEL_MEDIUM:
+                modelUrl = MODEL_URL_MEDIUM;
+                break;
+            case MODEL_LARGE:
+            default:
+                modelUrl = MODEL_URL_LARGE;
+                break;
+        }
         File modelDir = getModelDirectory();
         File zipFile = new File(modelDir, modelName + ".zip");
 
@@ -300,10 +371,16 @@ public class LocalTranscriptionManager {
 
     /**
      * Loads the model into memory for inference.
+     * This method blocks until the model is loaded or fails.
+     * For large models, consider using loadModelAsync() instead.
      */
     public synchronized void loadModel(String modelName) throws IOException {
         if (isModelLoaded && modelName.equals(loadedModelName)) {
             return; // Already loaded
+        }
+
+        if (isModelLoading) {
+            throw new IOException("Another model is currently being loaded");
         }
 
         if (isModelLoaded) {
@@ -315,17 +392,97 @@ public class LocalTranscriptionManager {
             throw new IOException("Model not found: " + modelPath.getAbsolutePath());
         }
 
+        // Check memory before loading
+        if (!hasEnoughMemory(modelName)) {
+            long required = getMinMemoryRequired(modelName) / 1_000_000;
+            throw new IOException("Not enough memory to load model. Required: " + required + " MB. "
+                    + "Try closing other apps or use a smaller model.");
+        }
+
         Log.i(TAG, "Loading Vosk model: " + modelName);
+        isModelLoading = true;
+        loadingException = null;
 
         try {
+            // Request garbage collection before loading large models
+            if (!MODEL_SMALL.equals(modelName)) {
+                System.gc();
+                try {
+                    Thread.sleep(100); // Give GC a moment
+                } catch (InterruptedException ignored) {
+                }
+            }
+
             model = new Model(modelPath.getAbsolutePath());
             isModelLoaded = true;
             loadedModelName = modelName;
             Log.i(TAG, "Model loaded successfully: " + modelName);
+        } catch (OutOfMemoryError e) {
+            Log.e(TAG, "Out of memory loading model", e);
+            model = null;
+            isModelLoaded = false;
+            loadedModelName = null;
+            throw new IOException("Out of memory loading model. Try a smaller model or close other apps.", e);
         } catch (Exception e) {
             Log.e(TAG, "Failed to load model", e);
-            throw new IOException("Failed to load transcription model", e);
+            model = null;
+            isModelLoaded = false;
+            loadedModelName = null;
+            throw new IOException("Failed to load transcription model: " + e.getMessage(), e);
+        } finally {
+            isModelLoading = false;
         }
+    }
+
+    /**
+     * Loads the model asynchronously to avoid blocking the UI thread.
+     * Use this for medium and large models.
+     *
+     * @param modelName The model to load
+     * @param callback  Callback for completion or error
+     */
+    public void loadModelAsync(String modelName, ModelLoadCallback callback) {
+        if (isModelLoaded && modelName.equals(loadedModelName)) {
+            if (callback != null) {
+                callback.onModelLoaded();
+            }
+            return;
+        }
+
+        if (isModelLoading) {
+            if (callback != null) {
+                callback.onModelLoadFailed(new IOException("Another model is currently being loaded"));
+            }
+            return;
+        }
+
+        new Thread(() -> {
+            try {
+                loadModel(modelName);
+                if (callback != null) {
+                    callback.onModelLoaded();
+                }
+            } catch (IOException e) {
+                if (callback != null) {
+                    callback.onModelLoadFailed(e);
+                }
+            }
+        }, "VoskModelLoader").start();
+    }
+
+    /**
+     * Callback interface for async model loading.
+     */
+    public interface ModelLoadCallback {
+        void onModelLoaded();
+        void onModelLoadFailed(Exception e);
+    }
+
+    /**
+     * Checks if a model is currently being loaded.
+     */
+    public boolean isModelLoading() {
+        return isModelLoading;
     }
 
     /**

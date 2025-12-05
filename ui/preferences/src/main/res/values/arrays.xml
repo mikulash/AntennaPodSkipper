@@ -212,11 +212,13 @@
 
     <string-array name="pref_local_transcription_model_entries">
         <item>@string/pref_local_transcription_model_small</item>
+        <item>@string/pref_local_transcription_model_medium</item>
         <item>@string/pref_local_transcription_model_large</item>
     </string-array>
 
     <string-array name="pref_local_transcription_model_values">
         <item>small</item>
+        <item>medium</item>
         <item>large</item>
     </string-array>
 

@@ -1047,8 +1047,11 @@
     <string name="pref_local_transcription_title">Use local transcription</string>
     <string name="pref_local_transcription_summary">Transcribe audio on your device instead of using OpenAI Whisper API (saves cost, works offline)</string>
     <string name="pref_local_transcription_model_title">Transcription model</string>
-    <string name="pref_local_transcription_model_small">Small (~40 MB)</string>
-    <string name="pref_local_transcription_model_large">Large (~1.8 GB)</string>
+    <string name="pref_local_transcription_model_small">Small (~40 MB) - Fast, lower accuracy</string>
+    <string name="pref_local_transcription_model_medium">Medium (~128 MB) - Balanced</string>
+    <string name="pref_local_transcription_model_large">Large (~1.8 GB) - Best accuracy, requires 2.5GB RAM</string>
+    <string name="pref_local_transcription_model_loading">Loading model...</string>
+    <string name="pref_local_transcription_memory_error">Not enough memory for this model. Try a smaller model or close other apps.</string>
     <string name="pref_local_transcription_download_title">Download model</string>
     <string name="pref_local_transcription_download_summary">Download the speech recognition model for on-device transcription</string>
     <string name="pref_local_transcription_download_summary_downloaded">Model downloaded and ready</string>

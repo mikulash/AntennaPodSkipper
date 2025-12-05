@@ -63,7 +63,16 @@ public class LocalTranscriptionProvider implements AdAnalysisProvider {
             throw new IOException("Local transcription model not downloaded: " + localModelName);
         }
 
+        // Check memory before attempting to load
+        if (!transcriptionManager.hasEnoughMemory(localModelName)) {
+            long requiredMb = transcriptionManager.getMinMemoryRequired(localModelName) / 1_000_000;
+            throw new IOException("Not enough memory to load " + localModelName + " model. "
+                    + "Required: " + requiredMb + " MB. Try a smaller model or close other apps.");
+        }
+
+        Log.i(TAG, "Loading local transcription model: " + localModelName);
         transcriptionManager.loadModel(localModelName);
+        Log.i(TAG, "Local transcription model loaded successfully");
 
         // Initialize OpenAI client for analysis
         String apiKey = OpenAiPreferences.getApiKey(context);
@@ -168,6 +177,15 @@ public class LocalTranscriptionProvider implements AdAnalysisProvider {
             return true;
         }
         if (normalized.contains("no audio track")) {
+            return true;
+        }
+        if (normalized.contains("out of memory")) {
+            return true;
+        }
+        if (normalized.contains("not enough memory")) {
+            return true;
+        }
+        if (throwable instanceof OutOfMemoryError) {
             return true;
         }
 
