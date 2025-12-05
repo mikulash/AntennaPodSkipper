@@ -25,6 +25,11 @@ public final class OpenAiPreferences {
     private static final String PREF_TOTAL_ANALYSIS_TOKENS = "pref_openai_total_analysis_tokens";
     private static final String PREF_TOTAL_COST = "pref_openai_total_cost_micros";
 
+    // Local transcription preferences
+    private static final String PREF_USE_LOCAL_TRANSCRIPTION = "pref_use_local_transcription";
+    private static final String PREF_LOCAL_TRANSCRIPTION_MODEL = "pref_local_transcription_model";
+    private static final String DEFAULT_LOCAL_MODEL = "small";
+
     private OpenAiPreferences() {
     }
 
@@ -110,6 +115,41 @@ public final class OpenAiPreferences {
         long currentMicros = prefs.getLong(PREF_TOTAL_COST, 0);
         long addMicros = (long) (costDollars * 1_000_000.0);
         prefs.edit().putLong(PREF_TOTAL_COST, currentMicros + addMicros).apply();
+    }
+
+    // Local transcription settings
+
+    public static boolean isLocalTranscriptionEnabled(Context context) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        return prefs != null && prefs.getBoolean(PREF_USE_LOCAL_TRANSCRIPTION, false);
+    }
+
+    public static void setLocalTranscriptionEnabled(Context context, boolean enabled) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return;
+        }
+        prefs.edit().putBoolean(PREF_USE_LOCAL_TRANSCRIPTION, enabled).apply();
+    }
+
+    public static String getLocalTranscriptionModel(Context context) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return DEFAULT_LOCAL_MODEL;
+        }
+        return prefs.getString(PREF_LOCAL_TRANSCRIPTION_MODEL, DEFAULT_LOCAL_MODEL);
+    }
+
+    public static void setLocalTranscriptionModel(Context context, @Nullable String model) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return;
+        }
+        if (model == null || model.trim().isEmpty()) {
+            prefs.edit().putString(PREF_LOCAL_TRANSCRIPTION_MODEL, DEFAULT_LOCAL_MODEL).apply();
+        } else {
+            prefs.edit().putString(PREF_LOCAL_TRANSCRIPTION_MODEL, model.trim()).apply();
+        }
     }
 
     @Nullable

@@ -1041,4 +1041,24 @@
     <string name="pref_ai_audio_transcribed">Audio Transcribed</string>
     <string name="pref_ai_analysis_tokens">Analysis Tokens</string>
     <string name="pref_ai_total_cost">Total Estimated Cost</string>
+
+    <!-- Local transcription settings -->
+    <string name="pref_local_transcription_category">On-Device Transcription</string>
+    <string name="pref_local_transcription_title">Use local transcription</string>
+    <string name="pref_local_transcription_summary">Transcribe audio on your device instead of using OpenAI Whisper API (saves cost, works offline)</string>
+    <string name="pref_local_transcription_model_title">Transcription model</string>
+    <string name="pref_local_transcription_model_small">Small (~40 MB)</string>
+    <string name="pref_local_transcription_model_large">Large (~1.8 GB)</string>
+    <string name="pref_local_transcription_download_title">Download model</string>
+    <string name="pref_local_transcription_download_summary">Download the speech recognition model for on-device transcription</string>
+    <string name="pref_local_transcription_download_summary_downloaded">Model downloaded and ready</string>
+    <string name="pref_local_transcription_downloading">Downloading model: %d%%</string>
+    <string name="pref_local_transcription_extracting">Extracting model...</string>
+    <string name="pref_local_transcription_download_complete">Model download complete</string>
+    <string name="pref_local_transcription_download_failed">Model download failed: %s</string>
+    <string name="pref_local_transcription_delete_title">Delete model</string>
+    <string name="pref_local_transcription_delete_summary">Remove the downloaded model to free up space</string>
+    <string name="pref_local_transcription_delete_confirm">Delete the downloaded transcription model?</string>
+    <string name="pref_local_transcription_model_deleted">Model deleted</string>
+    <string name="pref_local_transcription_info">On-device transcription uses the Vosk speech recognition engine. Transcription happens entirely on your phone - no audio is sent to the cloud. The OpenAI API is still used for ad segment analysis.</string>
 </resources>

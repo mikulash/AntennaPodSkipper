@@ -143,6 +143,7 @@ public class AdAnalysisWorker extends Worker {
                     setProgressStage("transcribing", calculatePercent(doneCount, totalProgressParts));
                     String transcription = provider.transcribeChunk(chunkPath, i, chunkPaths.size(), 2);
                     Log.d(TAG, "Chunk transcription " + (i + 1) + " done, length=" + transcription.length());
+                    Log.d(TAG, "Chunk transcription " + (i + 1) + " done, the text=" + transcription);
                     double offsetSeconds = i * TRANSCRIPTION_CHUNK_SECONDS;
                     String adjusted = applyOffset(transcription, offsetSeconds);
                     Log.i(TAG, "Chunk " + (i + 1) + " done, adjusted length=" + adjusted.length());

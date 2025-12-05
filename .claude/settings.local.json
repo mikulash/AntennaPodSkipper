@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew :net:download:service:compileDebugJavaWithJavac:*)",
+      "Bash(./gradlew:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
