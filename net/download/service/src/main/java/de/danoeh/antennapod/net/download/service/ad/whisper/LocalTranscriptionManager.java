@@ -156,17 +156,62 @@ public class LocalTranscriptionManager {
 
     /**
      * Checks if there's enough available memory to load a model.
+     * Note: Native libraries like Vosk allocate memory outside the Java heap,
+     * so we check system-wide available memory instead of just Java heap.
      */
     public boolean hasEnoughMemory(String modelName) {
-        Runtime runtime = Runtime.getRuntime();
-        long maxMemory = runtime.maxMemory();
-        long usedMemory = runtime.totalMemory() - runtime.freeMemory();
-        long availableMemory = maxMemory - usedMemory;
+        android.app.ActivityManager activityManager = (android.app.ActivityManager)
+                context.getSystemService(Context.ACTIVITY_SERVICE);
+        android.app.ActivityManager.MemoryInfo memInfo = new android.app.ActivityManager.MemoryInfo();
+        activityManager.getMemoryInfo(memInfo);
 
         long required = getMinMemoryRequired(modelName);
-        Log.d(TAG, "Memory check for " + modelName + ": available=" + (availableMemory / 1_000_000)
+        long totalRam = memInfo.totalMem;
+
+        // Android per-app memory limits vary by device and OEM
+        // High-end devices (8GB+) typically allow more per app
+        // Use a sliding scale: 25% for low-RAM, up to 40% for high-RAM devices
+        double memoryFraction = totalRam > 6_000_000_000L ? 0.40 : 0.33;
+        long maxPerAppEstimate = (long) (totalRam * memoryFraction);
+
+        // Also account for current app memory usage
+        long nativeHeapUsed = android.os.Debug.getNativeHeapAllocatedSize();
+        long javaHeapUsed = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+        long currentAppUsage = nativeHeapUsed + javaHeapUsed;
+        long availableForModel = maxPerAppEstimate - currentAppUsage - (100 * 1_000_000L); // 100MB safety
+
+        Log.d(TAG, "Memory check for " + modelName + ": total RAM=" + (totalRam / 1_000_000)
+                + "MB, per-app limit ~" + (maxPerAppEstimate / 1_000_000)
+                + "MB, current usage=" + (currentAppUsage / 1_000_000)
+                + "MB, available for model=" + (availableForModel / 1_000_000)
                 + "MB, required=" + (required / 1_000_000) + "MB");
-        return availableMemory >= required;
+
+        if (required > availableForModel) {
+            Log.w(TAG, "Model " + modelName + " requires " + (required / 1_000_000)
+                    + "MB but only ~" + (availableForModel / 1_000_000) + "MB available");
+            return false;
+        }
+
+        // Also check current system available memory
+        long availableMemory = memInfo.availMem;
+        long threshold = memInfo.threshold;
+        long usableSystemMemory = availableMemory - threshold - (100 * 1_000_000L);
+
+        return usableSystemMemory >= required;
+    }
+
+    /**
+     * Gets the estimated per-app memory limit for this device.
+     */
+    public long getPerAppMemoryLimit() {
+        android.app.ActivityManager activityManager = (android.app.ActivityManager)
+                context.getSystemService(Context.ACTIVITY_SERVICE);
+        android.app.ActivityManager.MemoryInfo memInfo = new android.app.ActivityManager.MemoryInfo();
+        activityManager.getMemoryInfo(memInfo);
+        long totalRam = memInfo.totalMem;
+        // High-end devices allow more memory per app
+        double memoryFraction = totalRam > 6_000_000_000L ? 0.40 : 0.33;
+        return (long) (totalRam * memoryFraction);
     }
 
     /**

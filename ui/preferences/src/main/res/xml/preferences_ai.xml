@@ -26,6 +26,40 @@
             android:entryValues="@array/pref_openai_model_values"
             android:summary="%s" />
 
+    <ListPreference
+            android:key="prefAdAnalysisType"
+            android:defaultValue="cloud"
+            android:title="@string/pref_ad_analysis_type_title"
+            android:entries="@array/pref_ad_analysis_type_entries"
+            android:entryValues="@array/pref_ad_analysis_type_values"
+            android:summary="%s" />
+
+    <PreferenceCategory
+            android:key="prefLocalLlmCategory"
+            android:title="@string/pref_local_llm_category">
+
+        <Preference
+                android:key="prefLocalLlmInfo"
+                android:summary="@string/pref_local_llm_info"
+                android:selectable="false" />
+
+        <ListPreference
+                android:key="prefLocalLlmModel"
+                android:title="@string/pref_local_llm_model_title"
+                android:summary="%s" />
+
+        <Preference
+                android:key="prefLocalLlmDownload"
+                android:title="@string/pref_local_llm_download_title"
+                android:summary="@string/pref_local_llm_download_summary" />
+
+        <Preference
+                android:key="prefLocalLlmDelete"
+                android:title="@string/pref_local_llm_delete_title"
+                android:summary="@string/pref_local_llm_delete_summary" />
+
+    </PreferenceCategory>
+
     <PreferenceCategory
             android:key="prefLocalTranscriptionCategory"
             android:title="@string/pref_local_transcription_category">

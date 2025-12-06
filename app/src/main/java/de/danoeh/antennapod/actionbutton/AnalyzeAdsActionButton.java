@@ -55,7 +55,8 @@ public class AnalyzeAdsActionButton extends ItemActionButton {
             Toast.makeText(context, R.string.ad_analysis_requires_download, Toast.LENGTH_LONG).show();
             return;
         }
-        if (TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))) {
+        if (OpenAiPreferences.isApiKeyRequired(context)
+                && TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))) {
             Toast.makeText(context, R.string.ad_analysis_missing_key, Toast.LENGTH_LONG).show();
             return;
         }

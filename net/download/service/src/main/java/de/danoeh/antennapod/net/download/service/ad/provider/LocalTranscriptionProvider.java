@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Locale;
 
+import de.danoeh.antennapod.net.download.service.ad.local.LlmModelManager;
 import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 
@@ -45,8 +46,11 @@ public class LocalTranscriptionProvider implements AdAnalysisProvider {
     private final Context context;
     private final LocalTranscriptionManager transcriptionManager;
     private final OpenAIClient openAiClient;
+    private LocalLlmProvider localLlmProvider; // Lazy-loaded to save memory
     private final String gptModelName;
     private final String localModelName;
+    private final String llmModelId; // Store for lazy loading
+    private final boolean isLocalAnalysis;
 
     public LocalTranscriptionProvider(Context context) throws IOException {
         this.context = context;
@@ -74,17 +78,43 @@ public class LocalTranscriptionProvider implements AdAnalysisProvider {
         transcriptionManager.loadModel(localModelName);
         Log.i(TAG, "Local transcription model loaded successfully");
 
-        // Initialize OpenAI client for analysis
-        String apiKey = OpenAiPreferences.getApiKey(context);
-        if (TextUtils.isEmpty(apiKey)) {
-            throw new IllegalStateException("Missing OpenAI API key for ad analysis");
-        }
-        this.openAiClient = OpenAIOkHttpClient.builder()
-                .apiKey(apiKey)
-                .build();
+        Log.i(TAG, "Local transcription model loaded successfully");
 
-        String storedModel = OpenAiPreferences.getModel(context);
-        this.gptModelName = TextUtils.isEmpty(storedModel) ? DEFAULT_GPT_MODEL : storedModel;
+        // Initialize Analysis Provider (Cloud vs Local)
+        this.isLocalAnalysis = OpenAiPreferences.ANALYSIS_TYPE_LOCAL.equals(
+                OpenAiPreferences.getAdAnalysisType(context));
+
+        if (isLocalAnalysis) {
+            // Defer LLM loading until analysis time to avoid memory pressure
+            // Both Vosk and LLM models cannot fit in memory simultaneously on most devices
+            Log.i(TAG, "Local LLM analysis selected - will load after transcription completes");
+            this.llmModelId = OpenAiPreferences.getLocalLlmModelId(context);
+            LlmModelManager llmManager = new LlmModelManager(context);
+
+            if (!llmManager.isModelDownloaded(llmModelId)) {
+                throw new IOException("Local LLM model not downloaded: " + llmModelId);
+            }
+
+            // Don't load yet - lazy load in analyzeTranscript()
+            this.localLlmProvider = null;
+            this.openAiClient = null;
+            this.gptModelName = null;
+        } else {
+            // Initialize OpenAI client for analysis
+            Log.i(TAG, "Initializing OpenAI Cloud Analysis...");
+            this.llmModelId = null;
+            this.localLlmProvider = null;
+            String apiKey = OpenAiPreferences.getApiKey(context);
+            if (TextUtils.isEmpty(apiKey)) {
+                throw new IllegalStateException("Missing OpenAI API key for ad analysis");
+            }
+            this.openAiClient = OpenAIOkHttpClient.builder()
+                    .apiKey(apiKey)
+                    .build();
+
+            String storedModel = OpenAiPreferences.getModel(context);
+            this.gptModelName = TextUtils.isEmpty(storedModel) ? DEFAULT_GPT_MODEL : storedModel;
+        }
     }
 
     @Override
@@ -138,6 +168,32 @@ public class LocalTranscriptionProvider implements AdAnalysisProvider {
 
     @Override
     public String analyzeTranscript(String prompt) throws Exception {
+        if (isLocalAnalysis) {
+            // Lazy-load the LLM: unload transcription model first to free memory
+            if (localLlmProvider == null) {
+                Log.i(TAG, "Unloading transcription model to free memory for LLM...");
+                transcriptionManager.unloadModel();
+
+                // Force garbage collection to reclaim memory before loading LLM
+                System.gc();
+                try {
+                    Thread.sleep(500); // Give GC time to run
+                } catch (InterruptedException ignored) {
+                }
+
+                Log.i(TAG, "Loading local LLM model: " + llmModelId);
+                LlmModelManager llmManager = new LlmModelManager(context);
+                localLlmProvider = new LocalLlmProvider(llmManager.getModelFile(llmModelId));
+                Log.i(TAG, "Local LLM loaded successfully");
+            }
+            Log.d(TAG, "analyzeTranscript: GOING TO ANALYZE");
+            return localLlmProvider.analyze(prompt);
+        }
+
+        if (openAiClient == null) {
+            throw new IllegalStateException("OpenAI client not initialized");
+        }
+
         ChatModel chatModel = resolveChatModel(gptModelName);
         ChatCompletionCreateParams chatParams = ChatCompletionCreateParams.builder()
                 .addUserMessage(prompt)
@@ -226,9 +282,13 @@ public class LocalTranscriptionProvider implements AdAnalysisProvider {
     /**
      * Clean up resources when done.
      */
+    @Override
     public void close() {
         if (transcriptionManager != null) {
             transcriptionManager.unloadModel();
+        }
+        if (localLlmProvider != null) {
+            localLlmProvider.close();
         }
     }
 }

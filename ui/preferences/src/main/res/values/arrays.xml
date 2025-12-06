@@ -302,4 +302,13 @@
         <item>@string/subscriptions_label</item>
         <item>@string/remember_last_page</item>
     </string-array>
+    <string-array name="pref_ad_analysis_type_entries">
+        <item>@string/pref_ad_analysis_type_cloud</item>
+        <item>@string/pref_ad_analysis_type_local</item>
+    </string-array>
+
+    <string-array name="pref_ad_analysis_type_values">
+        <item>cloud</item>
+        <item>local</item>
+    </string-array>
 </resources>

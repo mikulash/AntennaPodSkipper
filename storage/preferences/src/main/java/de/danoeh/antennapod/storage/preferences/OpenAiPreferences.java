@@ -30,6 +30,12 @@ public final class OpenAiPreferences {
     private static final String PREF_LOCAL_TRANSCRIPTION_MODEL = "pref_local_transcription_model";
     private static final String DEFAULT_LOCAL_MODEL = "small";
 
+    // Local Analysis (LLM) preferences
+    private static final String PREF_AD_ANALYSIS_TYPE = "pref_ad_analysis_type"; // "cloud" or "local"
+    public static final String ANALYSIS_TYPE_CLOUD = "cloud";
+    public static final String ANALYSIS_TYPE_LOCAL = "local";
+    private static final String PREF_LOCAL_LLM_MODEL_ID = "pref_local_llm_model_id";
+
     private OpenAiPreferences() {
     }
 
@@ -150,6 +156,59 @@ public final class OpenAiPreferences {
         } else {
             prefs.edit().putString(PREF_LOCAL_TRANSCRIPTION_MODEL, model.trim()).apply();
         }
+    }
+
+    // Local Analysis (LLM) settings
+
+    public static String getAdAnalysisType(Context context) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return ANALYSIS_TYPE_CLOUD;
+        }
+        return prefs.getString(PREF_AD_ANALYSIS_TYPE, ANALYSIS_TYPE_CLOUD);
+    }
+
+    public static void setAdAnalysisType(Context context, String type) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return;
+        }
+        prefs.edit().putString(PREF_AD_ANALYSIS_TYPE, type).apply();
+    }
+
+    public static String getLocalLlmModelId(Context context) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            // Default to TinyLlama if not set
+            return "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
+        }
+        return prefs.getString(PREF_LOCAL_LLM_MODEL_ID, "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf");
+    }
+
+    public static void setLocalLlmModelId(Context context, String modelId) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return;
+        }
+        prefs.edit().putString(PREF_LOCAL_LLM_MODEL_ID, modelId).apply();
+    }
+
+    /**
+     * Returns true if an OpenAI API key is required for ad analysis.
+     * API key is NOT required when both local transcription AND local analysis are enabled.
+     */
+    public static boolean isApiKeyRequired(Context context) {
+        boolean localTranscription = isLocalTranscriptionEnabled(context);
+        boolean localAnalysis = ANALYSIS_TYPE_LOCAL.equals(getAdAnalysisType(context));
+        return !localTranscription || !localAnalysis;
+    }
+
+    /**
+     * Returns true if running in fully local mode (both transcription and analysis are local).
+     */
+    public static boolean isFullyLocalMode(Context context) {
+        return isLocalTranscriptionEnabled(context)
+                && ANALYSIS_TYPE_LOCAL.equals(getAdAnalysisType(context));
     }
 
     @Nullable
