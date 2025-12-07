@@ -13,7 +13,10 @@ android {
     defaultConfig {
         externalNativeBuild {
             cmake {
-                arguments "-DANDROID_PLATFORM=android-23"
+                arguments "-DANDROID_PLATFORM=android-23",
+                        "-DOS_NAME=Android",
+                        "-DOS_ARCH=aarch64",
+                        "-DJNI_INCLUDE_DIRS=${jllamaLib.absolutePath}/.github/include/unix"
                 cppFlags ""
             }
         }
