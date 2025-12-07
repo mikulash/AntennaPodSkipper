@@ -44,7 +44,8 @@ public final class AdAnalysisWorkScheduler {
         if (respectPreference && (feedPreferences == null || !feedPreferences.isAutoAdAnalysisEnabled())) {
             return;
         }
-        if (TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))) {
+        if (OpenAiPreferences.isApiKeyRequired(context)
+                && TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))) {
             return;
         }
         if (TextUtils.isEmpty(media.getLocalFileUrl())) {
@@ -54,8 +55,13 @@ public final class AdAnalysisWorkScheduler {
                 .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, item.getId())
                 .build();
 
+        // Only require network if not running in fully local mode
+        NetworkType networkType = OpenAiPreferences.isFullyLocalMode(context)
+                ? NetworkType.NOT_REQUIRED
+                : NetworkType.CONNECTED;
+
         Constraints constraints = new Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiredNetworkType(networkType)
                 .setRequiresBatteryNotLow(true)
                 .build();
 
