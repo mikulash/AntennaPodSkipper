@@ -311,4 +311,13 @@
         <item>cloud</item>
         <item>local</item>
     </string-array>
+
+    <string-array name="pref_transcription_type_entries">
+        <item>@string/pref_transcription_type_cloud</item>
+        <item>@string/pref_transcription_type_local</item>
+    </string-array>
+    <string-array name="pref_transcription_type_values">
+        <item>cloud</item>
+        <item>local</item>
+    </string-array>
 </resources>

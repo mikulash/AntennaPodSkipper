@@ -1006,6 +1006,8 @@
     <string name="echo_share">My year %d in podcasts. #AntennaPodEcho</string>
     <string name="pref_ai_label">AI &amp; Ad Skipping</string>
     <string name="pref_ai_summary">Configure OpenAI analysis and automatic ad skipping</string>
+    <string name="pref_ad_analysis_section_title">Ad Analysis</string>
+    <string name="pref_cloud_analysis_category">Cloud Ad Analysis (OpenAI)</string>
     <string name="pref_auto_ad_analysis_title">Automatic ad analysis</string>
     <string name="pref_auto_ad_analysis_summary">Configure this per podcast in its settings or analyze individual episodes from their detail screen.</string>
     <string name="pref_ad_skip_enabled_title">Skip detected ads during playback</string>
@@ -1043,6 +1045,12 @@
     <string name="pref_ai_total_cost">Total Estimated Cost</string>
 
     <!-- Local transcription settings -->
+    <string name="pref_transcription_section_title">Transcription Options</string>
+    <string name="pref_cloud_transcription_title">Cloud transcription (Whisper)</string>
+    <string name="pref_cloud_transcription_summary">Use OpenAI Whisper when on-device transcription is turned off.</string>
+    <string name="pref_transcription_type_title">Transcription Provider</string>
+    <string name="pref_transcription_type_cloud">Cloud (Whisper)</string>
+    <string name="pref_transcription_type_local">Local (on-device)</string>
     <string name="pref_local_transcription_category">On-Device Transcription</string>
     <string name="pref_local_transcription_title">Use local transcription</string>
     <string name="pref_local_transcription_summary">Transcribe audio on your device instead of using OpenAI Whisper API (saves cost, works offline)</string>

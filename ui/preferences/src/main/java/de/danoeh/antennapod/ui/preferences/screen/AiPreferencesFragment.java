@@ -31,13 +31,14 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private static final String PREF_AD_ANALYSIS_TYPE = "prefAdAnalysisType";
 
     // Local Transcription
-    private static final String PREF_LOCAL_TRANSCRIPTION_ENABLED = "prefLocalTranscriptionEnabled";
+    private static final String PREF_TRANSCRIPTION_TYPE = "prefTranscriptionType";
     private static final String PREF_LOCAL_TRANSCRIPTION_MODEL = "prefLocalTranscriptionModel";
     private static final String PREF_LOCAL_TRANSCRIPTION_DOWNLOAD = "prefLocalTranscriptionDownload";
     private static final String PREF_LOCAL_TRANSCRIPTION_DELETE = "prefLocalTranscriptionDelete";
+    private static final String TRANSCRIPTION_TYPE_LOCAL = "local";
+    private static final String TRANSCRIPTION_TYPE_CLOUD = "cloud";
 
     // Local LLM Analysis
-    private static final String PREF_LOCAL_LLM_CATEGORY = "prefLocalLlmCategory";
     private static final String PREF_LOCAL_LLM_MODEL = "prefLocalLlmModel";
     private static final String PREF_LOCAL_LLM_DOWNLOAD = "prefLocalLlmDownload";
     private static final String PREF_LOCAL_LLM_DELETE = "prefLocalLlmDelete";
@@ -124,49 +125,36 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         }
         typePref.setValue(OpenAiPreferences.getAdAnalysisType(requireContext()));
         typePref.setOnPreferenceChangeListener((preference, newValue) -> {
-            OpenAiPreferences.setAdAnalysisType(requireContext(), (String) newValue);
-            updateVisibility((String) newValue);
-            return true;
+            String selected = (String) newValue;
+            OpenAiPreferences.setAdAnalysisType(requireContext(), selected);
+            typePref.setValue(selected);
+            return false;
         });
-        updateVisibility(OpenAiPreferences.getAdAnalysisType(requireContext()));
-    }
-
-    private void updateVisibility(String analysisType) {
-        boolean isLocal = OpenAiPreferences.ANALYSIS_TYPE_LOCAL.equals(analysisType);
-
-        PreferenceCategory localCategory = findPreference(PREF_LOCAL_LLM_CATEGORY);
-        if (localCategory != null) {
-            localCategory.setVisible(isLocal);
-        }
-
-        Preference apiKeyPref = findPreference(PREF_OPENAI_API_KEY);
-        if (apiKeyPref != null) {
-            apiKeyPref.setVisible(!isLocal);
-        }
-        Preference modelPref = findPreference(PREF_OPENAI_MODEL);
-        if (modelPref != null) {
-            modelPref.setVisible(!isLocal);
-        }
+        typePref.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
     }
 
     private void setupLocalTranscriptionPreferences() {
-        // Enable/disable toggle
-        SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
-        if (enabledPref != null) {
-            enabledPref.setChecked(OpenAiPreferences.isLocalTranscriptionEnabled(requireContext()));
-            enabledPref.setOnPreferenceChangeListener((preference, newValue) -> {
-                boolean enabled = (Boolean) newValue;
+        // Cloud vs local selection
+        ListPreference typePref = findPreference(PREF_TRANSCRIPTION_TYPE);
+        if (typePref != null) {
+            String currentValue = OpenAiPreferences.isLocalTranscriptionEnabled(requireContext())
+                    ? TRANSCRIPTION_TYPE_LOCAL : TRANSCRIPTION_TYPE_CLOUD;
+            typePref.setValue(currentValue);
+            typePref.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+            typePref.setOnPreferenceChangeListener((preference, newValue) -> {
+                String value = (String) newValue;
+                boolean useLocal = TRANSCRIPTION_TYPE_LOCAL.equals(value);
                 String model = OpenAiPreferences.getLocalTranscriptionModel(requireContext());
 
-                // Check if model is downloaded before enabling
-                if (enabled && !transcriptionManager.isModelDownloaded(model)) {
+                if (useLocal && !transcriptionManager.isModelDownloaded(model)) {
                     Toast.makeText(requireContext(),
                             R.string.pref_local_transcription_download_summary,
                             Toast.LENGTH_LONG).show();
                     return false;
                 }
 
-                OpenAiPreferences.setLocalTranscriptionEnabled(requireContext(), enabled);
+                OpenAiPreferences.setLocalTranscriptionEnabled(requireContext(), useLocal);
+                updateLocalTranscriptionUI();
                 return true;
             });
         }
@@ -179,13 +167,13 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                 String newModel = (String) newValue;
                 OpenAiPreferences.setLocalTranscriptionModel(requireContext(), newModel);
 
-                // If local transcription is enabled but new model isn't downloaded, disable it
+                // If local transcription is selected but new model isn't downloaded, fall back to cloud
                 if (OpenAiPreferences.isLocalTranscriptionEnabled(requireContext())
                         && !transcriptionManager.isModelDownloaded(newModel)) {
                     OpenAiPreferences.setLocalTranscriptionEnabled(requireContext(), false);
-                    SwitchPreferenceCompat switchPref = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
-                    if (switchPref != null) {
-                        switchPref.setChecked(false);
+                    ListPreference transcriptionTypePref = findPreference(PREF_TRANSCRIPTION_TYPE);
+                    if (transcriptionTypePref != null) {
+                        transcriptionTypePref.setValue(TRANSCRIPTION_TYPE_CLOUD);
                     }
                 }
 
@@ -245,9 +233,11 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         }
 
         // Update enable switch
-        SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
-        if (enabledPref != null) {
-            enabledPref.setEnabled(isDownloaded && !isDownloading);
+        ListPreference typePref = findPreference(PREF_TRANSCRIPTION_TYPE);
+        if (typePref != null && isDownloading) {
+            typePref.setEnabled(false);
+        } else if (typePref != null) {
+            typePref.setEnabled(true);
         }
     }
 
@@ -339,9 +329,9 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         // Disable local transcription if it was enabled
         if (OpenAiPreferences.isLocalTranscriptionEnabled(requireContext())) {
             OpenAiPreferences.setLocalTranscriptionEnabled(requireContext(), false);
-            SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
-            if (enabledPref != null) {
-                enabledPref.setChecked(false);
+            ListPreference transcriptionTypePref = findPreference(PREF_TRANSCRIPTION_TYPE);
+            if (transcriptionTypePref != null) {
+                transcriptionTypePref.setValue(TRANSCRIPTION_TYPE_CLOUD);
             }
         }
 
@@ -368,6 +358,12 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
             modelPref.setEntryValues(values);
 
             String current = OpenAiPreferences.getLocalLlmModelId(requireContext());
+            int currentIndex = modelPref.findIndexOfValue(current);
+            if (currentIndex < 0 && values.length > 0) {
+                // Align stored value with the new model list to avoid missing entries
+                current = values[0].toString();
+                OpenAiPreferences.setLocalLlmModelId(requireContext(), current);
+            }
             modelPref.setValue(current);
             modelPref.setSummary(modelPref.getEntry());
 

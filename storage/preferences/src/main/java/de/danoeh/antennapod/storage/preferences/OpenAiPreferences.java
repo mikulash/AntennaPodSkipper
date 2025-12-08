@@ -35,6 +35,7 @@ public final class OpenAiPreferences {
     public static final String ANALYSIS_TYPE_CLOUD = "cloud";
     public static final String ANALYSIS_TYPE_LOCAL = "local";
     private static final String PREF_LOCAL_LLM_MODEL_ID = "pref_local_llm_model_id";
+    private static final String DEFAULT_LOCAL_LLM_MODEL_ID = "qwen3-0.6b-instruct";
 
     private OpenAiPreferences() {
     }
@@ -180,9 +181,9 @@ public final class OpenAiPreferences {
         SharedPreferences prefs = getEncryptedPrefs(context);
         if (prefs == null) {
             // Default to TinyLlama if not set
-            return "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
+            return DEFAULT_LOCAL_LLM_MODEL_ID;
         }
-        return prefs.getString(PREF_LOCAL_LLM_MODEL_ID, "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf");
+        return prefs.getString(PREF_LOCAL_LLM_MODEL_ID, DEFAULT_LOCAL_LLM_MODEL_ID);
     }
 
     public static void setLocalLlmModelId(Context context, String modelId) {

@@ -23,10 +23,10 @@ public class LlmModelManager {
     private static final String MODELS_DIR = "llm_models";
 
     // Available model configurations
-    public static final String MODEL_QWEN_0_5B = "qwen2.5-0.5b-instruct";
-    public static final String MODEL_QWEN_1_5B = "qwen2.5-1.5b-instruct";
-    public static final String MODEL_SMOLLM2_135M = "smollm2-135m-instruct";
-    public static final String MODEL_SMOLLM2_360M = "smollm2-360m-instruct";
+    public static final String MODEL_QWEN3_0_6B = "qwen3-0.6b-instruct";
+    public static final String MODEL_QWEN3_1_7B = "qwen3-1.7b-instruct";
+    public static final String MODEL_GEMMA3_1B = "gemma-3-1b-it";
+    public static final String MODEL_LLAMA_3_2_1B = "llama-3.2-1b-instruct";
 
     private final Context context;
     private final File modelsDir;
@@ -43,46 +43,56 @@ public class LlmModelManager {
 
     private Map<String, ModelInfo> initModelInfo() {
         Map<String, ModelInfo> map = new HashMap<>();
-
-        // SmolLM2 models - very lightweight
-        map.put(MODEL_SMOLLM2_135M, new ModelInfo(
-                MODEL_SMOLLM2_135M,
-                "SmolLM2 135M Instruct",
-                "smollm2-135m-instruct-q4_k_m.gguf",
-                "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct-GGUF/resolve/main/smollm2-135m-instruct-q4_k_m.gguf",
-                100_000_000L, // ~100MB
-                256_000_000L  // ~256MB RAM
-        ));
-
-        map.put(MODEL_SMOLLM2_360M, new ModelInfo(
-                MODEL_SMOLLM2_360M,
-                "SmolLM2 360M Instruct",
-                "smollm2-360m-instruct-q4_k_m.gguf",
-                "https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/resolve/main/smollm2-360m-instruct-q4_k_m.gguf",
-                250_000_000L, // ~250MB
-                512_000_000L  // ~512MB RAM
-        ));
-
-        // Qwen models - more capable but larger
-        map.put(MODEL_QWEN_0_5B, new ModelInfo(
-                MODEL_QWEN_0_5B,
-                "Qwen 2.5 0.5B Instruct",
-                "qwen2.5-0.5b-instruct-q4_k_m.gguf",
-                "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
-                400_000_000L, // ~400MB
-                768_000_000L  // ~768MB RAM
-        ));
-
-        map.put(MODEL_QWEN_1_5B, new ModelInfo(
-                MODEL_QWEN_1_5B,
-                "Qwen 2.5 1.5B Instruct",
-                "qwen2.5-1.5b-instruct-q4_k_m.gguf",
-                "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
-                1_000_000_000L, // ~1GB
-                2_000_000_000L  // ~2GB RAM
-        ));
+        for (ModelInfo info : buildModelInfos()) {
+            map.put(info.id, info);
+        }
 
         return map;
+    }
+
+    private static List<ModelInfo> buildModelInfos() {
+        List<ModelInfo> models = new ArrayList<>();
+
+        // Qwen 3
+        models.add(new ModelInfo(
+                MODEL_QWEN3_0_6B,
+                "Qwen 3 0.6B Instruct",
+                "Qwen3-0.6B-Q4_K_M.gguf",
+                "https://huggingface.co/lm-kit/qwen-3-0.6b-instruct-gguf/resolve/main/Qwen3-0.6B-Q4_K_M.gguf",
+                400_000_000L, // ~400MB
+                1_200_000_000L // ~1.2GB RAM
+        ));
+
+        models.add(new ModelInfo(
+                MODEL_QWEN3_1_7B,
+                "Qwen 3 1.7B Instruct",
+                "Qwen3-1.7B-Q4_K_M.gguf",
+                "https://huggingface.co/lm-kit/qwen-3-1.7b-instruct-gguf/resolve/main/Qwen3-1.7B-Q4_K_M.gguf",
+                1_200_000_000L, // ~1.2GB
+                2_500_000_000L  // ~2.5GB RAM
+        ));
+
+        // Gemma 3
+        models.add(new ModelInfo(
+                MODEL_GEMMA3_1B,
+                "Gemma 3 1B Instruct",
+                "google_gemma-3-1b-it-Q4_K_L.gguf",
+                "https://huggingface.co/bartowski/google_gemma-3-1b-it-GGUF/resolve/main/google_gemma-3-1b-it-Q4_K_L.gguf",
+                900_000_000L, // ~900MB
+                2_000_000_000L // ~2GB RAM
+        ));
+
+        // Llama 3.2
+        models.add(new ModelInfo(
+                MODEL_LLAMA_3_2_1B,
+                "Llama 3.2 1B Instruct",
+                "Llama-3.2-1B-Instruct-Q4_0.gguf",
+                "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_0.gguf",
+                800_000_000L, // ~800MB
+                1_800_000_000L // ~1.8GB RAM
+        ));
+
+        return models;
     }
 
     /**
@@ -96,54 +106,14 @@ public class LlmModelManager {
      * Get a list of all available models (static method for UI convenience).
      */
     public static List<ModelInfo> getAvailableModels() {
-        List<ModelInfo> models = new ArrayList<>();
-
-        // SmolLM2 models - very lightweight
-        models.add(new ModelInfo(
-                MODEL_SMOLLM2_135M,
-                "SmolLM2 135M Instruct",
-                "smollm2-135m-instruct-q4_k_m.gguf",
-                "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct-GGUF/resolve/main/smollm2-135m-instruct-q4_k_m.gguf",
-                100_000_000L,
-                256_000_000L
-        ));
-
-        models.add(new ModelInfo(
-                MODEL_SMOLLM2_360M,
-                "SmolLM2 360M Instruct",
-                "smollm2-360m-instruct-q4_k_m.gguf",
-                "https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/resolve/main/smollm2-360m-instruct-q4_k_m.gguf",
-                250_000_000L,
-                512_000_000L
-        ));
-
-        // Qwen models - more capable but larger
-        models.add(new ModelInfo(
-                MODEL_QWEN_0_5B,
-                "Qwen 2.5 0.5B Instruct",
-                "qwen2.5-0.5b-instruct-q4_k_m.gguf",
-                "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
-                400_000_000L,
-                768_000_000L
-        ));
-
-        models.add(new ModelInfo(
-                MODEL_QWEN_1_5B,
-                "Qwen 2.5 1.5B Instruct",
-                "qwen2.5-1.5b-instruct-q4_k_m.gguf",
-                "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
-                1_000_000_000L,
-                2_000_000_000L
-        ));
-
-        return models;
+        return new ArrayList<>(buildModelInfos());
     }
 
     /**
      * Get model info for a specific model ID (static version for UI).
      */
     public static ModelInfo getModelInfo(String modelId) {
-        for (ModelInfo info : getAvailableModels()) {
+        for (ModelInfo info : buildModelInfos()) {
             if (info.id.equals(modelId)) {
                 return info;
             }

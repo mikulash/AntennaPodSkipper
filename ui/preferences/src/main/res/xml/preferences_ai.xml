@@ -1,38 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <Preference
-            android:key="prefAutoAdAnalysisInfo"
-            android:title="@string/pref_auto_ad_analysis_title"
-            android:summary="@string/pref_auto_ad_analysis_summary" />
+    <PreferenceCategory
+            android:key="prefAdAnalysisCategory"
+            android:title="@string/pref_ad_analysis_section_title">
 
-    <SwitchPreferenceCompat
-            android:key="prefAdSkipEnabled"
-            android:defaultValue="true"
-            android:title="@string/pref_ad_skip_enabled_title"
-            android:summary="@string/pref_ad_skip_enabled_summary" />
+        <Preference
+                android:key="prefAutoAdAnalysisInfo"
+                android:title="@string/pref_auto_ad_analysis_title"
+                android:summary="@string/pref_auto_ad_analysis_summary" />
 
-    <EditTextPreference
-            android:key="prefOpenAiApiKey"
-            android:persistent="false"
-            android:title="@string/pref_openai_api_key_title"
-            android:summary="@string/pref_openai_api_key_summary" />
+        <SwitchPreferenceCompat
+                android:key="prefAdSkipEnabled"
+                android:defaultValue="true"
+                android:title="@string/pref_ad_skip_enabled_title"
+                android:summary="@string/pref_ad_skip_enabled_summary" />
 
-    <ListPreference
-            android:key="prefOpenAiModel"
-            android:defaultValue="@string/pref_openai_model_default"
-            android:title="@string/pref_openai_model_title"
-            android:entries="@array/pref_openai_model_entries"
-            android:entryValues="@array/pref_openai_model_values"
-            android:summary="%s" />
+        <ListPreference
+                android:key="prefAdAnalysisType"
+                android:defaultValue="cloud"
+                android:title="@string/pref_ad_analysis_type_title"
+                android:entries="@array/pref_ad_analysis_type_entries"
+                android:entryValues="@array/pref_ad_analysis_type_values"
+                android:summary="%s" />
 
-    <ListPreference
-            android:key="prefAdAnalysisType"
-            android:defaultValue="cloud"
-            android:title="@string/pref_ad_analysis_type_title"
-            android:entries="@array/pref_ad_analysis_type_entries"
-            android:entryValues="@array/pref_ad_analysis_type_values"
-            android:summary="%s" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+            android:key="prefCloudAnalysisCategory"
+            android:title="@string/pref_cloud_analysis_category">
+
+        <EditTextPreference
+                android:key="prefOpenAiApiKey"
+                android:persistent="false"
+                android:title="@string/pref_openai_api_key_title"
+                android:summary="@string/pref_openai_api_key_summary" />
+
+        <ListPreference
+                android:key="prefOpenAiModel"
+                android:defaultValue="@string/pref_openai_model_default"
+                android:title="@string/pref_openai_model_title"
+                android:entries="@array/pref_openai_model_entries"
+                android:entryValues="@array/pref_openai_model_values"
+                android:summary="%s" />
+
+    </PreferenceCategory>
 
     <PreferenceCategory
             android:key="prefLocalLlmCategory"
@@ -61,19 +73,27 @@
     </PreferenceCategory>
 
     <PreferenceCategory
-            android:key="prefLocalTranscriptionCategory"
-            android:title="@string/pref_local_transcription_category">
+            android:key="prefTranscriptionCategory"
+            android:title="@string/pref_transcription_section_title">
+
+        <Preference
+                android:key="prefCloudTranscriptionInfo"
+                android:title="@string/pref_cloud_transcription_title"
+                android:summary="@string/pref_cloud_transcription_summary"
+                android:selectable="false" />
+
+        <ListPreference
+                android:key="prefTranscriptionType"
+                android:defaultValue="cloud"
+                android:title="@string/pref_transcription_type_title"
+                android:entries="@array/pref_transcription_type_entries"
+                android:entryValues="@array/pref_transcription_type_values"
+                android:summary="%s" />
 
         <Preference
                 android:key="prefLocalTranscriptionInfo"
                 android:summary="@string/pref_local_transcription_info"
                 android:selectable="false" />
-
-        <SwitchPreferenceCompat
-                android:key="prefLocalTranscriptionEnabled"
-                android:defaultValue="false"
-                android:title="@string/pref_local_transcription_title"
-                android:summary="@string/pref_local_transcription_summary" />
 
         <ListPreference
                 android:key="prefLocalTranscriptionModel"
