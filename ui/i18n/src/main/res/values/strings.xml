@@ -1039,8 +1039,11 @@
     <string name="ad_segments_not_analyzed">Not analyzed yet.</string>
     <string name="ad_segments_tab_ads">Ads</string>
     <string name="ad_segments_tab_transcript">Transcript</string>
+    <string name="ad_analysis_notification_title">Ad Analysis</string>
     <string name="ad_analysis_transcribing">Transcribing</string>
     <string name="ad_analysis_analyzing">Analyzing</string>
+    <string name="ad_analysis_done">Done</string>
+    <string name="ad_analysis_in_progress">In progress</string>
     <string name="pref_ai_stats_category">Statistics</string>
     <string name="pref_ai_audio_transcribed">Audio Transcribed</string>
     <string name="pref_ai_analysis_tokens">Analysis Tokens</string>
@@ -1056,10 +1059,11 @@
     <string name="pref_local_transcription_category">On-Device Transcription</string>
     <string name="pref_local_transcription_title">Use local transcription</string>
     <string name="pref_local_transcription_summary">Transcribe audio on your device instead of using OpenAI Whisper API (saves cost, works offline)</string>
-    <string name="pref_local_transcription_model_title">Transcription model</string>
-    <string name="pref_local_transcription_model_small">Small (~40 MB) - Fast, lower accuracy</string>
-    <string name="pref_local_transcription_model_medium">Medium (~128 MB) - Balanced</string>
-    <string name="pref_local_transcription_model_large">Large (~1.8 GB) - Best accuracy, requires 2.5GB RAM</string>
+    <string name="pref_local_transcription_model_title">Default transcription model</string>
+    <string name="pref_local_transcription_model_en_small">English (small ~40 MB) - Fast, lower accuracy</string>
+    <string name="pref_local_transcription_model_en_medium">English (medium ~128 MB) - Balanced</string>
+    <string name="pref_local_transcription_model_en_large">English (large ~1.8 GB) - Best accuracy, requires 2.5GB RAM</string>
+    <string name="pref_local_transcription_model_cs_small">Czech (small ~40 MB) - Fast, lower accuracy</string>
     <string name="pref_local_transcription_model_loading">Loading model...</string>
     <string name="pref_local_transcription_memory_error">Not enough memory for this model. Try a smaller model or close other apps.</string>
     <string name="pref_local_transcription_download_title">Download model</string>
@@ -1074,6 +1078,9 @@
     <string name="pref_local_transcription_delete_confirm">Delete the downloaded transcription model?</string>
     <string name="pref_local_transcription_model_deleted">Model deleted</string>
     <string name="pref_local_transcription_info">On-device transcription uses the Vosk speech recognition engine. Transcription happens entirely on your phone - no audio is sent to the cloud. The OpenAI API is still used for ad segment analysis.</string>
+    <string name="pref_feed_transcription_model_title">Transcription model for this podcast</string>
+    <string name="pref_feed_transcription_model_summary">Choose which on-device model to use for this podcast. Defaults to the app-wide model.</string>
+    <string name="pref_feed_transcription_model_default">Use default transcription model</string>
     <string name="pref_local_transcription_memory_warning_title">Model may be too large</string>
     <string name="pref_local_transcription_memory_warning">This model requires approximately %1$d MB of RAM, but your device\'s per-app limit is around %2$d MB. The app may crash when loading this model. Consider using a smaller model instead.</string>
     <string name="download_anyway_label">Download anyway</string>

@@ -2,6 +2,7 @@ package de.danoeh.antennapod.net.download.service.ad.provider;
 
 import android.content.Context;
 import android.os.Build;
+import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.RequiresApi;
@@ -30,9 +31,11 @@ public final class AdAnalysisProviderFactory {
      *
      * @throws IllegalStateException if local transcription is enabled but cannot be initialized
      */
-    public static AdAnalysisProvider create(Context context) {
+    public static AdAnalysisProvider create(Context context, String transcriptionModelId) {
         if (OpenAiPreferences.isLocalTranscriptionEnabled(context)) {
-            String localModel = OpenAiPreferences.getLocalTranscriptionModel(context);
+            String localModel = TextUtils.isEmpty(transcriptionModelId)
+                    ? OpenAiPreferences.getLocalTranscriptionModel(context)
+                    : transcriptionModelId;
             LocalTranscriptionManager manager = new LocalTranscriptionManager(context);
 
             if (!manager.isModelDownloaded(localModel)) {
@@ -42,7 +45,7 @@ public final class AdAnalysisProviderFactory {
 
             try {
                 Log.i(TAG, "Using local transcription provider with model: " + localModel);
-                return new LocalTranscriptionProvider(context);
+                return new LocalTranscriptionProvider(context, localModel);
             } catch (IOException e) {
                 Log.e(TAG, "Failed to create local transcription provider", e);
                 throw new IllegalStateException("Failed to initialize local transcription: " + e.getMessage(), e);

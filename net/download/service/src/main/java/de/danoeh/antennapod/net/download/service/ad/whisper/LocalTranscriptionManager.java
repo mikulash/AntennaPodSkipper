@@ -27,6 +27,8 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Locale;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -42,6 +44,10 @@ public class LocalTranscriptionManager {
     public static final String MODEL_SMALL = "small";
     public static final String MODEL_MEDIUM = "medium";
     public static final String MODEL_LARGE = "large";
+    public static final String MODEL_EN_SMALL = "en-small";
+    public static final String MODEL_EN_MEDIUM = "en-medium";
+    public static final String MODEL_EN_LARGE = "en-large";
+    public static final String MODEL_CS_SMALL = "cs-small";
 
     private static final String MODEL_URL_SMALL =
             "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip";
@@ -49,16 +55,20 @@ public class LocalTranscriptionManager {
             "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip";
     private static final String MODEL_URL_LARGE =
             "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip";
+    private static final String MODEL_URL_CS_SMALL =
+            "https://alphacephei.com/vosk/models/vosk-model-small-cs-0.15.zip";
 
     // Model sizes for progress tracking
     private static final long MODEL_SIZE_SMALL = 40_000_000L;    // ~40 MB
     private static final long MODEL_SIZE_MEDIUM = 128_000_000L;  // ~128 MB
     private static final long MODEL_SIZE_LARGE = 1_800_000_000L; // ~1.8 GB
+    private static final long MODEL_SIZE_CS_SMALL = 42_000_000L; // ~42 MB
 
     // Minimum available memory required for each model (with safety margin)
     private static final long MIN_MEMORY_SMALL = 100_000_000L;   // 100 MB
     private static final long MIN_MEMORY_MEDIUM = 300_000_000L;  // 300 MB
     private static final long MIN_MEMORY_LARGE = 2_500_000_000L; // 2.5 GB
+    private static final long MIN_MEMORY_CS_SMALL = 120_000_000L; // 120 MB
 
     // Audio processing constants
     private static final int SAMPLE_RATE = 16000;
@@ -69,6 +79,56 @@ public class LocalTranscriptionManager {
     private volatile boolean isModelLoading = false;
     private volatile String loadedModelName = null;
     private volatile Exception loadingException = null;
+    private static final Map<String, ModelMeta> MODEL_META = new HashMap<>();
+
+    static {
+        registerModel(new ModelMeta(MODEL_EN_SMALL, "vosk-model-small-en-us-0.15",
+                MODEL_URL_SMALL, MODEL_SIZE_SMALL, MIN_MEMORY_SMALL));
+        registerModel(new ModelMeta(MODEL_EN_MEDIUM, "vosk-model-en-us-0.22-lgraph",
+                MODEL_URL_MEDIUM, MODEL_SIZE_MEDIUM, MIN_MEMORY_MEDIUM));
+        registerModel(new ModelMeta(MODEL_EN_LARGE, "vosk-model-en-us-0.22",
+                MODEL_URL_LARGE, MODEL_SIZE_LARGE, MIN_MEMORY_LARGE));
+        registerModel(new ModelMeta(MODEL_CS_SMALL, "vosk-model-small-cs-0.15",
+                MODEL_URL_CS_SMALL, MODEL_SIZE_CS_SMALL, MIN_MEMORY_CS_SMALL));
+        // Legacy aliases
+        MODEL_META.put(MODEL_SMALL, MODEL_META.get(MODEL_EN_SMALL));
+        MODEL_META.put(MODEL_MEDIUM, MODEL_META.get(MODEL_EN_MEDIUM));
+        MODEL_META.put(MODEL_LARGE, MODEL_META.get(MODEL_EN_LARGE));
+    }
+
+    private static void registerModel(ModelMeta meta) {
+        MODEL_META.put(meta.id, meta);
+    }
+
+    private String normalizeModelName(String modelName) {
+        if (modelName == null) {
+            return MODEL_EN_SMALL;
+        }
+        switch (modelName) {
+            case MODEL_SMALL:
+            case MODEL_EN_SMALL:
+                return MODEL_EN_SMALL;
+            case MODEL_MEDIUM:
+            case MODEL_EN_MEDIUM:
+                return MODEL_EN_MEDIUM;
+            case MODEL_LARGE:
+            case MODEL_EN_LARGE:
+                return MODEL_EN_LARGE;
+            case MODEL_CS_SMALL:
+                return MODEL_CS_SMALL;
+            default:
+                return modelName;
+        }
+    }
+
+    private ModelMeta getModelMeta(String modelName) {
+        String normalized = normalizeModelName(modelName);
+        ModelMeta meta = MODEL_META.get(normalized);
+        if (meta == null) {
+            meta = MODEL_META.get(MODEL_EN_SMALL);
+        }
+        return meta;
+    }
 
     public LocalTranscriptionManager(Context context) {
         this.context = context.getApplicationContext();
@@ -89,20 +149,8 @@ public class LocalTranscriptionManager {
      * Returns the model directory for a specific model.
      */
     public File getModelPath(String modelName) {
-        String dirName;
-        switch (modelName) {
-            case MODEL_SMALL:
-                dirName = "vosk-model-small-en-us-0.15";
-                break;
-            case MODEL_MEDIUM:
-                dirName = "vosk-model-en-us-0.22-lgraph";
-                break;
-            case MODEL_LARGE:
-            default:
-                dirName = "vosk-model-en-us-0.22";
-                break;
-        }
-        return new File(getModelDirectory(), dirName);
+        ModelMeta meta = getModelMeta(modelName);
+        return new File(getModelDirectory(), meta.dirName);
     }
 
     /**
@@ -128,30 +176,14 @@ public class LocalTranscriptionManager {
      * Gets the expected model size for download progress.
      */
     public long getModelSize(String modelName) {
-        switch (modelName) {
-            case MODEL_SMALL:
-                return MODEL_SIZE_SMALL;
-            case MODEL_MEDIUM:
-                return MODEL_SIZE_MEDIUM;
-            case MODEL_LARGE:
-            default:
-                return MODEL_SIZE_LARGE;
-        }
+        return getModelMeta(modelName).sizeBytes;
     }
 
     /**
      * Gets the minimum memory required to load a model.
      */
     public long getMinMemoryRequired(String modelName) {
-        switch (modelName) {
-            case MODEL_SMALL:
-                return MIN_MEMORY_SMALL;
-            case MODEL_MEDIUM:
-                return MIN_MEMORY_MEDIUM;
-            case MODEL_LARGE:
-            default:
-                return MIN_MEMORY_LARGE;
-        }
+        return getModelMeta(modelName).minMemoryBytes;
     }
 
     /**
@@ -235,27 +267,15 @@ public class LocalTranscriptionManager {
      */
     public boolean downloadModel(String modelName, DownloadProgressListener listener)
             throws IOException {
-        String modelUrl;
-        switch (modelName) {
-            case MODEL_SMALL:
-                modelUrl = MODEL_URL_SMALL;
-                break;
-            case MODEL_MEDIUM:
-                modelUrl = MODEL_URL_MEDIUM;
-                break;
-            case MODEL_LARGE:
-            default:
-                modelUrl = MODEL_URL_LARGE;
-                break;
-        }
+        ModelMeta meta = getModelMeta(modelName);
         File modelDir = getModelDirectory();
-        File zipFile = new File(modelDir, modelName + ".zip");
+        File zipFile = new File(modelDir, meta.id + ".zip");
 
-        Log.i(TAG, "Downloading Vosk model: " + modelName);
+        Log.i(TAG, "Downloading Vosk model: " + meta.id);
 
         try {
             // Download the zip file
-            if (!downloadFile(modelUrl, zipFile, listener)) {
+            if (!downloadFile(meta.url, zipFile, listener)) {
                 return false;
             }
 
@@ -267,7 +287,7 @@ public class LocalTranscriptionManager {
 
             extractZip(zipFile, modelDir);
 
-            Log.i(TAG, "Model download and extraction complete: " + modelName);
+            Log.i(TAG, "Model download and extraction complete: " + meta.id);
             return true;
 
         } finally {
@@ -281,6 +301,7 @@ public class LocalTranscriptionManager {
     private boolean downloadFile(String urlString, File outputFile, DownloadProgressListener listener)
             throws IOException {
         File tempFile = new File(outputFile.getAbsolutePath() + ".tmp");
+        String expectedModelId = outputFile.getName().replace(".zip", "");
 
         HttpURLConnection connection = null;
         try {
@@ -311,7 +332,7 @@ public class LocalTranscriptionManager {
 
             long contentLength = connection.getContentLengthLong();
             if (contentLength <= 0) {
-                contentLength = getModelSize(MODEL_SMALL); // Fallback
+                contentLength = getModelSize(expectedModelId); // Fallback
             }
 
             try (InputStream input = connection.getInputStream();
@@ -390,16 +411,17 @@ public class LocalTranscriptionManager {
      * Deletes the downloaded model files.
      */
     public void deleteModel(String modelName) {
-        if (isModelLoaded && modelName.equals(loadedModelName)) {
+        String normalized = normalizeModelName(modelName);
+        if (isModelLoaded && normalized.equals(loadedModelName)) {
             unloadModel();
         }
 
-        File modelPath = getModelPath(modelName);
+        File modelPath = getModelPath(normalized);
         if (modelPath.exists()) {
             deleteRecursively(modelPath);
         }
 
-        Log.i(TAG, "Model deleted: " + modelName);
+        Log.i(TAG, "Model deleted: " + normalized);
     }
 
     private void deleteRecursively(File file) {
@@ -420,7 +442,8 @@ public class LocalTranscriptionManager {
      * For large models, consider using loadModelAsync() instead.
      */
     public synchronized void loadModel(String modelName) throws IOException {
-        if (isModelLoaded && modelName.equals(loadedModelName)) {
+        String normalized = normalizeModelName(modelName);
+        if (isModelLoaded && normalized.equals(loadedModelName)) {
             return; // Already loaded
         }
 
@@ -432,25 +455,26 @@ public class LocalTranscriptionManager {
             unloadModel();
         }
 
-        File modelPath = getModelPath(modelName);
+        ModelMeta meta = getModelMeta(normalized);
+        File modelPath = getModelPath(normalized);
         if (!modelPath.exists()) {
             throw new IOException("Model not found: " + modelPath.getAbsolutePath());
         }
 
         // Check memory before loading
-        if (!hasEnoughMemory(modelName)) {
-            long required = getMinMemoryRequired(modelName) / 1_000_000;
+        if (!hasEnoughMemory(normalized)) {
+            long required = getMinMemoryRequired(normalized) / 1_000_000;
             throw new IOException("Not enough memory to load model. Required: " + required + " MB. "
                     + "Try closing other apps or use a smaller model.");
         }
 
-        Log.i(TAG, "Loading Vosk model: " + modelName);
+        Log.i(TAG, "Loading Vosk model: " + meta.id);
         isModelLoading = true;
         loadingException = null;
 
         try {
             // Request garbage collection before loading large models
-            if (!MODEL_SMALL.equals(modelName)) {
+            if (!MODEL_EN_SMALL.equals(normalized)) {
                 System.gc();
                 try {
                     Thread.sleep(100); // Give GC a moment
@@ -460,8 +484,8 @@ public class LocalTranscriptionManager {
 
             model = new Model(modelPath.getAbsolutePath());
             isModelLoaded = true;
-            loadedModelName = modelName;
-            Log.i(TAG, "Model loaded successfully: " + modelName);
+            loadedModelName = meta.id;
+            Log.i(TAG, "Model loaded successfully: " + meta.id);
         } catch (OutOfMemoryError e) {
             Log.e(TAG, "Out of memory loading model", e);
             model = null;
@@ -487,7 +511,8 @@ public class LocalTranscriptionManager {
      * @param callback  Callback for completion or error
      */
     public void loadModelAsync(String modelName, ModelLoadCallback callback) {
-        if (isModelLoaded && modelName.equals(loadedModelName)) {
+        String normalized = normalizeModelName(modelName);
+        if (isModelLoaded && normalized.equals(loadedModelName)) {
             if (callback != null) {
                 callback.onModelLoaded();
             }
@@ -849,6 +874,22 @@ public class LocalTranscriptionManager {
         int minutes = (int) (seconds / 60);
         seconds -= minutes * 60;
         return String.format(Locale.US, "%02d:%02d:%06.3f", hours, minutes, seconds);
+    }
+
+    private static class ModelMeta {
+        final String id;
+        final String dirName;
+        final String url;
+        final long sizeBytes;
+        final long minMemoryBytes;
+
+        ModelMeta(String id, String dirName, String url, long sizeBytes, long minMemoryBytes) {
+            this.id = id;
+            this.dirName = dirName;
+            this.url = url;
+            this.sizeBytes = sizeBytes;
+            this.minMemoryBytes = minMemoryBytes;
+        }
     }
 
     public boolean isModelLoaded() {

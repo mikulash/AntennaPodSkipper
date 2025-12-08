@@ -211,15 +211,33 @@
     </string-array>
 
     <string-array name="pref_local_transcription_model_entries">
-        <item>@string/pref_local_transcription_model_small</item>
-        <item>@string/pref_local_transcription_model_medium</item>
-        <item>@string/pref_local_transcription_model_large</item>
+        <item>@string/pref_local_transcription_model_en_small</item>
+        <item>@string/pref_local_transcription_model_en_medium</item>
+        <item>@string/pref_local_transcription_model_en_large</item>
+        <item>@string/pref_local_transcription_model_cs_small</item>
     </string-array>
 
     <string-array name="pref_local_transcription_model_values">
-        <item>small</item>
-        <item>medium</item>
-        <item>large</item>
+        <item>en-small</item>
+        <item>en-medium</item>
+        <item>en-large</item>
+        <item>cs-small</item>
+    </string-array>
+
+    <string-array name="pref_feed_transcription_model_entries">
+        <item>@string/pref_feed_transcription_model_default</item>
+        <item>@string/pref_local_transcription_model_en_small</item>
+        <item>@string/pref_local_transcription_model_en_medium</item>
+        <item>@string/pref_local_transcription_model_en_large</item>
+        <item>@string/pref_local_transcription_model_cs_small</item>
+    </string-array>
+
+    <string-array name="pref_feed_transcription_model_values">
+        <item>default</item>
+        <item>en-small</item>
+        <item>en-medium</item>
+        <item>en-large</item>
+        <item>cs-small</item>
     </string-array>
 
     <string-array name="episode_cleanup_values">

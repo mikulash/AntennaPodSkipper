@@ -72,6 +72,14 @@
         android:summary="@string/feed_auto_ad_analysis_summary"
         android:title="@string/feed_auto_ad_analysis_title" />
 
+    <ListPreference
+        android:key="feedTranscriptionModel"
+        android:defaultValue="default"
+        android:title="@string/pref_feed_transcription_model_title"
+        android:summary="@string/pref_feed_transcription_model_summary"
+        android:entries="@array/pref_feed_transcription_model_entries"
+        android:entryValues="@array/pref_feed_transcription_model_values" />
+
     <PreferenceCategory
         android:key="autoDownloadCategory"
         android:title="@string/auto_download_inbox_category">

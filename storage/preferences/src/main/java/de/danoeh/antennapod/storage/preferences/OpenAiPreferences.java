@@ -28,7 +28,7 @@ public final class OpenAiPreferences {
     // Local transcription preferences
     private static final String PREF_USE_LOCAL_TRANSCRIPTION = "pref_use_local_transcription";
     private static final String PREF_LOCAL_TRANSCRIPTION_MODEL = "pref_local_transcription_model";
-    private static final String DEFAULT_LOCAL_MODEL = "small";
+    private static final String DEFAULT_LOCAL_MODEL = "en-small";
 
     // Local Analysis (LLM) preferences
     private static final String PREF_AD_ANALYSIS_TYPE = "pref_ad_analysis_type"; // "cloud" or "local"
@@ -144,7 +144,20 @@ public final class OpenAiPreferences {
         if (prefs == null) {
             return DEFAULT_LOCAL_MODEL;
         }
-        return prefs.getString(PREF_LOCAL_TRANSCRIPTION_MODEL, DEFAULT_LOCAL_MODEL);
+        String stored = prefs.getString(PREF_LOCAL_TRANSCRIPTION_MODEL, DEFAULT_LOCAL_MODEL);
+        // Migrate legacy values without language prefix
+        if ("small".equals(stored)) {
+            stored = "en-small";
+        } else if ("medium".equals(stored)) {
+            stored = "en-medium";
+        } else if ("large".equals(stored)) {
+            stored = "en-large";
+        }
+        if (!DEFAULT_LOCAL_MODEL.equals(stored)) {
+            // Persist migrated value
+            prefs.edit().putString(PREF_LOCAL_TRANSCRIPTION_MODEL, stored).apply();
+        }
+        return stored;
     }
 
     public static void setLocalTranscriptionModel(Context context, @Nullable String model) {

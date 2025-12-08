@@ -6,6 +6,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.RequiresApi;
+import androidx.annotation.Nullable;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
@@ -52,14 +53,16 @@ public class LocalTranscriptionProvider implements AdAnalysisProvider {
     private final String llmModelId; // Store for lazy loading
     private final boolean isLocalAnalysis;
 
-    public LocalTranscriptionProvider(Context context) throws IOException {
+    public LocalTranscriptionProvider(Context context, @Nullable String modelId) throws IOException {
         this.context = context;
         this.transcriptionManager = new LocalTranscriptionManager(context);
 
         // Load local model
-        String selectedLocalModel = OpenAiPreferences.getLocalTranscriptionModel(context);
+        String selectedLocalModel = TextUtils.isEmpty(modelId)
+                ? OpenAiPreferences.getLocalTranscriptionModel(context)
+                : modelId;
         if (TextUtils.isEmpty(selectedLocalModel)) {
-            selectedLocalModel = LocalTranscriptionManager.MODEL_SMALL;
+            selectedLocalModel = LocalTranscriptionManager.MODEL_EN_SMALL;
         }
         this.localModelName = selectedLocalModel;
 
@@ -119,7 +122,8 @@ public class LocalTranscriptionProvider implements AdAnalysisProvider {
 
     @Override
     public String getModelName() {
-        return MODEL_NAME_PREFIX + gptModelName;
+        String analysisModelLabel = isLocalAnalysis ? "local-llm" : gptModelName;
+        return MODEL_NAME_PREFIX + localModelName + "+" + analysisModelLabel;
     }
 
     @Override

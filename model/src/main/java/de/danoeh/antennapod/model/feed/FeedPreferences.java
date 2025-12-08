@@ -124,6 +124,7 @@ public class FeedPreferences implements Serializable {
     private SkipSilence feedSkipSilence;
     private boolean showEpisodeNotification;
     private boolean autoAdAnalysis;
+    private String transcriptionModelId;
     private final Set<String> tags = new HashSet<>();
 
     public FeedPreferences(long feedID, AutoDownloadSetting autoDownload, AutoDeleteAction autoDeleteAction,
@@ -131,7 +132,7 @@ public class FeedPreferences implements Serializable {
                            String username, String password) {
         this(feedID, autoDownload, true, autoDeleteAction, volumeAdaptionSetting, username, password,
                 new FeedFilter(), SPEED_USE_GLOBAL, 0, 0, SkipSilence.GLOBAL,
-                false, false, newEpisodesAction, new HashSet<>());
+                false, false, newEpisodesAction, new HashSet<>(), null);
     }
 
     public FeedPreferences(long feedID, AutoDownloadSetting autoDownload, boolean keepUpdated,
@@ -140,7 +141,7 @@ public class FeedPreferences implements Serializable {
                            float feedPlaybackSpeed, int feedSkipIntro, int feedSkipEnding, SkipSilence feedSkipSilence,
                            boolean showEpisodeNotification, boolean autoAdAnalysis,
                            NewEpisodesAction newEpisodesAction,
-                           Set<String> tags) {
+                           Set<String> tags, String transcriptionModelId) {
         this.feedID = feedID;
         this.autoDownload = autoDownload;
         this.keepUpdated = keepUpdated;
@@ -157,6 +158,7 @@ public class FeedPreferences implements Serializable {
         this.autoAdAnalysis = autoAdAnalysis;
         this.newEpisodesAction = newEpisodesAction;
         this.tags.addAll(tags);
+        this.transcriptionModelId = transcriptionModelId;
     }
 
     /**
@@ -335,5 +337,16 @@ public class FeedPreferences implements Serializable {
 
     public void setAutoAdAnalysisEnabled(boolean enabled) {
         this.autoAdAnalysis = enabled;
+    }
+
+    /**
+     * Returns the feed-specific transcription model id or null to use the global default.
+     */
+    public String getTranscriptionModelId() {
+        return transcriptionModelId;
+    }
+
+    public void setTranscriptionModelId(String transcriptionModelId) {
+        this.transcriptionModelId = transcriptionModelId;
     }
 }

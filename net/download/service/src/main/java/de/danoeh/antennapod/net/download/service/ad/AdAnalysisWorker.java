@@ -1,17 +1,23 @@
 package de.danoeh.antennapod.net.download.service.ad;
 
+import android.app.Notification;
 import android.content.Context;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.core.app.NotificationCompat;
 import androidx.work.Data;
+import androidx.work.ForegroundInfo;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.openai.errors.UnauthorizedException;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -29,10 +35,11 @@ import java.util.Locale;
 
 import org.apache.commons.io.FileUtils;
 
-import de.danoeh.antennapod.ui.i18n.R;
+import de.danoeh.antennapod.net.download.service.R;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.ad.AdAnalysisResult;
 import de.danoeh.antennapod.model.ad.AdSegment;
+import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.storage.database.AdSegmentStore;
@@ -40,6 +47,7 @@ import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProvider;
 import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProviderFactory;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
+import de.danoeh.antennapod.ui.notifications.NotificationUtils;
 import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
 
 import org.greenrobot.eventbus.EventBus;
@@ -71,12 +79,54 @@ public class AdAnalysisWorker extends Worker {
 
     @NonNull
     @Override
+    public ListenableFuture<ForegroundInfo> getForegroundInfoAsync() {
+        return Futures.immediateFuture(createForegroundInfo("transcribing", 0));
+    }
+
+    private ForegroundInfo createForegroundInfo(String stage, int percent) {
+        Context context = getApplicationContext();
+        String contentText;
+        if ("transcribing".equals(stage)) {
+            contentText = context.getString(R.string.ad_analysis_transcribing) + " " + percent + "%";
+        } else if ("analyzing".equals(stage)) {
+            contentText = context.getString(R.string.ad_analysis_analyzing) + " " + percent + "%";
+        } else if ("done".equals(stage)) {
+            contentText = context.getString(R.string.ad_analysis_done);
+        } else {
+            contentText = context.getString(R.string.ad_analysis_in_progress);
+        }
+
+        Notification notification = new NotificationCompat.Builder(context, NotificationUtils.CHANNEL_ID_DOWNLOADING)
+                .setContentTitle(context.getString(R.string.ad_analysis_notification_title))
+                .setContentText(contentText)
+                .setSmallIcon(R.drawable.ic_notification_sync)
+                .setOngoing(true)
+                .setProgress(100, percent, false)
+                .build();
+
+        // For Android 14+ (API 34+), specify foreground service type
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            return new ForegroundInfo(R.id.notification_ad_analysis, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        }
+        return new ForegroundInfo(R.id.notification_ad_analysis, notification);
+    }
+
+    @NonNull
+    @Override
     public Result doWork() {
         long feedItemId = getInputData().getLong(DATA_FEED_ITEM_ID, -1);
         Log.d(TAG, "Ad analysis started on item: " + feedItemId);
 
         if (feedItemId <= 0) {
             return Result.failure();
+        }
+
+        // Set as foreground to prevent timeout on long transcriptions
+        try {
+            setForegroundAsync(createForegroundInfo("transcribing", 0));
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to set foreground service", e);
         }
 
         FeedItem item = DBReader.getFeedItem(feedItemId);
@@ -89,7 +139,8 @@ public class AdAnalysisWorker extends Worker {
         }
         AdAnalysisProvider provider;
         try {
-            provider = AdAnalysisProviderFactory.create(getApplicationContext());
+            String transcriptionModelId = resolveTranscriptionModelId(item.getFeed());
+            provider = AdAnalysisProviderFactory.create(getApplicationContext(), transcriptionModelId);
         } catch (Exception e) {
             Log.e(TAG, "Ad analysis provider could not be created", e);
             saveError(feedItemId, e.getMessage(), null, null);
@@ -363,6 +414,16 @@ public class AdAnalysisWorker extends Worker {
                 .equals(OpenAiPreferences.getAdAnalysisType(getApplicationContext()));
     }
 
+    private String resolveTranscriptionModelId(Feed feed) {
+        if (feed != null && feed.getPreferences() != null) {
+            String feedModel = feed.getPreferences().getTranscriptionModelId();
+            if (!TextUtils.isEmpty(feedModel) && !"default".equalsIgnoreCase(feedModel)) {
+                return feedModel;
+            }
+        }
+        return OpenAiPreferences.getLocalTranscriptionModel(getApplicationContext());
+    }
+
     private int getAnalysisChunkSizeChars(boolean cloudAnalysis) {
         return cloudAnalysis ? CLOUD_ANALYSIS_MAX_CHARS : LOCAL_ANALYSIS_MAX_CHARS;
     }
@@ -458,6 +519,13 @@ public class AdAnalysisWorker extends Worker {
                 .putInt(PROGRESS_KEY_PERCENT, percent)
                 .build();
         setProgressAsync(progress);
+
+        // Update foreground notification with current progress
+        try {
+            setForegroundAsync(createForegroundInfo(stage, percent));
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to update foreground notification", e);
+        }
     }
 
     private boolean isUnauthorized(Throwable throwable) {

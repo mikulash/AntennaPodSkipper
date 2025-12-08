@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
@@ -65,6 +66,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     private static final String PREF_NOTIFICATION = "episodeNotification";
     private static final String PREF_TAGS = "tags";
     private static final String PREF_AUTO_AD_ANALYSIS = "autoAdAnalysis";
+    private static final String PREF_FEED_TRANSCRIPTION_MODEL = "feedTranscriptionModel";
 
     private Feed feed;
     private Disposable disposable;
@@ -255,6 +257,25 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
             autoAdPreference.setChecked(enabled);
             return false;
         });
+        ListPreference feedTranscriptionModelPref = findPreference(PREF_FEED_TRANSCRIPTION_MODEL);
+        if (feedTranscriptionModelPref != null) {
+            String currentModel = TextUtils.isEmpty(feedPreferences.getTranscriptionModelId())
+                    ? "default"
+                    : feedPreferences.getTranscriptionModelId();
+            feedTranscriptionModelPref.setValue(currentModel);
+            feedTranscriptionModelPref.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+            feedTranscriptionModelPref.setOnPreferenceChangeListener((preference, newValue) -> {
+                String selected = (String) newValue;
+                if ("default".equalsIgnoreCase(selected)) {
+                    feedPreferences.setTranscriptionModelId(null);
+                } else {
+                    feedPreferences.setTranscriptionModelId(selected);
+                }
+                DBWriter.setFeedPreferences(feedPreferences);
+                feedTranscriptionModelPref.setValue(selected);
+                return false;
+            });
+        }
         SwitchPreferenceCompat notificationPreference = findPreference(PREF_NOTIFICATION);
         notificationPreference.setChecked(feedPreferences.getShowEpisodeNotification());
         notificationPreference.setOnPreferenceChangeListener((preference, newValue) -> {
