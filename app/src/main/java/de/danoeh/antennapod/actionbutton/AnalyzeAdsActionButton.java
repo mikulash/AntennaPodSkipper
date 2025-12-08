@@ -64,17 +64,19 @@ public class AnalyzeAdsActionButton extends ItemActionButton {
             new MaterialAlertDialogBuilder(context)
                     .setTitle(R.string.ad_analysis_overwrite_title)
                     .setMessage(R.string.ad_analysis_overwrite_message)
-                    .setPositiveButton(R.string.ad_analysis_overwrite_confirm,
-                            (d, w) -> runAnalysis(context, media))
+                    .setPositiveButton(R.string.ad_analysis_overwrite_retranscribe,
+                            (d, w) -> runAnalysis(context, media, false))
+                    .setNeutralButton(R.string.ad_analysis_use_existing_transcript,
+                            (d, w) -> runAnalysis(context, media, true))
                     .setNegativeButton(android.R.string.cancel, null)
                     .show();
             return;
         }
-        runAnalysis(context, media);
+        runAnalysis(context, media, false);
     }
 
-    private void runAnalysis(Context context, FeedMedia media) {
-        AdAnalysisWorkScheduler.enqueueManual(context, media);
+    private void runAnalysis(Context context, FeedMedia media, boolean reuseExistingTranscript) {
+        AdAnalysisWorkScheduler.enqueueManual(context, media, reuseExistingTranscript);
         Toast.makeText(context, R.string.ad_analysis_requested, Toast.LENGTH_SHORT).show();
     }
 }

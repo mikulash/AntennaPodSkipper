@@ -26,15 +26,15 @@ public final class AdAnalysisWorkScheduler {
     }
 
     public static void enqueueIfNeeded(Context context, FeedMedia media) {
-        enqueue(context, media, true, ExistingWorkPolicy.KEEP);
+        enqueue(context, media, true, ExistingWorkPolicy.KEEP, false);
     }
 
-    public static void enqueueManual(Context context, FeedMedia media) {
-        enqueue(context, media, false, ExistingWorkPolicy.REPLACE);
+    public static void enqueueManual(Context context, FeedMedia media, boolean reuseExistingTranscript) {
+        enqueue(context, media, false, ExistingWorkPolicy.REPLACE, reuseExistingTranscript);
     }
 
     private static void enqueue(Context context, FeedMedia media, boolean respectPreference,
-                                ExistingWorkPolicy policy) {
+                                ExistingWorkPolicy policy, boolean reuseExistingTranscript) {
         if (media == null || media.getItem() == null) {
             return;
         }
@@ -53,6 +53,7 @@ public final class AdAnalysisWorkScheduler {
         }
         Data input = new Data.Builder()
                 .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, item.getId())
+                .putBoolean(AdAnalysisWorker.DATA_REUSE_EXISTING_TRANSCRIPT, reuseExistingTranscript)
                 .build();
 
         // Only require network if not running in fully local mode

@@ -18,6 +18,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -25,8 +26,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.TreeMap;
+
+import org.apache.commons.io.FileUtils;
 
 import de.danoeh.antennapod.ui.i18n.R;
 import de.danoeh.antennapod.event.MessageEvent;
@@ -38,6 +39,7 @@ import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProvider;
 import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProviderFactory;
+import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
 
 import org.greenrobot.eventbus.EventBus;
@@ -45,10 +47,13 @@ import org.greenrobot.eventbus.EventBus;
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class AdAnalysisWorker extends Worker {
     public static final String DATA_FEED_ITEM_ID = "feedItemId";
+    public static final String DATA_REUSE_EXISTING_TRANSCRIPT = "reuseExistingTranscript";
     private static final String PROGRESS_KEY_PERCENT = "analysis_progress_percent";
     private static final String PROGRESS_KEY_STAGE = "analysis_progress_stage";
     private static final String TAG = "AdAnalysisWorker";
     private static final long TRANSCRIPTION_CHUNK_SECONDS = 150; // 2.5 minutes
+    private static final int LOCAL_ANALYSIS_MAX_CHARS = 60_000; // modest window for local analysis
+    private static final int CLOUD_ANALYSIS_MAX_CHARS = 400_000; // leverage large cloud context
 
     private static class TranscriptionResult {
         final String transcript;
@@ -97,9 +102,23 @@ public class AdAnalysisWorker extends Worker {
             Log.i(TAG, "Ad analysis started for feedItemId=" + feedItemId
                     + ", title=" + item.getTitle());
             setProgressStage("transcribing", 0);
-            TranscriptionResult result = transcribeInChunks(provider, media);
+            boolean reuseTranscript = getInputData().getBoolean(DATA_REUSE_EXISTING_TRANSCRIPT, false);
+            TranscriptionResult result;
+            if (reuseTranscript) {
+                String existing = tryLoadExistingTranscript(media, feedItemId);
+                if (!TextUtils.isEmpty(existing)) {
+                    Log.i(TAG, "Reusing existing transcript for analysis (length=" + existing.length() + ")");
+                    setProgressStage("transcribing", 100);
+                    result = new TranscriptionResult(existing, true);
+                } else {
+                    Log.w(TAG, "Requested to reuse transcript, but none found. Falling back to new transcription.");
+                    result = transcribeInChunks(provider, media);
+                }
+            } else {
+                result = transcribeInChunks(provider, media);
+            }
             transcript = result.transcript;
-            Log.i(TAG, "Transcription complete, length=" + transcript.length()
+            Log.i(TAG, "Transcription ready, length=" + transcript.length()
                     + ", fullySuccessful=" + result.fullySuccessful);
 
             // Store transcript immediately if transcription was fully successful
@@ -113,8 +132,12 @@ public class AdAnalysisWorker extends Worker {
                 }
             }
 
-            Log.i(TAG, "Requesting ad classification using model " + provider.getModelName());
-            List<String> transcriptChunks = splitTranscriptIntoChunks(transcript, 300); // 5 minute windows
+            boolean cloudAnalysis = isCloudAnalysisSelected();
+            int analysisChunkChars = getAnalysisChunkSizeChars(cloudAnalysis);
+            Log.i(TAG, "Requesting ad classification using model " + provider.getModelName()
+                    + " using " + analysisChunkChars + " character transcript windows"
+                    + (cloudAnalysis ? " (cloud analysis)" : " (local analysis)"));
+            List<String> transcriptChunks = splitTranscriptIntoChunks(transcript, analysisChunkChars);
             if (transcriptChunks.isEmpty()) {
                 transcriptChunks = Collections.singletonList(transcript);
             }
@@ -335,39 +358,49 @@ public class AdAnalysisWorker extends Worker {
         return merged;
     }
 
-    private List<String> splitTranscriptIntoChunks(String transcript, int windowSeconds) {
+    private boolean isCloudAnalysisSelected() {
+        return OpenAiPreferences.ANALYSIS_TYPE_CLOUD
+                .equals(OpenAiPreferences.getAdAnalysisType(getApplicationContext()));
+    }
+
+    private int getAnalysisChunkSizeChars(boolean cloudAnalysis) {
+        return cloudAnalysis ? CLOUD_ANALYSIS_MAX_CHARS : LOCAL_ANALYSIS_MAX_CHARS;
+    }
+
+    private List<String> splitTranscriptIntoChunks(String transcript, int maxChars) {
         List<String> chunks = new ArrayList<>();
-        if (TextUtils.isEmpty(transcript) || windowSeconds <= 0) {
+        if (TextUtils.isEmpty(transcript) || maxChars <= 0) {
             return chunks;
         }
-        Map<Integer, StringBuilder> chunkBuilders = new TreeMap<>();
-        int currentChunkIndex = 0;
-        String header = "WEBVTT\n\n";
-
-        String[] lines = transcript.split("\n");
-        for (String line : lines) {
-            if (line.trim().equalsIgnoreCase("WEBVTT")) {
-                // Skip duplicate headers when rebuilding chunks
-                continue;
-            }
-
-            if (line.contains("-->")) {
-                String[] parts = line.split("-->");
-                if (parts.length == 2) {
-                    double startSeconds = parseSeconds(parts[0].trim());
-                    currentChunkIndex = (int) (startSeconds / windowSeconds);
-                }
-            }
-
-            StringBuilder builder = chunkBuilders.computeIfAbsent(
-                    currentChunkIndex, k -> new StringBuilder(header));
-            builder.append(line).append('\n');
-        }
-
-        for (StringBuilder builder : chunkBuilders.values()) {
-            chunks.add(builder.toString());
+        int length = transcript.length();
+        for (int start = 0; start < length; start += maxChars) {
+            int end = Math.min(length, start + maxChars);
+            chunks.add(transcript.substring(start, end));
         }
         return chunks;
+    }
+
+    private String tryLoadExistingTranscript(FeedMedia media, long feedItemId) {
+        try {
+            AdAnalysisResult existingResult = AdSegmentStore.load(getApplicationContext(), feedItemId);
+            if (existingResult != null && !TextUtils.isEmpty(existingResult.getTranscript())) {
+                return existingResult.getTranscript();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to load transcript from existing analysis", e);
+        }
+        if (media == null || TextUtils.isEmpty(media.getTranscriptFileUrl())) {
+            return null;
+        }
+        try {
+            File transcriptFile = new File(media.getTranscriptFileUrl());
+            if (transcriptFile.exists()) {
+                return FileUtils.readFileToString(transcriptFile, (String) null);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to read existing transcript file", e);
+        }
+        return null;
     }
 
     private String sanitizeJson(String raw) {
