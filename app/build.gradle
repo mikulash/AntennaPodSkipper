@@ -20,6 +20,25 @@ android {
                 arguments = [eventBusIndex: 'de.danoeh.antennapod.ApEventBusIndex']
             }
         }
+
+        // NDK configuration for llama.cpp
+        ndk {
+            abiFilters 'arm64-v8a', 'x86_64'
+        }
+
+        externalNativeBuild {
+            cmake {
+                cppFlags "-std=c++17"
+                arguments "-DANDROID_STL=c++_shared"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
     }
 
     signingConfigs {
@@ -43,6 +62,7 @@ android {
             minifyEnabled true
             shrinkResources true
             signingConfig signingConfigs.releaseConfig
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 

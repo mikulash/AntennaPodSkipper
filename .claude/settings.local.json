@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(mkdir:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

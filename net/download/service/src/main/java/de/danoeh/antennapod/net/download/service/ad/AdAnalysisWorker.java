@@ -25,6 +25,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
 
 import de.danoeh.antennapod.ui.i18n.R;
 import de.danoeh.antennapod.event.MessageEvent;
@@ -112,11 +114,24 @@ public class AdAnalysisWorker extends Worker {
             }
 
             Log.i(TAG, "Requesting ad classification using model " + provider.getModelName());
+            List<String> transcriptChunks = splitTranscriptIntoChunks(transcript, 300); // 5 minute windows
+            if (transcriptChunks.isEmpty()) {
+                transcriptChunks = Collections.singletonList(transcript);
+            }
             setProgressStage("analyzing", 90);
-            String content = provider.analyzeTranscript(buildPrompt(transcript, media.getDuration()));
-            Log.i(TAG, "Model response content: " + content);
-            Log.i(TAG, "Model response received, raw length=" + content.length());
-            List<AdSegment> segments = mergeSegments(parseSegments(content));
+
+            List<AdSegment> segments = new ArrayList<>();
+            for (int i = 0; i < transcriptChunks.size(); i++) {
+                String chunkPrompt = buildPrompt(transcriptChunks.get(i), media.getDuration());
+                Log.d(TAG, "Analyzing transcript chunk " + (i + 1) + "/" + transcriptChunks.size()
+                        + ", prompt length=" + chunkPrompt.length());
+                String content = provider.analyzeTranscript(chunkPrompt);
+                Log.d(TAG, "Chunk " + (i + 1) + " response length=" + content.length());
+                segments.addAll(parseSegments(content));
+                int percent = 90 + (int) Math.min(10, Math.round(((i + 1) / (double) transcriptChunks.size()) * 10));
+                setProgressStage("analyzing", percent);
+            }
+            segments = mergeSegments(segments);
             Log.i(TAG, "Ad analysis finished: " + segments.size() + " segment(s) detected");
             AdSegmentStore.save(getApplicationContext(), feedItemId,
                     new AdAnalysisResult(segments, System.currentTimeMillis(), provider.getModelName(), "",
@@ -318,6 +333,41 @@ public class AdAnalysisWorker extends Worker {
         }
         merged.add(current);
         return merged;
+    }
+
+    private List<String> splitTranscriptIntoChunks(String transcript, int windowSeconds) {
+        List<String> chunks = new ArrayList<>();
+        if (TextUtils.isEmpty(transcript) || windowSeconds <= 0) {
+            return chunks;
+        }
+        Map<Integer, StringBuilder> chunkBuilders = new TreeMap<>();
+        int currentChunkIndex = 0;
+        String header = "WEBVTT\n\n";
+
+        String[] lines = transcript.split("\n");
+        for (String line : lines) {
+            if (line.trim().equalsIgnoreCase("WEBVTT")) {
+                // Skip duplicate headers when rebuilding chunks
+                continue;
+            }
+
+            if (line.contains("-->")) {
+                String[] parts = line.split("-->");
+                if (parts.length == 2) {
+                    double startSeconds = parseSeconds(parts[0].trim());
+                    currentChunkIndex = (int) (startSeconds / windowSeconds);
+                }
+            }
+
+            StringBuilder builder = chunkBuilders.computeIfAbsent(
+                    currentChunkIndex, k -> new StringBuilder(header));
+            builder.append(line).append('\n');
+        }
+
+        for (StringBuilder builder : chunkBuilders.values()) {
+            chunks.add(builder.toString());
+        }
+        return chunks;
     }
 
     private String sanitizeJson(String raw) {
