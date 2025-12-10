@@ -47,3 +47,4 @@ gradle.properties
 *.p12
 .vscode
 /net/download/service/.cxx/
+/app/.cxx/
