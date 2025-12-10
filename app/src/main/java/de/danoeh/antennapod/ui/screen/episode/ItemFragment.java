@@ -14,8 +14,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.LiveData;
+
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.resource.bitmap.FitCenter;
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners;
@@ -24,6 +27,17 @@ import com.skydoves.balloon.ArrowOrientation;
 import com.skydoves.balloon.ArrowOrientationRules;
 import com.skydoves.balloon.Balloon;
 import com.skydoves.balloon.BalloonAnimation;
+import com.google.android.material.tabs.TabLayout;
+
+import androidx.work.WorkInfo;
+import androidx.work.WorkManager;
+
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.StyleSpan;
+import android.text.style.ForegroundColorSpan;
+import android.graphics.Typeface;
+
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.actionbutton.CancelDownloadActionButton;
 import de.danoeh.antennapod.actionbutton.DeleteActionButton;
@@ -35,6 +49,7 @@ import de.danoeh.antennapod.actionbutton.PlayActionButton;
 import de.danoeh.antennapod.actionbutton.PlayLocalActionButton;
 import de.danoeh.antennapod.actionbutton.StreamActionButton;
 import de.danoeh.antennapod.actionbutton.VisitWebsiteActionButton;
+import de.danoeh.antennapod.actionbutton.AnalyzeAdsActionButton;
 import de.danoeh.antennapod.activity.MainActivity;
 import de.danoeh.antennapod.databinding.FeeditemFragmentBinding;
 import de.danoeh.antennapod.event.EpisodeDownloadEvent;
@@ -51,6 +66,9 @@ import de.danoeh.antennapod.playback.service.PlaybackStatus;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.preferences.UsageStatistics;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
+import de.danoeh.antennapod.storage.database.AdSegmentStore;
+import de.danoeh.antennapod.model.ad.AdAnalysisResult;
+import de.danoeh.antennapod.model.ad.AdSegment;
 import de.danoeh.antennapod.ui.appstartintent.OnlineFeedviewActivityStarter;
 import de.danoeh.antennapod.ui.cleaner.ShownotesCleaner;
 import de.danoeh.antennapod.ui.common.Converter;
@@ -63,10 +81,15 @@ import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
+
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
+import org.apache.commons.io.FileUtils;
+
+import java.io.File;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -99,9 +122,18 @@ public class ItemFragment extends Fragment {
 
     private ItemActionButton actionButton1;
     private ItemActionButton actionButton2;
+    private ItemActionButton actionButtonAd;
     private Disposable disposable;
     private PlaybackController controller;
     private FeeditemFragmentBinding viewBinding;
+    private LiveData<List<WorkInfo>> adWorkLiveData;
+    private boolean isAdAnalysisRunning = false;
+    private String adAnalysisStageLabel = null;
+    private int adAnalysisPercent = -1;
+
+    private boolean isAdAnalysisSupported() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -140,6 +172,21 @@ public class ItemFragment extends Fragment {
             }
             actionButton1.onClick(getContext());
         });
+        viewBinding.butActionAd.setOnClickListener(v -> {
+            if (actionButtonAd == null || item == null) {
+                return;
+            }
+            if (isAdAnalysisRunning) {
+                cancelAdAnalysisWork(item.getId());
+                isAdAnalysisRunning = false;
+                adAnalysisStageLabel = null;
+                adAnalysisPercent = -1;
+                viewBinding.circularProgressAd.setVisibility(View.GONE);
+                updateButtons();
+                return;
+            }
+            actionButtonAd.onClick(getContext());
+        });
         viewBinding.butAction2.setOnClickListener(v -> {
             if (actionButton2 instanceof DownloadActionButton && UserPreferences.isStreamOverDownload()
                     && UsageStatistics.hasSignificantBiasTo(UsageStatistics.ACTION_DOWNLOAD)) {
@@ -158,6 +205,15 @@ public class ItemFragment extends Fragment {
             copyToClipboard(requireContext(), viewBinding.txtvTitle.getText().toString());
             return true;
         });
+        if (isAdAnalysisSupported()) {
+            setupAdTabs();
+            if (item != null) {
+                observeAdAnalysisWork(item.getId());
+            }
+        } else {
+            viewBinding.adSegmentsContainer.setVisibility(View.GONE);
+            viewBinding.butActionAd.setVisibility(View.GONE);
+        }
         return viewBinding.getRoot();
     }
 
@@ -286,6 +342,7 @@ public class ItemFragment extends Fragment {
                 .apply(options)
                 .into(viewBinding.imgvCover);
         updateButtons();
+        updateAdSegmentsSummary();
     }
 
     private void updateButtons() {
@@ -303,7 +360,10 @@ public class ItemFragment extends Fragment {
         if (media == null) {
             actionButton1 = new MarkAsPlayedActionButton(item);
             actionButton2 = new VisitWebsiteActionButton(item);
+            actionButtonAd = null;
             viewBinding.noMediaLabel.setVisibility(View.VISIBLE);
+            viewBinding.adSegmentsContainer.setVisibility(View.GONE);
+            viewBinding.circularProgressAd.setVisibility(View.GONE);
         } else {
             viewBinding.noMediaLabel.setVisibility(View.GONE);
             if (media.getDuration() > 0) {
@@ -327,6 +387,14 @@ public class ItemFragment extends Fragment {
             } else {
                 actionButton2 = new DeleteActionButton(item);
             }
+            if (media.isDownloaded() && isAdAnalysisSupported()) {
+                actionButtonAd = new AnalyzeAdsActionButton(item);
+                viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
+            } else {
+                actionButtonAd = null;
+                viewBinding.adSegmentsContainer.setVisibility(View.GONE);
+                viewBinding.circularProgressAd.setVisibility(View.GONE);
+            }
         }
 
         viewBinding.butAction1Text.setText(actionButton1.getLabel());
@@ -334,10 +402,238 @@ public class ItemFragment extends Fragment {
         viewBinding.butAction1Icon.setImageResource(actionButton1.getDrawable());
         viewBinding.butAction1.setVisibility(actionButton1.getVisibility());
 
+        if (actionButtonAd != null) {
+            if (isAdAnalysisRunning) {
+                viewBinding.butActionAdText.setText(
+                        TextUtils.isEmpty(adAnalysisStageLabel)
+                                ? getString(R.string.ad_analysis_transcribing)
+                                : adAnalysisStageLabel);
+                viewBinding.circularProgressAd.setVisibility(View.VISIBLE);
+                viewBinding.circularProgressAd.setIndeterminate(adAnalysisPercent < 0);
+                if (adAnalysisPercent >= 0) {
+                    viewBinding.circularProgressAd.setPercentage(
+                            Math.max(0.01f, adAnalysisPercent / 100f), item);
+                }
+            } else if (AdSegmentStore.hasAnalysis(requireContext(), item.getId())) {
+                viewBinding.butActionAdText.setText(R.string.ad_analysis_again);
+                viewBinding.circularProgressAd.setVisibility(View.GONE);
+            } else {
+                viewBinding.butActionAdText.setText(actionButtonAd.getLabel());
+                viewBinding.circularProgressAd.setVisibility(View.GONE);
+            }
+            viewBinding.butActionAdText.setTransformationMethod(null);
+            viewBinding.butActionAdIcon.setImageResource(actionButtonAd.getDrawable());
+            viewBinding.butActionAdIcon.setVisibility(isAdAnalysisRunning ? View.INVISIBLE : View.VISIBLE);
+            viewBinding.butActionAd.setVisibility(actionButtonAd.getVisibility());
+        } else {
+            viewBinding.butActionAd.setVisibility(View.GONE);
+        }
+
         viewBinding.butAction2Text.setText(actionButton2.getLabel());
         viewBinding.butAction2Text.setTransformationMethod(null);
         viewBinding.butAction2Icon.setImageResource(actionButton2.getDrawable());
         viewBinding.butAction2.setVisibility(actionButton2.getVisibility());
+    }
+
+    private void updateAdSegmentsSummary() {
+        if (!isAdAnalysisSupported()) {
+            viewBinding.adSegmentsContainer.setVisibility(View.GONE);
+            return;
+        }
+        if (item == null || item.getMedia() == null || !item.getMedia().isDownloaded()) {
+            viewBinding.adSegmentsContainer.setVisibility(View.GONE);
+            return;
+        }
+        if (!AdSegmentStore.hasAnalysis(requireContext(), item.getId())) {
+            viewBinding.adSegmentsContainer.setVisibility(View.GONE);
+            return;
+        }
+        FeedMedia media = item.getMedia();
+        AdAnalysisResult result = AdSegmentStore.load(requireContext(), item.getId());
+        if (result == null) {
+            viewBinding.adSegmentsContent.setText(R.string.ad_segments_not_analyzed);
+            viewBinding.adTranscriptContent.setText(loadTranscriptText(media, null));
+            viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
+            selectAdTab(0);
+            return;
+        }
+        if (result.getSegments().isEmpty()) {
+            viewBinding.adSegmentsContent.setText(R.string.ad_segments_empty);
+            viewBinding.adTranscriptContent.setText(loadTranscriptText(media, result));
+            viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
+            selectAdTab(0);
+            return;
+        }
+        long totalAdDurationMs = 0;
+        for (AdSegment segment : result.getSegments()) {
+            totalAdDurationMs += Math.max(0, (segment.getEndSeconds() - segment.getStartSeconds()) * 1000);
+        }
+        SpannableStringBuilder sb = new SpannableStringBuilder();
+        String totalDurationString = Converter.getDurationStringLong((int) totalAdDurationMs);
+        int totalStart = sb.length();
+        sb.append(getString(R.string.ad_segments_total_length, totalDurationString));
+        sb.setSpan(new StyleSpan(Typeface.BOLD), totalStart, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        sb.append("\n");
+        for (int i = 0; i < result.getSegments().size(); i++) {
+            AdSegment seg = result.getSegments().get(i);
+            if (i > 0) {
+                sb.append("\n");
+            }
+
+            int startSpan = sb.length();
+            sb.append(Converter.getDurationStringLong((int) (seg.getStartSeconds() * 1000)));
+            sb.append(" - ");
+            sb.append(Converter.getDurationStringLong((int) (seg.getEndSeconds() * 1000)));
+            sb.setSpan(new StyleSpan(Typeface.BOLD), startSpan, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            if (!TextUtils.isEmpty(seg.getReason())) {
+                sb.append("\n");
+                int reasonStart = sb.length();
+                sb.append(seg.getReason());
+                sb.setSpan(new ForegroundColorSpan(ThemeUtils.getColorFromAttr(requireContext(),
+                                android.R.attr.textColorSecondary)), reasonStart, sb.length(),
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+        }
+        viewBinding.adSegmentsContent.setText(sb, TextView.BufferType.SPANNABLE);
+        viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
+        viewBinding.adTranscriptContent.setText(loadTranscriptText(media, result));
+        selectAdTab(0);
+    }
+
+    private void setupAdTabs() {
+        TabLayout tabs = viewBinding.adTabLayout;
+        tabs.removeAllTabs();
+        tabs.addTab(tabs.newTab().setText(R.string.ad_segments_tab_ads));
+        tabs.addTab(tabs.newTab().setText(R.string.ad_segments_tab_transcript));
+        tabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                int pos = tab.getPosition();
+                viewBinding.adSegmentsContent.setVisibility(pos == 0 ? View.VISIBLE : View.GONE);
+                viewBinding.adTranscriptContent.setVisibility(pos == 1 ? View.VISIBLE : View.GONE);
+            }
+
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+            }
+        });
+        selectAdTab(0);
+    }
+
+    private void selectAdTab(int index) {
+        TabLayout tabs = viewBinding.adTabLayout;
+        if (tabs.getTabCount() > index) {
+            TabLayout.Tab tab = tabs.getTabAt(index);
+            if (tab != null) {
+                tab.select();
+            }
+        }
+        viewBinding.adSegmentsContent.setVisibility(index == 0 ? View.VISIBLE : View.GONE);
+        viewBinding.adTranscriptContent.setVisibility(index == 1 ? View.VISIBLE : View.GONE);
+    }
+
+    private String loadTranscriptText(@Nullable FeedMedia media, @Nullable AdAnalysisResult result) {
+        if (result != null && !TextUtils.isEmpty(result.getTranscript())) {
+            return result.getTranscript();
+        }
+        if (media == null || TextUtils.isEmpty(media.getTranscriptFileUrl())) {
+            return getString(R.string.ad_segments_not_analyzed);
+        }
+        try {
+            File transcriptFile = new File(media.getTranscriptFileUrl());
+            if (transcriptFile.exists()) {
+                return FileUtils.readFileToString(transcriptFile, (String) null);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to load transcript text", e);
+        }
+        return getString(R.string.ad_segments_not_analyzed);
+    }
+
+    private void observeAdAnalysisWork(long feedItemId) {
+        if (!isAdAnalysisSupported()) {
+            return;
+        }
+        String tag = "ad-analysis-" + feedItemId;
+        if (adWorkLiveData != null) {
+            adWorkLiveData.removeObservers(getViewLifecycleOwner());
+        }
+        adWorkLiveData = WorkManager.getInstance(requireContext()).getWorkInfosByTagLiveData(tag);
+        adWorkLiveData.observe(getViewLifecycleOwner(), this::updateAdAnalysisProgress);
+    }
+
+    private void cancelAdAnalysisWork(long feedItemId) {
+        String tag = "ad-analysis-" + feedItemId;
+        WorkManager.getInstance(requireContext()).cancelAllWorkByTag(tag);
+    }
+
+    private void updateAdAnalysisProgress(List<WorkInfo> workInfos) {
+        if (!isAdAnalysisSupported()) {
+            isAdAnalysisRunning = false;
+            adAnalysisStageLabel = null;
+            adAnalysisPercent = -1;
+            viewBinding.circularProgressAd.setVisibility(View.GONE);
+            viewBinding.butActionAd.setVisibility(View.GONE);
+            return;
+        }
+        if (workInfos == null || workInfos.isEmpty()) {
+            isAdAnalysisRunning = false;
+            adAnalysisStageLabel = null;
+            adAnalysisPercent = -1;
+            updateButtons();
+            return;
+        }
+        for (WorkInfo info : workInfos) {
+            if (info.getState() == WorkInfo.State.RUNNING) {
+                String stage = info.getProgress().getString("analysis_progress_stage");
+                int percent = info.getProgress().getInt("analysis_progress_percent", -1);
+                showAdAnalysisProgress(stage, percent);
+                return;
+            }
+            if (info.getState() == WorkInfo.State.ENQUEUED) {
+                showAdAnalysisProgress("transcribing", -1);
+                return;
+            }
+            if (info.getState().isFinished()) {
+                isAdAnalysisRunning = false;
+                adAnalysisStageLabel = null;
+                adAnalysisPercent = -1;
+                updateButtons();
+                updateAdSegmentsSummary();
+                return;
+            }
+        }
+        // No running/enqueued work -> reset
+        isAdAnalysisRunning = false;
+        adAnalysisStageLabel = null;
+        adAnalysisPercent = -1;
+        updateButtons();
+        updateAdSegmentsSummary();
+    }
+
+    private void showAdAnalysisProgress(String stage, int percent) {
+        isAdAnalysisRunning = true;
+        adAnalysisStageLabel = mapStageLabel(stage);
+        adAnalysisPercent = percent;
+        viewBinding.circularProgressAd.setVisibility(View.VISIBLE);
+        viewBinding.circularProgressAd.setIndeterminate(percent < 0);
+        if (percent >= 0) {
+            viewBinding.circularProgressAd.setPercentage(Math.max(0.01f, percent / 100f), item);
+        }
+        viewBinding.butActionAdText.setText(adAnalysisStageLabel);
+        viewBinding.butActionAdText.setTransformationMethod(null);
+        viewBinding.butActionAdIcon.setVisibility(View.INVISIBLE);
+    }
+
+    private String mapStageLabel(String stage) {
+        if ("analyzing".equalsIgnoreCase(stage)) {
+            return getString(R.string.ad_analysis_analyzing);
+        }
+        return getString(R.string.ad_analysis_transcribing);
     }
 
     @Override
@@ -400,15 +696,18 @@ public class ItemFragment extends Fragment {
             viewBinding.progbarLoading.setVisibility(View.VISIBLE);
         }
         disposable = Observable.fromCallable(this::loadInBackground)
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe(result -> {
-                viewBinding.progbarLoading.setVisibility(View.GONE);
-                viewBinding.header.setVisibility(View.VISIBLE);
-                item = result;
-                onFragmentLoaded();
-                itemsLoaded = true;
-            }, error -> Log.e(TAG, Log.getStackTraceString(error)));
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(result -> {
+                    viewBinding.progbarLoading.setVisibility(View.GONE);
+                    viewBinding.header.setVisibility(View.VISIBLE);
+                    item = result;
+                    onFragmentLoaded();
+                    if (isAdAnalysisSupported()) {
+                        observeAdAnalysisWork(item.getId());
+                    }
+                    itemsLoaded = true;
+                }, error -> Log.e(TAG, Log.getStackTraceString(error)));
     }
 
     @Nullable

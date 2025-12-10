@@ -2,6 +2,7 @@ package de.danoeh.antennapod.net.download.service.episode;
 
 import android.content.Context;
 import android.media.MediaMetadataRetriever;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -10,6 +11,7 @@ import de.danoeh.antennapod.model.MediaMetadataRetrieverCompat;
 import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
 import de.danoeh.antennapod.ui.chapters.ChapterUtils;
+
 import org.apache.commons.lang3.StringUtils;
 import org.greenrobot.eventbus.EventBus;
 
@@ -27,6 +29,7 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.net.sync.serviceinterface.EpisodeAction;
 import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
+import de.danoeh.antennapod.net.download.service.ad.AdAnalysisWorkScheduler;
 
 /**
  * Handles a completed media download.
@@ -117,8 +120,12 @@ public class MediaDownloadedHandler implements Runnable {
         if (item != null && item.getFeed().getState() != Feed.STATE_NOT_SUBSCRIBED) {
             SynchronizationQueue.getInstance().enqueueEpisodeAction(
                     new EpisodeAction.Builder(item, EpisodeAction.DOWNLOAD)
-                        .currentTimestamp()
-                        .build());
+                            .currentTimestamp()
+                            .build());
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            AdAnalysisWorkScheduler.enqueueIfNeeded(context, media);
         }
     }
 

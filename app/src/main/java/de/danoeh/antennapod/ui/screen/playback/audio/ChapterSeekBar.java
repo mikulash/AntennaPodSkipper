@@ -6,6 +6,7 @@ import android.graphics.Paint;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
+
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.ui.common.ThemeUtils;
 
@@ -22,6 +23,8 @@ public class ChapterSeekBar extends androidx.appcompat.widget.AppCompatSeekBar {
     private boolean isHighlighted = false;
     private final Paint paintBackground = new Paint();
     private final Paint paintProgressPrimary = new Paint();
+    private final Paint paintAdSegment = new Paint();
+    private float[][] adSegments;
 
     public ChapterSeekBar(Context context) {
         super(context);
@@ -46,10 +49,13 @@ public class ChapterSeekBar extends androidx.appcompat.widget.AppCompatSeekBar {
         paintBackground.setColor(ThemeUtils.getColorFromAttr(getContext(), R.attr.colorSurfaceVariant));
         paintBackground.setAlpha(128);
         paintProgressPrimary.setColor(ThemeUtils.getColorFromAttr(getContext(), R.attr.colorPrimary));
+        paintAdSegment.setColor(0xFF000000); // black overlay for skipped segments
+        paintAdSegment.setAlpha(160);
     }
 
     /**
      * Sets the relative positions of the chapter dividers.
+     *
      * @param dividerPos of the chapter dividers relative to the duration of the media.
      */
     public void setDividerPos(final float[] dividerPos) {
@@ -61,6 +67,14 @@ public class ChapterSeekBar extends androidx.appcompat.widget.AppCompatSeekBar {
         } else {
             this.dividerPos = null;
         }
+        invalidate();
+    }
+
+    /**
+     * Sets advertisement segments as normalized start/end pairs (0..1).
+     */
+    public void setAdSegments(float[][] adSegments) {
+        this.adSegments = adSegments;
         invalidate();
     }
 
@@ -98,6 +112,7 @@ public class ChapterSeekBar extends androidx.appcompat.widget.AppCompatSeekBar {
         canvas.drawRect(0, top, width, bottom, paintBackground);
         canvas.drawRect(0, top, progressSecondary, bottom, paintBackground);
         canvas.drawRect(0, top, progressPrimary, bottom, paintProgressPrimary);
+        drawAdSegments(canvas);
         canvas.restoreToCount(saveCount);
     }
 
@@ -135,8 +150,41 @@ public class ChapterSeekBar extends androidx.appcompat.widget.AppCompatSeekBar {
             } else {
                 canvas.drawRect(leftCurr, top, progressPrimary, bottom, paintProgressPrimary);
             }
+            drawAdSegments(canvas, left, right);
         }
         canvas.restoreToCount(saveCount);
+    }
+
+    private void drawAdSegments(Canvas canvas) {
+        if (adSegments == null || adSegments.length == 0) {
+            return;
+        }
+        for (float[] seg : adSegments) {
+            if (seg.length != 2) {
+                continue;
+            }
+            float start = Math.max(0, Math.min(1, seg[0])) * width;
+            float end = Math.max(0, Math.min(1, seg[1])) * width;
+            if (end > start) {
+                canvas.drawRect(start, top, end, bottom, paintAdSegment);
+            }
+        }
+    }
+
+    private void drawAdSegments(Canvas canvas, float chapterLeft, float chapterRight) {
+        if (adSegments == null || adSegments.length == 0) {
+            return;
+        }
+        for (float[] seg : adSegments) {
+            if (seg.length != 2) {
+                continue;
+            }
+            float start = Math.max(chapterLeft, Math.min(chapterRight, seg[0] * width));
+            float end = Math.max(chapterLeft, Math.min(chapterRight, seg[1] * width));
+            if (end > start) {
+                canvas.drawRect(start, top, end, bottom, paintAdSegment);
+            }
+        }
     }
 
     private void drawThumb(Canvas canvas) {
