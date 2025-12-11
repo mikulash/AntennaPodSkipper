@@ -35,6 +35,7 @@ import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProvider;
+import de.danoeh.antennapod.net.download.service.ad.provider.TranscriptionProvider;
 import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProviderFactory;
 import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
 
@@ -80,12 +81,18 @@ public class AdAnalysisWorker extends Worker {
         if (TextUtils.isEmpty(media.getLocalFileUrl())) {
             return Result.success();
         }
-        AdAnalysisProvider provider;
+
+        TranscriptionProvider transcriptionProvider = null;
+        AdAnalysisProvider analysisProvider = null;
+
         try {
-            provider = AdAnalysisProviderFactory.create(getApplicationContext());
+            transcriptionProvider = AdAnalysisProviderFactory.createTranscriptionProvider(getApplicationContext());
+            analysisProvider = AdAnalysisProviderFactory.createAnalysisProvider(getApplicationContext());
         } catch (Exception e) {
-            Log.e(TAG, "Ad analysis provider could not be created", e);
+            Log.e(TAG, "Analysis providers could not be created", e);
             saveError(feedItemId, e.getMessage(), null, null);
+            // Close whatever was opened
+            closeProviders(transcriptionProvider, analysisProvider);
             return Result.failure();
         }
 
@@ -95,7 +102,9 @@ public class AdAnalysisWorker extends Worker {
             Log.i(TAG, "Ad analysis started for feedItemId=" + feedItemId
                     + ", title=" + item.getTitle());
             setProgressStage("transcribing", 0);
-            TranscriptionResult result = transcribeInChunks(provider, media);
+            
+            // Step 1: Transcribe
+            TranscriptionResult result = transcribeInChunks(transcriptionProvider, media);
             transcript = result.transcript;
             Log.i(TAG, "Transcription complete, length=" + transcript.length()
                     + ", fullySuccessful=" + result.fullySuccessful);
@@ -111,15 +120,16 @@ public class AdAnalysisWorker extends Worker {
                 }
             }
 
-            Log.i(TAG, "Requesting ad classification using model " + provider.getModelName());
+            // Step 2: Analyze
+            Log.i(TAG, "Requesting ad classification using model " + analysisProvider.getModelName());
             setProgressStage("analyzing", 90);
-            String content = provider.analyzeTranscript(buildPrompt(transcript, media.getDuration()));
+            String content = analysisProvider.analyzeTranscript(buildPrompt(transcript, media.getDuration()));
             Log.i(TAG, "Model response content: " + content);
             Log.i(TAG, "Model response received, raw length=" + content.length());
             List<AdSegment> segments = mergeSegments(parseSegments(content));
             Log.i(TAG, "Ad analysis finished: " + segments.size() + " segment(s) detected");
             AdSegmentStore.save(getApplicationContext(), feedItemId,
-                    new AdAnalysisResult(segments, System.currentTimeMillis(), provider.getModelName(), "",
+                    new AdAnalysisResult(segments, System.currentTimeMillis(), analysisProvider.getModelName(), "",
                             transcript));
             setProgressStage("done", 100);
             return Result.success();
@@ -131,14 +141,35 @@ public class AdAnalysisWorker extends Worker {
             }
             if (!isUnauthorized(e)) {
                 // Save error but include transcript if we have it stored
-                saveError(feedItemId, provider.buildErrorMessage(e), provider.getModelName(),
+                String errorMsg = transcriptionProvider.buildErrorMessage(e); // Try transcription error first
+                if (errorMsg == null || errorMsg.isEmpty() || errorMsg.equals(e.getMessage())) {
+                     // Could be analysis error
+                     errorMsg = e.getMessage(); 
+                }
+                
+                saveError(feedItemId, errorMsg, analysisProvider != null ? analysisProvider.getModelName() : "unknown",
                         transcriptStored ? transcript : null);
             }
             return Result.failure();
+        } finally {
+             closeProviders(transcriptionProvider, analysisProvider);
         }
     }
 
-    private TranscriptionResult transcribeInChunks(AdAnalysisProvider provider, FeedMedia media) throws Exception {
+    private void closeProviders(TranscriptionProvider tp, AdAnalysisProvider ap) {
+        if (tp != null) {
+            try {
+                tp.close();
+            } catch (Exception ignored) { }
+        }
+        if (ap != null) {
+            try {
+                ap.close();
+            } catch (Exception ignored) { }
+        }
+    }
+
+    private TranscriptionResult transcribeInChunks(TranscriptionProvider provider, FeedMedia media) throws Exception {
         List<Path> chunkPaths = AudioChunkUtils.createAudioChunks(getApplicationContext(),
                 media.getLocalFileUrl(), TRANSCRIPTION_CHUNK_SECONDS);
         Log.i(TAG, "Transcribing " + chunkPaths.size() + " chunk(s) " + "target=" + TRANSCRIPTION_CHUNK_SECONDS
@@ -343,7 +374,7 @@ public class AdAnalysisWorker extends Worker {
         return cleaned;
     }
 
-    private void validateChunkSizes(AdAnalysisProvider provider, List<Path> chunkPaths) throws IOException {
+    private void validateChunkSizes(TranscriptionProvider provider, List<Path> chunkPaths) throws IOException {
         long maxBytes = provider.getMaxAudioBytes();
         if (maxBytes <= 0) {
             return;

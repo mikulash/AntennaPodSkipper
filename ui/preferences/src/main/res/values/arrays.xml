@@ -311,4 +311,18 @@
         <item>cloud</item>
         <item>local</item>
     </string-array>
+
+    <string-array name="pref_local_ad_analysis_model_entries">
+        <item>@string/pref_local_ad_analysis_model_gemma2b</item>
+        <item>@string/pref_local_ad_analysis_model_qwen06b</item>
+        <item>@string/pref_local_ad_analysis_model_qwen17b</item>
+        <item>@string/pref_local_ad_analysis_model_manual</item>
+    </string-array>
+
+    <string-array name="pref_local_ad_analysis_model_values">
+        <item>gemma-2b</item>
+        <item>qwen-0.6b</item>
+        <item>qwen-1.7b</item>
+        <item>manual_import</item>
+    </string-array>
 </resources>

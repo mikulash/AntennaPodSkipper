@@ -24,6 +24,7 @@ dependencies {
     implementation project(':ui:chapters')
     implementation project(':ui:i18n')
     implementation project(':ui:transcript')
+    implementation 'com.google.mediapipe:tasks-genai:0.10.14'
 
     annotationProcessor "androidx.annotation:annotation:$annotationVersion"
     implementation "androidx.core:core:$coreVersion"

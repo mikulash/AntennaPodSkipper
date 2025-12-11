@@ -30,9 +30,75 @@ public final class OpenAiPreferences {
     private static final String PREF_LOCAL_TRANSCRIPTION_MODEL = "pref_local_transcription_model";
     private static final String DEFAULT_LOCAL_MODEL = "small";
 
+    // Local Ad Analysis (LiteRT) settings
+    private static final String PREF_USE_LOCAL_AD_ANALYSIS = "prefLocalAdAnalysisEnabled";
+    private static final String PREF_LOCAL_AD_ANALYSIS_MODEL = "prefLocalAdAnalysisModel";
+    private static final String DEFAULT_LOCAL_LLM_MODEL = "qwen-0.6b";
+
+    private static final String PREF_MANUAL_MODEL_PATH = "prefManualModelPath";
+    public static final String MANUAL_MODEL_ID = "manual_import";
+
     private OpenAiPreferences() {
     }
 
+    public static void setManualModelPath(Context context, String path) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) return;
+        if (path == null) {
+            prefs.edit().remove(PREF_MANUAL_MODEL_PATH).apply();
+        } else {
+            prefs.edit().putString(PREF_MANUAL_MODEL_PATH, path).apply();
+        }
+    }
+
+    @Nullable
+    public static String getManualModelPath(Context context) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) return null;
+        return prefs.getString(PREF_MANUAL_MODEL_PATH, null);
+    }
+
+    public static boolean isLocalAdAnalysisEnabled(Context context) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        return prefs != null && prefs.getBoolean(PREF_USE_LOCAL_AD_ANALYSIS, false);
+    }
+
+    public static String getLocalAdAnalysisModel(Context context) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return DEFAULT_LOCAL_LLM_MODEL;
+        }
+        return prefs.getString(PREF_LOCAL_AD_ANALYSIS_MODEL, DEFAULT_LOCAL_LLM_MODEL);
+    }
+
+    public static void setLocalAdAnalysisEnabled(Context context, boolean enabled) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return;
+        }
+        prefs.edit().putBoolean(PREF_USE_LOCAL_AD_ANALYSIS, enabled).apply();
+    }
+
+    public static void setLocalAdAnalysisModel(Context context, @Nullable String model) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return;
+        }
+        if (model == null || model.trim().isEmpty()) {
+            prefs.edit().putString(PREF_LOCAL_AD_ANALYSIS_MODEL, DEFAULT_LOCAL_LLM_MODEL).apply();
+        } else {
+            prefs.edit().putString(PREF_LOCAL_AD_ANALYSIS_MODEL, model.trim()).apply();
+        }
+    }
+
+
+    /**
+     * Returns true if an OpenAI API key is required for ad analysis.
+     * Returns false if local ad analysis (LiteRT) is enabled.
+     */
+    public static boolean isApiKeyRequired(Context context) {
+        return !isLocalAdAnalysisEnabled(context);
+    }
     @Nullable
     public static String getApiKey(Context context) {
         SharedPreferences prefs = getEncryptedPrefs(context);
@@ -152,13 +218,7 @@ public final class OpenAiPreferences {
         }
     }
 
-    /**
-     * Returns true if an OpenAI API key is required for ad analysis.
-     * Always true since local analysis (LLM) is no longer supported.
-     */
-    public static boolean isApiKeyRequired(Context context) {
-        return true;
-    }
+
 
     @Nullable
     private static SharedPreferences getEncryptedPrefs(Context context) {

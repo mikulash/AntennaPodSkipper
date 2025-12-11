@@ -62,5 +62,45 @@
                 android:summary="@string/pref_local_transcription_delete_summary" />
 
     </PreferenceCategory>
+    
+    <PreferenceCategory
+            android:key="prefLocalAdAnalysisCategory"
+            android:title="@string/pref_local_ad_analysis_category">
+
+        <Preference
+                android:key="prefLocalAdAnalysisInfo"
+                android:summary="@string/pref_local_ad_analysis_info"
+                android:selectable="false" />
+
+        <SwitchPreferenceCompat
+                android:key="prefLocalAdAnalysisEnabled"
+                android:defaultValue="false"
+                android:title="@string/pref_local_ad_analysis_enabled_title"
+                android:summary="@string/pref_local_ad_analysis_enabled_summary" />
+
+        <ListPreference
+                android:key="prefLocalAdAnalysisModel"
+                android:defaultValue="qwen-0.6b"
+                android:title="@string/pref_local_ad_analysis_model_title"
+                android:entries="@array/pref_local_ad_analysis_model_entries"
+                android:entryValues="@array/pref_local_ad_analysis_model_values"
+                android:summary="%s" />
+
+        <Preference
+                android:key="prefLocalAdAnalysisDownload"
+                android:title="@string/pref_local_ad_analysis_download_title"
+                android:summary="@string/pref_local_ad_analysis_download_summary" />
+
+        <Preference
+                android:key="prefLocalAdAnalysisImport"
+                android:title="Import Model File (Manual)"
+                android:summary="Import a downloaded .bin or .task model file" />
+
+        <Preference
+                android:key="prefLocalAdAnalysisDelete"
+                android:title="@string/pref_local_ad_analysis_delete_title"
+                android:summary="@string/pref_local_ad_analysis_delete_summary" />
+
+    </PreferenceCategory>
 
 </PreferenceScreen>

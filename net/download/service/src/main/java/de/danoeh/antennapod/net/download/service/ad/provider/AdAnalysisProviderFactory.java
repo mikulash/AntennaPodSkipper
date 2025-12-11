@@ -30,28 +30,40 @@ public final class AdAnalysisProviderFactory {
      *
      * @throws IllegalStateException if local transcription is enabled but cannot be initialized
      */
-    public static AdAnalysisProvider create(Context context) {
+    /**
+     * Creates the appropriate transcription provider based on user preferences.
+     */
+    public static TranscriptionProvider createTranscriptionProvider(Context context) {
         if (OpenAiPreferences.isLocalTranscriptionEnabled(context)) {
-            String localModel = OpenAiPreferences.getLocalTranscriptionModel(context);
-            LocalTranscriptionManager manager = new LocalTranscriptionManager(context);
-
-            if (!manager.isModelDownloaded(localModel)) {
-                throw new IllegalStateException("Local transcription model not downloaded: " + localModel
-                        + ". Please download the model in Settings > AI & Ad Skipping.");
-            }
-
+            Log.i(TAG, "Creating LocalTranscriptionProvider");
             try {
-                Log.i(TAG, "Using local transcription provider with model: " + localModel);
                 return new LocalTranscriptionProvider(context);
             } catch (IOException e) {
                 Log.e(TAG, "Failed to create local transcription provider", e);
                 throw new IllegalStateException("Failed to initialize local transcription: " + e.getMessage(), e);
             }
+        } else {
+            Log.i(TAG, "Creating OpenAiTranscriptionProvider");
+            return new OpenAiTranscriptionProvider(context);
         }
+    }
 
-        // Use OpenAI provider when local transcription is not enabled
-        Log.i(TAG, "Using OpenAI transcription provider");
-        return new OpenAiAdAnalysisProvider(context);
+    /**
+     * Creates the appropriate ad analysis provider based on user preferences.
+     */
+    public static AdAnalysisProvider createAnalysisProvider(Context context) {
+        if (OpenAiPreferences.isLocalAdAnalysisEnabled(context)) {
+            Log.i(TAG, "Creating LocalAdAnalysisProvider");
+            try {
+                return new LocalAdAnalysisProvider(context);
+            } catch (IOException e) {
+                Log.e(TAG, "Failed to create local analysis provider", e);
+                throw new IllegalStateException("Failed to initialize local analysis: " + e.getMessage(), e);
+            }
+        } else {
+            Log.i(TAG, "Creating OpenAiAdAnalysisProvider");
+            return new OpenAiAdAnalysisProvider(context);
+        }
     }
 
     /**

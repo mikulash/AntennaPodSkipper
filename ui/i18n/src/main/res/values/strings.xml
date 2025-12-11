@@ -1088,5 +1088,20 @@
     <string name="action_use_cloud">Use Cloud</string>
     <string name="action_download_model">Download</string>
     <string name="open_settings">Open settings</string>
+    <string name="ad_analysis_llm_missing_message">Local analysis model is missing. Download it or use cloud analysis?</string>
+    
+    <string name="pref_local_ad_analysis_category">Local Ad Analysis (Experimental)</string>
+    <string name="pref_local_ad_analysis_info">Experimental feature: Run ad analysis completely offline using on-device LLMs (LiteRT). Requires a powerful device with GPU support. Model downloads are large (~1-2 GB).</string>
+    <string name="pref_local_ad_analysis_enabled_title">Enable Local Analysis</string>
+    <string name="pref_local_ad_analysis_enabled_summary">Use on-device LLM instead of OpenAI for ad detection</string>
+    <string name="pref_local_ad_analysis_model_title">Analysis Model</string>
+    <string name="pref_local_ad_analysis_model_gemma2b">Gemma 2B (Recommended)</string>
+    <string name="pref_local_ad_analysis_model_qwen06b">Qwen 0.6B (Faster)</string>
+    <string name="pref_local_ad_analysis_model_qwen17b">Qwen 2.5 (1.5B)</string>
+    <string name="pref_local_ad_analysis_model_manual">Manual Import</string>
+    <string name="pref_local_ad_analysis_download_title">Download Model</string>
+    <string name="pref_local_ad_analysis_download_summary">Download the selected model file</string>
+    <string name="pref_local_ad_analysis_delete_title">Delete Model</string>
+    <string name="pref_local_ad_analysis_delete_summary">Delete the downloaded model file</string>
 
 </resources>

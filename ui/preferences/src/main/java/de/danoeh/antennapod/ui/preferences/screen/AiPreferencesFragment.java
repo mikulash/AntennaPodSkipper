@@ -19,6 +19,11 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import java.io.InputStream;
+import android.net.Uri;
+
 import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.ui.preferences.R;
@@ -36,23 +41,34 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private static final String PREF_LOCAL_TRANSCRIPTION_DELETE = "prefLocalTranscriptionDelete";
 
     // Local LLM Analysis
-    private static final String PREF_LOCAL_LLM_CATEGORY = "prefLocalLlmCategory";
-    private static final String PREF_LOCAL_LLM_MODEL = "prefLocalLlmModel";
-    private static final String PREF_LOCAL_LLM_DOWNLOAD = "prefLocalLlmDownload";
-    private static final String PREF_LOCAL_LLM_DELETE = "prefLocalLlmDelete";
+    private static final String PREF_LOCAL_LLM_CATEGORY = "prefLocalAdAnalysisCategory";
+    private static final String PREF_LOCAL_LLM_ENABLED = "prefLocalAdAnalysisEnabled";
+    private static final String PREF_LOCAL_LLM_MODEL = "prefLocalAdAnalysisModel";
+    private static final String PREF_LOCAL_LLM_DOWNLOAD = "prefLocalAdAnalysisDownload";
+    private static final String PREF_LOCAL_LLM_IMPORT = "prefLocalAdAnalysisImport";
+    private static final String PREF_LOCAL_LLM_DELETE = "prefLocalAdAnalysisDelete";
 
     private LocalTranscriptionManager transcriptionManager;
+    private de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager llmManager;
     private ExecutorService downloadExecutor;
     private volatile boolean isDownloading = false;
     private volatile boolean isLlmDownloading = false;
+    private ActivityResultLauncher<String> importLauncher;
 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         addPreferencesFromResource(R.xml.preferences_ai);
 
         transcriptionManager = new LocalTranscriptionManager(requireContext());
+        llmManager = new de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager(requireContext());
 
         downloadExecutor = Executors.newSingleThreadExecutor();
+
+        importLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
+            if (uri != null) {
+                importManualModel(uri);
+            }
+        });
 
         setupApiKeyPreference();
         setupModelPreference();
@@ -337,15 +353,199 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     }
 
     private void setupLocalLlmPreferences() {
-        // Removed local LLM support
+        // Enable/disable toggle
+        SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_LLM_ENABLED);
+        if (enabledPref != null) {
+            enabledPref.setChecked(OpenAiPreferences.isLocalAdAnalysisEnabled(requireContext()));
+            enabledPref.setOnPreferenceChangeListener((preference, newValue) -> {
+                boolean enabled = (Boolean) newValue;
+                String model = OpenAiPreferences.getLocalAdAnalysisModel(requireContext());
+
+                // Check if model is downloaded before enabling
+                if (enabled && !llmManager.isModelDownloaded(model)) {
+                    Toast.makeText(requireContext(),
+                            R.string.pref_local_ad_analysis_download_summary,
+                            Toast.LENGTH_LONG).show();
+                    return false;
+                }
+
+                OpenAiPreferences.setLocalAdAnalysisEnabled(requireContext(), enabled);
+                return true;
+            });
+        }
+
+        // Model selection
+        ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
+        if (modelPref != null) {
+            modelPref.setValue(OpenAiPreferences.getLocalAdAnalysisModel(requireContext()));
+            modelPref.setOnPreferenceChangeListener((preference, newValue) -> {
+                String newModel = (String) newValue;
+                OpenAiPreferences.setLocalAdAnalysisModel(requireContext(), newModel);
+
+                // If enabled but new model isn't downloaded, disable it
+                if (OpenAiPreferences.isLocalAdAnalysisEnabled(requireContext())
+                        && !llmManager.isModelDownloaded(newModel)) {
+                    OpenAiPreferences.setLocalAdAnalysisEnabled(requireContext(), false);
+                    SwitchPreferenceCompat switchPref = findPreference(PREF_LOCAL_LLM_ENABLED);
+                    if (switchPref != null) {
+                        switchPref.setChecked(false);
+                    }
+                }
+
+                updateLocalLlmUI();
+                return true;
+            });
+        }
+
+        // Download button
+        Preference downloadPref = findPreference(PREF_LOCAL_LLM_DOWNLOAD);
+        if (downloadPref != null) {
+            downloadPref.setOnPreferenceClickListener(preference -> {
+                if (!isLlmDownloading) {
+                    startLlmDownload();
+                }
+                return true;
+            });
+        }
+
+        // Import button
+        Preference importPref = findPreference(PREF_LOCAL_LLM_IMPORT);
+        if (importPref != null) {
+            importPref.setOnPreferenceClickListener(preference -> {
+                importLauncher.launch("*/*");
+                return true;
+            });
+        }
+
+        // Delete button
+        Preference deletePref = findPreference(PREF_LOCAL_LLM_DELETE);
+        if (deletePref != null) {
+            deletePref.setOnPreferenceClickListener(preference -> {
+                showLlmDeleteConfirmation();
+                return true;
+            });
+        }
+
+        updateLocalLlmUI();
     }
 
     private void updateLocalLlmUI() {
-        // Removed local LLM support
+        String selectedModel = OpenAiPreferences.getLocalAdAnalysisModel(requireContext());
+        boolean isDownloaded = llmManager.isModelDownloaded(selectedModel);
+
+        // Update download button
+        Preference downloadPref = findPreference(PREF_LOCAL_LLM_DOWNLOAD);
+        if (downloadPref != null) {
+            if (isLlmDownloading) {
+                downloadPref.setEnabled(false);
+                downloadPref.setSummary(R.string.pref_local_transcription_downloading); // Reuse string or generic "Downloading..."
+            } else if (isDownloaded) {
+                downloadPref.setSummary(R.string.pref_local_transcription_download_summary_downloaded); // Reuse "Downloaded" string
+                downloadPref.setEnabled(false);
+            } else {
+                downloadPref.setSummary(R.string.pref_local_ad_analysis_download_summary);
+                downloadPref.setEnabled(true);
+            }
+        }
+
+        // Update delete button
+        Preference deletePref = findPreference(PREF_LOCAL_LLM_DELETE);
+        if (deletePref != null) {
+            deletePref.setEnabled(isDownloaded && !isLlmDownloading);
+            deletePref.setVisible(isDownloaded);
+        }
+
+        // Update enable switch
+        SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_LLM_ENABLED);
+        if (enabledPref != null) {
+            enabledPref.setEnabled(isDownloaded && !isLlmDownloading);
+        }
     }
 
     private void startLlmDownload() {
-        // Removed local LLM support
+        String modelName = OpenAiPreferences.getLocalAdAnalysisModel(requireContext());
+        performLlmDownload(modelName);
+    }
+
+    private void performLlmDownload(String modelName) {
+        isLlmDownloading = true;
+        updateLocalLlmUI();
+
+        Preference downloadPref = findPreference(PREF_LOCAL_LLM_DOWNLOAD);
+
+        downloadExecutor.execute(() -> {
+            try {
+                boolean success = llmManager.downloadModel(modelName,
+                        (percent, bytesDownloaded, totalBytes) -> {
+                            if (getActivity() != null) {
+                                getActivity().runOnUiThread(() -> {
+                                    if (downloadPref != null && isLlmDownloading) {
+                                        if (percent < 0) {
+                                            downloadPref.setSummary(R.string.pref_local_transcription_extracting);
+                                        } else {
+                                            downloadPref.setSummary(getString(
+                                                    R.string.pref_local_transcription_downloading, percent));
+                                        }
+                                    }
+                                });
+                            }
+                        });
+
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> {
+                        isLlmDownloading = false;
+                        if (success) {
+                            Toast.makeText(requireContext(),
+                                    R.string.pref_local_transcription_download_complete,
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                        updateLocalLlmUI();
+                    });
+                }
+            } catch (Exception e) {
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> {
+                        isLlmDownloading = false;
+                        Toast.makeText(requireContext(),
+                                getString(R.string.pref_local_transcription_download_failed, e.getMessage()),
+                                Toast.LENGTH_LONG).show();
+                        updateLocalLlmUI();
+                    });
+                }
+            }
+        });
+    }
+
+    private void showLlmDeleteConfirmation() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.pref_local_transcription_delete_title) // Reuse title "Delete Model"
+                .setMessage(R.string.pref_local_transcription_delete_confirm)
+                .setPositiveButton(R.string.confirm_label, (dialog, which) -> {
+                    deleteLlmModel();
+                })
+                .setNegativeButton(R.string.cancel_label, null)
+                .show();
+    }
+
+    private void deleteLlmModel() {
+        String modelName = OpenAiPreferences.getLocalAdAnalysisModel(requireContext());
+
+        // Disable local analysis if it was enabled
+        if (OpenAiPreferences.isLocalAdAnalysisEnabled(requireContext())) {
+            OpenAiPreferences.setLocalAdAnalysisEnabled(requireContext(), false);
+            SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_LLM_ENABLED);
+            if (enabledPref != null) {
+                enabledPref.setChecked(false);
+            }
+        }
+
+        llmManager.deleteModel(modelName);
+
+        Toast.makeText(requireContext(),
+                R.string.pref_local_transcription_model_deleted,
+                Toast.LENGTH_SHORT).show();
+
+        updateLocalLlmUI();
     }
 
     private void updateApiKeySummary(EditTextPreference apiKeyPref) {
@@ -404,5 +604,41 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
             double cost = costMicros / 1_000_000.0;
             costPref.setSummary(String.format(Locale.getDefault(), "$%.4f", cost));
         }
+    }
+    private void importManualModel(Uri uri) {
+        downloadExecutor.execute(() -> {
+            try {
+                try (InputStream inputStream = requireContext().getContentResolver().openInputStream(uri)) {
+                    if (inputStream == null) throw new IllegalArgumentException("Cannot open file stream");
+                    
+                    llmManager.importModel(inputStream, OpenAiPreferences.MANUAL_MODEL_ID);
+                }
+
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> {
+                        Toast.makeText(requireContext(), 
+                            "Model imported successfully!", Toast.LENGTH_SHORT).show();
+                        
+                        // Select the manual model
+                        OpenAiPreferences.setLocalAdAnalysisModel(requireContext(), OpenAiPreferences.MANUAL_MODEL_ID);
+                        
+                        // Update ListPreference
+                        ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
+                        if (modelPref != null) {
+                            modelPref.setValue(OpenAiPreferences.MANUAL_MODEL_ID);
+                        }
+
+                        updateLocalLlmUI();
+                    });
+                }
+            } catch (Exception e) {
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> {
+                        Toast.makeText(requireContext(), 
+                            "Import failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    });
+                }
+            }
+        });
     }
 }
