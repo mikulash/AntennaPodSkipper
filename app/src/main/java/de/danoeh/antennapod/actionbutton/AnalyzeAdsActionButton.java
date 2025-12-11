@@ -10,7 +10,11 @@ import androidx.annotation.DrawableRes;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
 
+import android.content.Intent;
+
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
+import de.danoeh.antennapod.ui.screen.preferences.PreferenceActivity;
 
 import java.io.File;
 
@@ -18,6 +22,7 @@ import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.net.download.service.ad.AdAnalysisWorkScheduler;
+import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager;
 import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 
@@ -54,6 +59,26 @@ public class AnalyzeAdsActionButton extends ItemActionButton {
         if (TextUtils.isEmpty(media.getLocalFileUrl()) || !new File(media.getLocalFileUrl()).exists()) {
             Toast.makeText(context, R.string.ad_analysis_requires_download, Toast.LENGTH_LONG).show();
             return;
+        }
+        if (OpenAiPreferences.isLocalTranscriptionEnabled(context)) {
+            String model = OpenAiPreferences.getLocalTranscriptionModel(context);
+            if (!new LocalTranscriptionManager(context).isModelDownloaded(model)) {
+                new MaterialAlertDialogBuilder(context)
+                        .setTitle(R.string.ad_analysis_model_missing_title)
+                        .setMessage(R.string.ad_analysis_model_missing_message)
+                        .setPositiveButton(R.string.action_download_model, (d, w) -> {
+                            Intent intent = new Intent(context, PreferenceActivity.class);
+                            intent.putExtra(PreferenceActivity.OPEN_AI_SETTINGS, true);
+                            context.startActivity(intent);
+                        })
+                        .setNeutralButton(R.string.action_use_cloud, (d, w) -> {
+                            OpenAiPreferences.setLocalTranscriptionEnabled(context, false);
+                            runAnalysis(context, media);
+                        })
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+                return;
+            }
         }
         if (OpenAiPreferences.isApiKeyRequired(context)
                 && TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))) {

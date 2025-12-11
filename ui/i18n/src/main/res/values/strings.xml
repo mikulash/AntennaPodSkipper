@@ -1082,4 +1082,11 @@
     <string name="pref_local_llm_delete_summary">Remove the downloaded model to free up space</string>
     <string name="pref_local_llm_info">Local ad analysis runs entirely on your device using a small language model. No data is sent to the cloud. Requires a compatible device with sufficient RAM.</string>
 
+    <!-- Ad Analysis -->
+    <string name="ad_analysis_model_missing_title">Model missing</string>
+    <string name="ad_analysis_model_missing_message">Local transcription model is missing. Download it or use cloud transcription?</string>
+    <string name="action_use_cloud">Use Cloud</string>
+    <string name="action_download_model">Download</string>
+    <string name="open_settings">Open settings</string>
+
 </resources>

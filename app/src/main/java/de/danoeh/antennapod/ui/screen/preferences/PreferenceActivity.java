@@ -38,6 +38,7 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
     private static final String FRAGMENT_TAG = "tag_preferences";
     public static final String OPEN_AUTO_DOWNLOAD_SETTINGS = "OpenAutoDownloadSettings";
     public static final String OPEN_PLAYBACK_SETTINGS = "OpenPlaybackSettings";
+    public static final String OPEN_AI_SETTINGS = "OpenAiSettings";
     private SettingsActivityBinding binding;
 
     @Override
@@ -63,6 +64,9 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
         }
         if (intent.getBooleanExtra(OPEN_PLAYBACK_SETTINGS, false)) {
             openScreen(R.xml.preferences_playback);
+        }
+        if (intent.getBooleanExtra(OPEN_AI_SETTINGS, false)) {
+            openScreen(R.xml.preferences_ai);
         }
     }
 

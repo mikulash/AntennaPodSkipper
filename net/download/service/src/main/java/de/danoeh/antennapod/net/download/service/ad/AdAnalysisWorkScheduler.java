@@ -56,9 +56,7 @@ public final class AdAnalysisWorkScheduler {
                 .build();
 
         // Only require network if not running in fully local mode
-        NetworkType networkType = OpenAiPreferences.isFullyLocalMode(context)
-                ? NetworkType.NOT_REQUIRED
-                : NetworkType.CONNECTED;
+        NetworkType networkType = NetworkType.CONNECTED;
 
         Constraints constraints = new Constraints.Builder()
                 .setRequiredNetworkType(networkType)

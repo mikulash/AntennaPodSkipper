@@ -2,6 +2,3 @@
 	path = app/src/main/play
 	url = https://github.com/AntennaPod/StoreMetadata.git
 	branch = main
-[submodule "java-llama.cpp"]
-	path = java-llama.cpp
-	url = https://github.com/kherud/java-llama.cpp

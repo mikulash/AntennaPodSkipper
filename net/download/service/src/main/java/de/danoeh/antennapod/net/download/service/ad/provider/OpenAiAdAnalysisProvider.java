@@ -26,9 +26,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 
-import java.util.Locale;
-
-import de.danoeh.antennapod.net.download.service.ad.local.LlmModelManager;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
@@ -45,8 +42,6 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
     private final Context context;
     private final OpenAIClient client;
     private final String modelName;
-    private final boolean isLocalAnalysis;
-    private final LocalLlmProvider localLlmProvider;
 
     public OpenAiAdAnalysisProvider(Context context) {
         this.context = context;
@@ -59,33 +54,6 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
                 .build();
         String storedModel = OpenAiPreferences.getModel(context);
         this.modelName = TextUtils.isEmpty(storedModel) ? DEFAULT_MODEL_NAME : storedModel;
-
-        this.isLocalAnalysis = OpenAiPreferences.ANALYSIS_TYPE_LOCAL.equals(
-                OpenAiPreferences.getAdAnalysisType(context));
-
-        if (isLocalAnalysis) {
-            String llmModelId = OpenAiPreferences.getLocalLlmModelId(context);
-            LlmModelManager llmManager = new LlmModelManager(context);
-            if (!llmManager.isModelDownloaded(llmModelId)) {
-                // We'll throw at analysis time or here?
-                // Best to fail early if we can, but constructor throwing might be tricky if not
-                // expected.
-                // But LocalTranscriptionProvider throws IOException.
-                // This class constructor is not declared to throw checked exceptions.
-                // We'll throw IllegalStateException if model missing.
-            }
-            if (llmManager.isModelDownloaded(llmModelId)) {
-                try {
-                    this.localLlmProvider = new LocalLlmProvider(llmManager.getModelFile(llmModelId));
-                } catch (Exception e) {
-                    throw new IllegalStateException("Failed to load local LLM: " + e.getMessage(), e);
-                }
-            } else {
-                this.localLlmProvider = null; // Will fail in analyzeTranscript
-            }
-        } else {
-            this.localLlmProvider = null;
-        }
     }
 
     @Override
@@ -140,14 +108,6 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
 
     @Override
     public String analyzeTranscript(String prompt) throws Exception {
-        if (isLocalAnalysis) {
-            if (localLlmProvider == null) {
-                String llmModelId = OpenAiPreferences.getLocalLlmModelId(context);
-                throw new IllegalStateException("Local LLM model not downloaded or failed to load: " + llmModelId);
-            }
-            return localLlmProvider.analyze(prompt);
-        }
-
         ChatModel chatModel = resolveChatModel(modelName);
         ChatCompletionCreateParams chatParams = ChatCompletionCreateParams.builder()
                 .addUserMessage(prompt)
@@ -244,8 +204,5 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
 
     @Override
     public void close() {
-        if (localLlmProvider != null) {
-            localLlmProvider.close();
-        }
     }
 }
