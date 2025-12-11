@@ -25,6 +25,7 @@ dependencies {
     implementation project(':ui:i18n')
     implementation project(':ui:transcript')
     implementation 'com.google.mediapipe:tasks-genai:0.10.14'
+    implementation 'androidx.room:room-external-antlr:2.8.4'
 
     annotationProcessor "androidx.annotation:annotation:$annotationVersion"
     implementation "androidx.core:core:$coreVersion"
@@ -45,6 +46,8 @@ dependencies {
 
     // Vosk for local on-device speech recognition
     implementation "com.alphacephei:vosk-android:0.3.47"
+    implementation 'com.google.ai.edge.litert:litert:1.0.1'
+    implementation 'com.google.ai.edge.litert:litert-gpu:1.0.1'
 
 
 

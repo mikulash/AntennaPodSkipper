@@ -37,7 +37,7 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         initializeLlmInference();
     }
 
-    private void initializeLlmInference() {
+    private void initializeLlmInference() throws IOException {
         Log.i(TAG, "Initializing LiteRT LLM Inference with model: " + litertModelName);
         File modelFile = llmManager.getModelPath(litertModelName);
 
@@ -46,7 +46,17 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
                 .setMaxTokens(1024)
                 .build();
 
-        this.llmInference = LlmInference.createFromOptions(context, options);
+        try {
+            this.llmInference = LlmInference.createFromOptions(context, options);
+        } catch (Exception e) {
+            String msg = e.getMessage();
+            if (msg != null && (msg.contains("Failed to get metadata") || msg.contains("odml.infra.proto.LlmParameters"))) {
+                throw new IOException("Invalid Model Format: The selected file is a raw TFLite model. " +
+                        "MediaPipe requires a Task Bundle (.bin/.task) with metadata. " +
+                        "Please convert your model or download a compatible bundle.", e);
+            }
+            throw new IOException("Failed to initialize MediaPipe engine: " + e.getMessage(), e);
+        }
     }
 
     @Override

@@ -51,15 +51,24 @@ public final class AdAnalysisProviderFactory {
     /**
      * Creates the appropriate ad analysis provider based on user preferences.
      */
-    public static AdAnalysisProvider createAnalysisProvider(Context context) {
+    public static AdAnalysisProvider createAnalysisProvider(Context context) throws IOException {
         if (OpenAiPreferences.isLocalAdAnalysisEnabled(context)) {
             Log.i(TAG, "Creating LocalAdAnalysisProvider");
             try {
-                return new LocalAdAnalysisProvider(context);
-            } catch (IOException e) {
-                Log.e(TAG, "Failed to create local analysis provider", e);
-                throw new IllegalStateException("Failed to initialize local analysis: " + e.getMessage(), e);
+            return new LocalAdAnalysisProvider(context);
+        } catch (IOException e) {
+            // Check for MediaPipe metadata error
+            if (e.getMessage() != null && e.getMessage().contains("Invalid Model Format")) {
+                Log.w(TAG, "MediaPipe failed (invalid format), utilizing Raw LiteRT Interpreter...");
+                try {
+                    return new RawAdAnalysisProvider(context);
+                } catch (Exception rawEx) {
+                    Log.e(TAG, "Raw Interpreter fallback also failed", rawEx);
+                    throw e; // Throw original error if both fail
+                }
             }
+            throw e;
+        }
         } else {
             Log.i(TAG, "Creating OpenAiAdAnalysisProvider");
             return new OpenAiAdAnalysisProvider(context);

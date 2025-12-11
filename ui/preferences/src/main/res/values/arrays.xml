@@ -313,10 +313,10 @@
     </string-array>
 
     <string-array name="pref_local_ad_analysis_model_entries">
-        <item>@string/pref_local_ad_analysis_model_gemma2b</item>
-        <item>@string/pref_local_ad_analysis_model_qwen06b</item>
-        <item>@string/pref_local_ad_analysis_model_qwen17b</item>
-        <item>@string/pref_local_ad_analysis_model_manual</item>
+        <item>Gemma 2B (LiteRT)</item>
+        <item>Qwen 0.6B (LiteRT)</item>
+        <item>Qwen 1.7B (LiteRT)</item>
+        <item>Manual Import</item>
     </string-array>
 
     <string-array name="pref_local_ad_analysis_model_values">
