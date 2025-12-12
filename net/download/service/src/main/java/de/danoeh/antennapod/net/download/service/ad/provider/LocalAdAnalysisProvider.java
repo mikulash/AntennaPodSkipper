@@ -1,7 +1,5 @@
 package de.danoeh.antennapod.net.download.service.ad.provider;
 
-import static com.google.mediapipe.tasks.genai.llminference.LlmInference.Backend.GPU;
-
 import android.content.Context;
 import android.os.Build;
 import android.util.Log;
@@ -54,7 +52,7 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
 
         LlmInferenceOptions options = LlmInferenceOptions.builder()
                 .setModelPath(modelFile.getAbsolutePath())
-                .setPreferredBackend(GPU)
+                .setPreferredBackend(LlmInference.Backend.GPU)
                 .setMaxTokens(MAX_TOKENS)
                 .build();
 
@@ -78,6 +76,11 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
 
     @Override
     public String analyzeTranscript(String prompt) throws Exception {
+        return analyzeTranscript(prompt, null);
+    }
+
+    @Override
+    public String analyzeTranscript(String prompt, ProgressListener listener) throws Exception {
         if (llmInference == null) {
             throw new IllegalStateException("LLM engine not initialized");
         }
@@ -85,16 +88,22 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
 
         // Check if the prompt is too long and needs chunking
         if (prompt.length() > MAX_PROMPT_CHARS) {
-            return analyzeInChunks(prompt);
+            return analyzeInChunks(prompt, listener);
         }
 
+        if (listener != null) {
+            listener.onProgress(10);
+        }
         String formattedPrompt = formatPromptForModel(prompt);
         String result = llmInference.generateResponse(formattedPrompt);
         Log.d(TAG, "LiteRT result: " + result);
+        if (listener != null) {
+            listener.onProgress(100);
+        }
         return result;
     }
 
-    private String analyzeInChunks(String fullPrompt) throws Exception {
+    private String analyzeInChunks(String fullPrompt, ProgressListener listener) throws Exception {
         Log.i(TAG, "Transcript too long, analyzing in chunks...");
 
         // Extract transcript from the prompt
@@ -112,6 +121,12 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
             Log.i(TAG, "Analyzing chunk " + (i + 1) + "/" + chunks.size() +
                     " (time offset: " + chunk.startTimeSeconds + "s)");
 
+            // Report progress based on chunk completion
+            if (listener != null) {
+                int percent = (int) ((i / (float) chunks.size()) * 100);
+                listener.onProgress(percent);
+            }
+
             String chunkPrompt = buildChunkPrompt(chunk.text, durationMs, chunk.startTimeSeconds);
             String formattedPrompt = formatPromptForModel(chunkPrompt);
 
@@ -127,6 +142,10 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
             } catch (Exception e) {
                 Log.w(TAG, "Chunk " + (i + 1) + " analysis failed: " + e.getMessage());
             }
+        }
+
+        if (listener != null) {
+            listener.onProgress(100);
         }
 
         // Build final result

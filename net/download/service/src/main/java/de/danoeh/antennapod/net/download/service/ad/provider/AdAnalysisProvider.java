@@ -10,6 +10,13 @@ import androidx.annotation.RequiresApi;
 public interface AdAnalysisProvider extends AutoCloseable {
 
     /**
+     * Callback for reporting analysis progress.
+     */
+    interface ProgressListener {
+        void onProgress(int percent);
+    }
+
+    /**
      * Returns the model name or provider identifier used for storing results.
      */
     String getModelName();
@@ -19,4 +26,11 @@ public interface AdAnalysisProvider extends AutoCloseable {
      * response.
      */
     String analyzeTranscript(String prompt) throws Exception;
+
+    /**
+     * Runs the ad analysis with progress reporting.
+     */
+    default String analyzeTranscript(String prompt, ProgressListener listener) throws Exception {
+        return analyzeTranscript(prompt);
+    }
 }

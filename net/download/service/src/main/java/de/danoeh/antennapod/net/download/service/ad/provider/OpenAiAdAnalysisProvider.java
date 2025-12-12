@@ -49,19 +49,33 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
 
     @Override
     public String analyzeTranscript(String prompt) throws Exception {
+        return analyzeTranscript(prompt, null);
+    }
+
+    @Override
+    public String analyzeTranscript(String prompt, ProgressListener listener) throws Exception {
+        if (listener != null) {
+            listener.onProgress(10);
+        }
         ChatModel chatModel = resolveChatModel(modelName);
         ChatCompletionCreateParams chatParams = ChatCompletionCreateParams.builder()
                 .addUserMessage(prompt)
                 .model(chatModel)
                 .build();
+        if (listener != null) {
+            listener.onProgress(30);
+        }
         ChatCompletion completion = client.chat().completions().create(chatParams);
         if (completion.choices().isEmpty()) {
             throw new IllegalStateException("AI provider returned no choices");
         }
         Log.d(TAG, "analyzeTranscript usage: " + completion.usage());
-        
+
         completion.usage().ifPresent(this::trackTokenUsage);
 
+        if (listener != null) {
+            listener.onProgress(100);
+        }
         return completion.choices().get(0).message().content().orElse("");
     }
 

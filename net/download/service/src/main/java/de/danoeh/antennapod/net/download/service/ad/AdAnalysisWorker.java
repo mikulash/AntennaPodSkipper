@@ -94,12 +94,13 @@ public class AdAnalysisWorker extends Worker {
         try {
             Log.i(TAG, "Ad analysis started for feedItemId=" + feedItemId
                     + ", title=" + item.getTitle());
-            setProgressStage("analyzing", 10);
+            setProgressStage("analyzing", 0);
 
-            // Analyze the transcript
+            // Analyze the transcript with progress reporting
             Log.i(TAG, "Requesting ad classification using model " + analysisProvider.getModelName());
-            setProgressStage("analyzing", 50);
-            String content = analysisProvider.analyzeTranscript(buildPrompt(transcript, media.getDuration()));
+            String content = analysisProvider.analyzeTranscript(
+                    buildPrompt(transcript, media.getDuration()),
+                    percent -> setProgressStage("analyzing", percent));
             Log.i(TAG, "Model response content: " + content);
             Log.i(TAG, "Model response received, raw length=" + content.length());
             List<AdSegment> segments = mergeSegments(parseSegments(content));
