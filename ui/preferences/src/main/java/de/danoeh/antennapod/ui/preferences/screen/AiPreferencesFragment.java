@@ -608,20 +608,22 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private void importManualModel(Uri uri) {
         downloadExecutor.execute(() -> {
             try {
+                // Step 1: Copy the file
                 try (InputStream inputStream = requireContext().getContentResolver().openInputStream(uri)) {
                     if (inputStream == null) throw new IllegalArgumentException("Cannot open file stream");
-                    
+
                     llmManager.importModel(inputStream, OpenAiPreferences.MANUAL_MODEL_ID);
                 }
 
+                // Step 2: Validate by initializing and getting a test response
+                showImportProgress("Validating model...");
+                String testResponse = llmManager.validateModel(OpenAiPreferences.MANUAL_MODEL_ID);
+
                 if (getActivity() != null) {
                     getActivity().runOnUiThread(() -> {
-                        Toast.makeText(requireContext(), 
-                            "Model imported successfully!", Toast.LENGTH_SHORT).show();
-                        
                         // Select the manual model
                         OpenAiPreferences.setLocalAdAnalysisModel(requireContext(), OpenAiPreferences.MANUAL_MODEL_ID);
-                        
+
                         // Update ListPreference
                         ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
                         if (modelPref != null) {
@@ -629,16 +631,40 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                         }
 
                         updateLocalLlmUI();
+
+                        // Show success dialog with model response
+                        new AlertDialog.Builder(requireContext())
+                                .setTitle(R.string.model_import_success_title)
+                                .setMessage(getString(R.string.model_import_success_message, testResponse))
+                                .setPositiveButton(android.R.string.ok, null)
+                                .show();
                     });
                 }
             } catch (Exception e) {
+                // Clean up failed import
+                try {
+                    llmManager.deleteModel(OpenAiPreferences.MANUAL_MODEL_ID);
+                } catch (Exception ignored) {
+                }
+
                 if (getActivity() != null) {
                     getActivity().runOnUiThread(() -> {
-                        Toast.makeText(requireContext(), 
-                            "Import failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        new AlertDialog.Builder(requireContext())
+                                .setTitle(R.string.model_import_failed_title)
+                                .setMessage(getString(R.string.model_import_failed_message, e.getMessage()))
+                                .setPositiveButton(android.R.string.ok, null)
+                                .show();
                     });
                 }
             }
         });
+    }
+
+    private void showImportProgress(String message) {
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
+                Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+            });
+        }
     }
 }

@@ -1099,7 +1099,7 @@
     <string name="ad_analysis_llm_missing_message">Local analysis model is missing. Download it or use cloud analysis?</string>
     
     <string name="pref_local_ad_analysis_category">Local Ad Analysis (Experimental)</string>
-    <string name="pref_local_ad_analysis_info">Experimental feature: Run ad analysis completely offline using on-device LLMs (LiteRT). Requires a powerful device with GPU support. Model downloads are large (~1-2 GB).</string>
+    <string name="pref_local_ad_analysis_info">Experimental feature: Run ad analysis completely offline using on–device LLMs (LiteRT). Requires a powerful device with GPU support. Model downloads are large (~1–2 GB).</string>
     <string name="pref_local_ad_analysis_enabled_title">Enable Local Analysis</string>
     <string name="pref_local_ad_analysis_enabled_summary">Use on-device LLM instead of OpenAI for ad detection</string>
     <string name="pref_local_ad_analysis_model_title">Analysis Model</string>
@@ -1111,5 +1111,9 @@
     <string name="pref_local_ad_analysis_download_summary">Download the selected model file</string>
     <string name="pref_local_ad_analysis_delete_title">Delete Model</string>
     <string name="pref_local_ad_analysis_delete_summary">Delete the downloaded model file</string>
+    <string name="model_import_success_title">Model Valid</string>
+    <string name="model_import_success_message">Model imported and validated successfully!\n\nModel says:\n%s</string>
+    <string name="model_import_failed_title">Import Failed</string>
+    <string name="model_import_failed_message">The model could not be validated.\n\nError: %s</string>
 
 </resources>

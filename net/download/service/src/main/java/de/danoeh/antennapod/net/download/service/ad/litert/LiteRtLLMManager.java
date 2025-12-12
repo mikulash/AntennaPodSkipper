@@ -4,8 +4,10 @@ import android.content.Context;
 import android.os.Build;
 import android.util.Log;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+
+import com.google.mediapipe.tasks.genai.llminference.LlmInference;
+import com.google.mediapipe.tasks.genai.llminference.LlmInference.LlmInferenceOptions;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -170,13 +172,6 @@ public class LiteRtLLMManager {
             throw e;
         }
 
-        // Validate it's actually a zip file (task files are zip archives)
-        // TEMPORARILY DISABLED - Let MediaPipe validate instead
-        boolean isValid = isValidZipFile(tempFile);
-        if (!isValid) {
-            Log.w(TAG, "ZIP validation failed, but continuing anyway. MediaPipe will validate properly.");
-        }
-
         if (outputFile.exists()) {
             outputFile.delete();
         }
@@ -186,44 +181,54 @@ public class LiteRtLLMManager {
         return true;
     }
 
-    private boolean isValidZipFile(File file) {
-        // Read file header to diagnose issues
-        try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
-            byte[] header = new byte[4];
-            int read = fis.read(header);
-            if (read >= 4) {
-                String hex = String.format("%02X %02X %02X %02X", header[0], header[1], header[2], header[3]);
-                Log.i(TAG, "File header bytes: " + hex);
-
-                // ZIP files should start with 'PK' (0x50 0x4B)
-                boolean isPKHeader = (header[0] == 0x50 && header[1] == 0x4B);
-                Log.i(TAG, "Has ZIP signature (PK): " + isPKHeader);
-
-                if (!isPKHeader) {
-                    // Try to read as text to see if it's an HTML error page
-                    fis.close();
-                    try (java.io.FileInputStream fis2 = new java.io.FileInputStream(file);
-                         java.io.InputStreamReader reader = new java.io.InputStreamReader(fis2);
-                         java.io.BufferedReader br = new java.io.BufferedReader(reader)) {
-                        String firstLine = br.readLine();
-                        if (firstLine != null) {
-                            Log.w(TAG, "File appears to be text. First line: " + firstLine);
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error reading file header", e);
+    /**
+     * Validates a model by initializing it and generating a test response.
+     * @param modelName The model to validate
+     * @return The model's response to a test prompt
+     * @throws Exception if the model fails to initialize or generate a response
+     */
+    public String validateModel(String modelName) throws Exception {
+        File modelFile = getModelPath(modelName);
+        if (!modelFile.exists()) {
+            throw new IllegalStateException("Model file not found: " + modelFile.getAbsolutePath());
         }
 
-        try (java.util.zip.ZipFile zipFile = new java.util.zip.ZipFile(file)) {
-            // Just check if it can be opened as a zip file
-            boolean hasEntries = zipFile.entries().hasMoreElements();
-            Log.i(TAG, "Zip validation successful, has entries: " + hasEntries);
-            return hasEntries;
-        } catch (Exception e) {
-            Log.e(TAG, "File is not a valid zip archive", e);
-            return false;
+        Log.i(TAG, "Validating model: " + modelName);
+
+        LlmInferenceOptions options = LlmInferenceOptions.builder()
+                .setModelPath(modelFile.getAbsolutePath())
+                .setPreferredBackend(LlmInference.Backend.CPU)
+                .setMaxTokens(512)
+                .build();
+
+        LlmInference inference = null;
+        try {
+            inference = LlmInference.createFromOptions(context, options);
+
+            // Test with a simple prompt using Gemma format
+            String testPrompt = "<start_of_turn>user\nSay hi to the user<end_of_turn>\n<start_of_turn>model\n";
+            String response = inference.generateResponse(testPrompt);
+
+            if (response == null || response.trim().isEmpty()) {
+                throw new IllegalStateException("Model returned empty response");
+            }
+
+            Log.i(TAG, "Model validation successful. Response: " + response);
+
+            // Truncate long responses for display
+            response = response.trim();
+            if (response.length() > 200) {
+                response = response.substring(0, 200) + "...";
+            }
+
+            return response;
+        } finally {
+            if (inference != null) {
+                try {
+                    inference.close();
+                } catch (Exception ignored) {
+                }
+            }
         }
     }
 }
