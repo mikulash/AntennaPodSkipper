@@ -1037,6 +1037,14 @@
     <string name="ad_segments_tab_transcript">Transcript</string>
     <string name="ad_analysis_transcribing">Transcribing</string>
     <string name="ad_analysis_analyzing">Analyzing</string>
+    <string name="ad_analysis_requires_transcript">Transcribe the episode first before analyzing ads.</string>
+    <string name="action_transcribe">Transcribe</string>
+    <string name="transcription_requires_download">Download the episode first to transcribe.</string>
+    <string name="transcription_requested">Transcription requested.</string>
+    <string name="transcription_overwrite_title">Replace existing transcript?</string>
+    <string name="transcription_overwrite_message">This episode already has a transcript. Running transcription again will overwrite it.</string>
+    <string name="transcription_overwrite_confirm">Overwrite and transcribe</string>
+    <string name="transcription_again">Transcribe again</string>
     <string name="pref_ai_stats_category">Statistics</string>
     <string name="pref_ai_audio_transcribed">Audio Transcribed</string>
     <string name="pref_ai_analysis_tokens">Analysis Tokens</string>

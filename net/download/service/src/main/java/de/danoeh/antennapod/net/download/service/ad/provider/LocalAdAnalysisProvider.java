@@ -11,8 +11,15 @@ import androidx.annotation.RequiresApi;
 import com.google.mediapipe.tasks.genai.llminference.LlmInference;
 import com.google.mediapipe.tasks.genai.llminference.LlmInference.LlmInferenceOptions;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
@@ -21,6 +28,8 @@ import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 public class LocalAdAnalysisProvider implements AdAnalysisProvider {
     private static final String TAG = "LocalAdAnalysisProv";
     private static final String MODEL_NAME_PREFIX = "local-litert+";
+    private static final int MAX_TOKENS = 2048; // Model's max supported cache size
+    private static final int MAX_PROMPT_CHARS = 1500; // Conservative limit for chunking (~500 tokens)
 
     private final Context context;
     private final LiteRtLLMManager llmManager;
@@ -46,7 +55,7 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         LlmInferenceOptions options = LlmInferenceOptions.builder()
                 .setModelPath(modelFile.getAbsolutePath())
                 .setPreferredBackend(GPU)
-                .setMaxTokens(1024)
+                .setMaxTokens(MAX_TOKENS)
                 .build();
 
         try {
@@ -74,10 +83,186 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         }
         Log.i(TAG, "Running LiteRT analysis...");
 
+        // Check if the prompt is too long and needs chunking
+        if (prompt.length() > MAX_PROMPT_CHARS) {
+            return analyzeInChunks(prompt);
+        }
+
         String formattedPrompt = formatPromptForModel(prompt);
         String result = llmInference.generateResponse(formattedPrompt);
         Log.d(TAG, "LiteRT result: " + result);
         return result;
+    }
+
+    private String analyzeInChunks(String fullPrompt) throws Exception {
+        Log.i(TAG, "Transcript too long, analyzing in chunks...");
+
+        // Extract transcript from the prompt
+        String transcript = extractTranscript(fullPrompt);
+        int durationMs = extractDuration(fullPrompt);
+
+        // Split transcript into chunks
+        List<TranscriptChunk> chunks = splitTranscript(transcript);
+        Log.i(TAG, "Split into " + chunks.size() + " chunks");
+
+        // Analyze each chunk
+        JSONArray allAds = new JSONArray();
+        for (int i = 0; i < chunks.size(); i++) {
+            TranscriptChunk chunk = chunks.get(i);
+            Log.i(TAG, "Analyzing chunk " + (i + 1) + "/" + chunks.size() +
+                    " (time offset: " + chunk.startTimeSeconds + "s)");
+
+            String chunkPrompt = buildChunkPrompt(chunk.text, durationMs, chunk.startTimeSeconds);
+            String formattedPrompt = formatPromptForModel(chunkPrompt);
+
+            try {
+                // Need to recreate session for each chunk due to MediaPipe limitation
+                reinitializeLlmInference();
+
+                String result = llmInference.generateResponse(formattedPrompt);
+                Log.d(TAG, "Chunk " + (i + 1) + " result: " + result);
+
+                // Parse and merge results
+                mergeChunkResults(allAds, result);
+            } catch (Exception e) {
+                Log.w(TAG, "Chunk " + (i + 1) + " analysis failed: " + e.getMessage());
+            }
+        }
+
+        // Build final result
+        JSONObject finalResult = new JSONObject();
+        finalResult.put("ads", allAds);
+        return finalResult.toString();
+    }
+
+    private void reinitializeLlmInference() throws IOException {
+        // Close existing inference
+        if (llmInference != null) {
+            try {
+                llmInference.close();
+            } catch (Exception ignored) {
+            }
+        }
+        // Create new instance
+        initializeLlmInference();
+    }
+
+    private String extractTranscript(String prompt) {
+        int transcriptStart = prompt.indexOf("Transcript (WebVTT):");
+        if (transcriptStart >= 0) {
+            int start = transcriptStart + "Transcript (WebVTT):".length();
+            int end = prompt.lastIndexOf("Again, output only");
+            if (end > start) {
+                return prompt.substring(start, end).trim();
+            }
+            return prompt.substring(start).trim();
+        }
+        return prompt;
+    }
+
+    private int extractDuration(String prompt) {
+        Pattern pattern = Pattern.compile("Episode duration seconds: ([\\d.]+)");
+        Matcher matcher = pattern.matcher(prompt);
+        if (matcher.find()) {
+            try {
+                return (int) (Float.parseFloat(matcher.group(1)) * 1000);
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    private List<TranscriptChunk> splitTranscript(String transcript) {
+        List<TranscriptChunk> chunks = new ArrayList<>();
+        String[] lines = transcript.split("\n");
+
+        StringBuilder currentChunk = new StringBuilder();
+        double chunkStartTime = 0;
+        double lastEndTime = 0;
+
+        for (String line : lines) {
+            // Parse timestamp lines to track time
+            if (line.contains("-->")) {
+                String[] parts = line.split("-->");
+                if (parts.length == 2) {
+                    double startTime = parseTimestamp(parts[0].trim());
+                    lastEndTime = parseTimestamp(parts[1].trim());
+
+                    if (currentChunk.length() == 0) {
+                        chunkStartTime = startTime;
+                    }
+                }
+            }
+
+            currentChunk.append(line).append("\n");
+
+            // Check if chunk is large enough to split
+            if (currentChunk.length() > MAX_PROMPT_CHARS - 300) {
+                chunks.add(new TranscriptChunk(currentChunk.toString(), chunkStartTime));
+                currentChunk = new StringBuilder();
+                chunkStartTime = lastEndTime;
+            }
+        }
+
+        // Add remaining content
+        if (currentChunk.length() > 0) {
+            chunks.add(new TranscriptChunk(currentChunk.toString(), chunkStartTime));
+        }
+
+        return chunks;
+    }
+
+    private double parseTimestamp(String timestamp) {
+        // Format: HH:MM:SS.mmm
+        String[] parts = timestamp.split(":");
+        if (parts.length != 3) {
+            return 0;
+        }
+        try {
+            double hours = Double.parseDouble(parts[0]);
+            double minutes = Double.parseDouble(parts[1]);
+            double seconds = Double.parseDouble(parts[2].replace(',', '.'));
+            return hours * 3600 + minutes * 60 + seconds;
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private String buildChunkPrompt(String chunkText, int durationMs, double timeOffset) {
+        return "You are a classifier that only finds advertisement or sponsor segments in podcasts. "
+                + "An advertisement is a sponsor read, mid-roll, pre-roll, post-roll, "
+                + "or explicit promotion (coupon codes, giveaways, discounts). "
+                + "Do not tag normal banter, housekeeping, or episode content as ads. "
+                + "Use seconds from start of episode for times. "
+                + "This is a portion of the transcript starting at " + (int) timeOffset + " seconds. "
+                + "Respond ONLY with valid JSON matching {\"ads\":[{\"startSeconds\":number,\"endSeconds\":number,"
+                + "\"reason\":string,\"confidence\":number}]} and nothing else.\n\n"
+                + "Episode duration seconds: " + durationMs / 1000f + "\n"
+                + "Transcript portion (WebVTT):\n\n"
+                + chunkText + "\n\nAgain, output only the JSON structure.";
+    }
+
+    private void mergeChunkResults(JSONArray allAds, String chunkResult) {
+        try {
+            // Clean up the result
+            String cleaned = chunkResult.trim();
+            int start = cleaned.indexOf('{');
+            int end = cleaned.lastIndexOf('}');
+            if (start >= 0 && end > start) {
+                cleaned = cleaned.substring(start, end + 1);
+            }
+
+            JSONObject json = new JSONObject(cleaned);
+            JSONArray ads = json.optJSONArray("ads");
+            if (ads != null) {
+                for (int i = 0; i < ads.length(); i++) {
+                    allAds.put(ads.getJSONObject(i));
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to parse chunk result: " + e.getMessage());
+        }
     }
 
     private String formatPromptForModel(String rawPrompt) {
@@ -88,13 +273,28 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         }
         // For manually imported models, assume Gemma format as default
         if (litertModelName.equals(OpenAiPreferences.MANUAL_MODEL_ID)) {
-             return "<start_of_turn>user\n" + rawPrompt + "<end_of_turn>\n<start_of_turn>model\n";
+            return "<start_of_turn>user\n" + rawPrompt + "<end_of_turn>\n<start_of_turn>model\n";
         }
         return rawPrompt;
     }
 
     @Override
     public void close() {
-        // LlmInference auto-cleaning usually sufficient, but placeholder for future
+        if (llmInference != null) {
+            try {
+                llmInference.close();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private static class TranscriptChunk {
+        final String text;
+        final double startTimeSeconds;
+
+        TranscriptChunk(String text, double startTimeSeconds) {
+            this.text = text;
+            this.startTimeSeconds = startTimeSeconds;
+        }
     }
 }

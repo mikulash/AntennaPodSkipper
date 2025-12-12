@@ -18,32 +18,28 @@ import java.io.File;
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
-import de.danoeh.antennapod.net.download.service.ad.AdAnalysisWorkScheduler;
-import de.danoeh.antennapod.storage.database.AdSegmentStore;
+import de.danoeh.antennapod.net.download.service.ad.TranscriptionWorkScheduler;
+import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.ui.screen.preferences.PreferenceActivity;
 
-/**
- * Action button to run ad analysis on an existing transcript.
- * Requires that the episode is downloaded and has been transcribed.
- */
 @RequiresApi(api = Build.VERSION_CODES.O)
-public class AnalyzeAdsActionButton extends ItemActionButton {
+public class TranscribeActionButton extends ItemActionButton {
 
-    public AnalyzeAdsActionButton(FeedItem item) {
+    public TranscribeActionButton(FeedItem item) {
         super(item);
     }
 
     @Override
     @StringRes
     public int getLabel() {
-        return R.string.action_analyze_ads;
+        return R.string.action_transcribe;
     }
 
     @Override
     @DrawableRes
     public int getDrawable() {
-        return R.drawable.ic_ad_analysis;
+        return de.danoeh.antennapod.ui.common.R.drawable.transcript;
     }
 
     @Override
@@ -58,54 +54,47 @@ public class AnalyzeAdsActionButton extends ItemActionButton {
             return;
         }
         if (TextUtils.isEmpty(media.getLocalFileUrl()) || !new File(media.getLocalFileUrl()).exists()) {
-            Toast.makeText(context, R.string.ad_analysis_requires_download, Toast.LENGTH_LONG).show();
+            Toast.makeText(context, R.string.transcription_requires_download, Toast.LENGTH_LONG).show();
             return;
         }
-        // Check for existing transcript - required for analysis
-        if (!hasExistingTranscript(media)) {
-            Toast.makeText(context, R.string.ad_analysis_requires_transcript, Toast.LENGTH_LONG).show();
-            return;
-        }
-        // Check for local analysis model if enabled
-        if (OpenAiPreferences.isLocalAdAnalysisEnabled(context)) {
-            String model = OpenAiPreferences.getLocalAdAnalysisModel(context);
-            if (!new de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager(context).isModelDownloaded(model)) {
+        if (OpenAiPreferences.isLocalTranscriptionEnabled(context)) {
+            String model = OpenAiPreferences.getLocalTranscriptionModel(context);
+            if (!new LocalTranscriptionManager(context).isModelDownloaded(model)) {
                 new MaterialAlertDialogBuilder(context)
                         .setTitle(R.string.ad_analysis_model_missing_title)
-                        .setMessage(R.string.ad_analysis_llm_missing_message)
+                        .setMessage(R.string.ad_analysis_model_missing_message)
                         .setPositiveButton(R.string.action_download_model, (d, w) -> {
                             Intent intent = new Intent(context, PreferenceActivity.class);
                             intent.putExtra(PreferenceActivity.OPEN_AI_SETTINGS, true);
                             context.startActivity(intent);
                         })
                         .setNeutralButton(R.string.action_use_cloud, (d, w) -> {
-                            androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
-                                    .edit().putBoolean("prefLocalAdAnalysisEnabled", false).apply();
-                            runAnalysis(context, media);
+                            OpenAiPreferences.setLocalTranscriptionEnabled(context, false);
+                            runTranscription(context, media);
                         })
                         .setNegativeButton(android.R.string.cancel, null)
                         .show();
                 return;
             }
         }
-        // Check API key if cloud analysis is required
         if (OpenAiPreferences.isApiKeyRequired(context)
                 && TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))
-                && !OpenAiPreferences.isLocalAdAnalysisEnabled(context)) {
+                && !OpenAiPreferences.isLocalTranscriptionEnabled(context)) {
             Toast.makeText(context, R.string.ad_analysis_missing_key, Toast.LENGTH_LONG).show();
             return;
         }
-        if (AdSegmentStore.hasAnalysis(context, item.getId())) {
+        // Check if transcript already exists
+        if (hasExistingTranscript(media)) {
             new MaterialAlertDialogBuilder(context)
-                    .setTitle(R.string.ad_analysis_overwrite_title)
-                    .setMessage(R.string.ad_analysis_overwrite_message)
-                    .setPositiveButton(R.string.ad_analysis_overwrite_confirm,
-                            (d, w) -> runAnalysis(context, media))
+                    .setTitle(R.string.transcription_overwrite_title)
+                    .setMessage(R.string.transcription_overwrite_message)
+                    .setPositiveButton(R.string.transcription_overwrite_confirm,
+                            (d, w) -> runTranscription(context, media))
                     .setNegativeButton(android.R.string.cancel, null)
                     .show();
             return;
         }
-        runAnalysis(context, media);
+        runTranscription(context, media);
     }
 
     private boolean hasExistingTranscript(FeedMedia media) {
@@ -117,8 +106,8 @@ public class AnalyzeAdsActionButton extends ItemActionButton {
         return transcriptFile.exists() && transcriptFile.length() > 0;
     }
 
-    private void runAnalysis(Context context, FeedMedia media) {
-        AdAnalysisWorkScheduler.enqueueManual(context, media);
-        Toast.makeText(context, R.string.ad_analysis_requested, Toast.LENGTH_SHORT).show();
+    private void runTranscription(Context context, FeedMedia media) {
+        TranscriptionWorkScheduler.enqueueManual(context, media);
+        Toast.makeText(context, R.string.transcription_requested, Toast.LENGTH_SHORT).show();
     }
 }
