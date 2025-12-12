@@ -20,41 +20,66 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager;
+import de.danoeh.antennapod.net.download.service.ad.litert.LlmModel;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class LocalAdAnalysisProvider implements AdAnalysisProvider {
     private static final String TAG = "LocalAdAnalysisProv";
     private static final String MODEL_NAME_PREFIX = "local-litert+";
-    private static final int MAX_TOKENS = 2048; // Model's max supported cache size
+    private static final int DEFAULT_MAX_TOKENS = 2048; // Default max cache size
     private static final int MAX_PROMPT_CHARS = 1500; // Conservative limit for chunking (~500 tokens)
 
     private final Context context;
     private final LiteRtLLMManager llmManager;
-    private final String litertModelName;
+    private final String litertModelId;
+    private final LlmModel llmModelConfig;
     private LlmInference llmInference;
 
     public LocalAdAnalysisProvider(Context context) throws IOException {
         this.context = context;
         this.llmManager = new LiteRtLLMManager(context);
-        this.litertModelName = OpenAiPreferences.getLocalAdAnalysisModel(context);
+        this.litertModelId = OpenAiPreferences.getLocalAdAnalysisModel(context);
+        this.llmModelConfig = LlmModel.fromId(litertModelId);
 
-        if (!llmManager.isModelDownloaded(litertModelName)) {
-            throw new IOException("Local analysis model not downloaded: " + litertModelName);
+        if (!llmManager.isModelDownloaded(litertModelId)) {
+            throw new IOException("Local analysis model not downloaded: " + litertModelId);
         }
 
         initializeLlmInference();
     }
 
-    private void initializeLlmInference() throws IOException {
-        Log.i(TAG, "Initializing LiteRT LLM Inference with model: " + litertModelName);
-        File modelFile = llmManager.getModelPath(litertModelName);
+    private LlmInference.Backend toMediaPipeBackend(LlmModel.BackendType backendType) {
+        if (backendType == null) {
+            return LlmInference.Backend.GPU;
+        }
+        switch (backendType) {
+            case GPU:
+                return LlmInference.Backend.GPU;
+            case CPU:
+            default:
+                return LlmInference.Backend.CPU;
+        }
+    }
 
-        LlmInferenceOptions options = LlmInferenceOptions.builder()
+    private void initializeLlmInference() throws IOException {
+        Log.i(TAG, "Initializing LiteRT LLM Inference with model: " + litertModelId);
+        File modelFile = llmManager.getModelPath(litertModelId);
+
+        // Use model-specific configuration if available
+        LlmInference.Backend backend = llmModelConfig != null
+                ? toMediaPipeBackend(llmModelConfig.getPreferredBackend())
+                : LlmInference.Backend.GPU;
+        int maxTokens = llmModelConfig != null
+                ? llmModelConfig.getMaxTokens()
+                : DEFAULT_MAX_TOKENS;
+
+        LlmInferenceOptions.Builder optionsBuilder = LlmInferenceOptions.builder()
                 .setModelPath(modelFile.getAbsolutePath())
-                .setPreferredBackend(LlmInference.Backend.GPU)
-                .setMaxTokens(MAX_TOKENS)
-                .build();
+                .setPreferredBackend(backend)
+                .setMaxTokens(maxTokens);
+
+        LlmInferenceOptions options = optionsBuilder.build();
 
         try {
             this.llmInference = LlmInference.createFromOptions(context, options);
@@ -71,7 +96,7 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
 
     @Override
     public String getModelName() {
-        return MODEL_NAME_PREFIX + litertModelName;
+        return MODEL_NAME_PREFIX + litertModelId;
     }
 
     @Override
@@ -285,16 +310,13 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
     }
 
     private String formatPromptForModel(String rawPrompt) {
-        // Gemma3 uses the same prompt format as Gemma2
-        // Format: <start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n
-        if (litertModelName.contains("gemma")) {
-            return "<start_of_turn>user\n" + rawPrompt + "<end_of_turn>\n<start_of_turn>model\n";
+        // Use model-specific prompt formatting if available
+        if (llmModelConfig != null) {
+            return llmModelConfig.formatPrompt(rawPrompt);
         }
-        // For manually imported models, assume Gemma format as default
-        if (litertModelName.equals(OpenAiPreferences.MANUAL_MODEL_ID)) {
-            return "<start_of_turn>user\n" + rawPrompt + "<end_of_turn>\n<start_of_turn>model\n";
-        }
-        return rawPrompt;
+
+        // Fallback: For manually imported models or unknown models, assume Gemma format
+        return "<start_of_turn>user\n" + rawPrompt + "<end_of_turn>\n<start_of_turn>model\n";
     }
 
     @Override

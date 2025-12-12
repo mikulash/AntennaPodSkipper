@@ -25,14 +25,6 @@ import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionMa
 public class LiteRtLLMManager {
     private static final String TAG = "LiteRtLLMManager";
 
-    // Model Identifier for Gemma3-1B-IT
-    // Using the int4 quantized model which provides a good balance between size (529 MB) and performance
-    public static final String MODEL_GEMMA3_1B = "gemma3-1b-it";
-
-    // Gemma3-1B-IT int4 quantized model from LiteRT community
-    // This is a 529 MB model optimized for on-device inference
-    private static final String URL_GEMMA3_1B = "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task";
-
     private final Context context;
 
     public LiteRtLLMManager(Context context) {
@@ -47,41 +39,66 @@ public class LiteRtLLMManager {
         return dir;
     }
 
-    public File getModelPath(String modelName) {
-         // MediaPipe LLM Inference API expects .task extension for model bundles with metadata
-         String filename = modelName + ".task";
-         return new File(getModelDirectory(), filename);
+    public File getModelPath(String modelId) {
+        LlmModel model = LlmModel.fromId(modelId);
+        if (model != null) {
+            return new File(getModelDirectory(), model.getFilename());
+        }
+        // Fallback for unknown models (e.g., manual imports)
+        return new File(getModelDirectory(), modelId + ".task");
     }
 
-    public boolean isModelDownloaded(String modelName) {
-        File file = getModelPath(modelName);
+    public File getModelPath(LlmModel model) {
+        return new File(getModelDirectory(), model.getFilename());
+    }
+
+    public boolean isModelDownloaded(String modelId) {
+        File file = getModelPath(modelId);
         return file.exists() && file.length() > 0;
     }
 
-    public void deleteModel(String modelName) {
-        File file = getModelPath(modelName);
+    public boolean isModelDownloaded(LlmModel model) {
+        File file = getModelPath(model);
+        return file.exists() && file.length() > 0;
+    }
+
+    public void deleteModel(String modelId) {
+        File file = getModelPath(modelId);
         if (file.exists()) {
             file.delete();
-            Log.i(TAG, "Deleted model: " + modelName);
+            Log.i(TAG, "Deleted model: " + modelId);
         }
     }
 
-    public boolean downloadModel(String modelName, DownloadProgressListener listener) throws IOException {
-        String urlString;
-        if (MODEL_GEMMA3_1B.equals(modelName)) {
-            urlString = URL_GEMMA3_1B;
-        } else {
-            throw new IOException("Unknown model: " + modelName + ". Only " + MODEL_GEMMA3_1B + " is supported.");
+    public void deleteModel(LlmModel model) {
+        File file = getModelPath(model);
+        if (file.exists()) {
+            file.delete();
+            Log.i(TAG, "Deleted model: " + model.getId());
+        }
+    }
+
+    public boolean downloadModel(String modelId, DownloadProgressListener listener) throws IOException {
+        LlmModel model = LlmModel.fromId(modelId);
+        if (model == null) {
+            throw new IOException("Unknown model: " + modelId);
+        }
+        return downloadModel(model, listener, null);
+    }
+
+    public boolean downloadModel(LlmModel model, DownloadProgressListener listener, String authToken) throws IOException {
+        if (model.getUrl() == null) {
+            throw new IOException("Model " + model.getId() + " does not support download (manual import only)");
         }
 
-        File outputFile = getModelPath(modelName);
-        Log.i(TAG, "Downloading LiteRT model: " + modelName + " from " + urlString);
+        File outputFile = getModelPath(model);
+        Log.i(TAG, "Downloading LiteRT model: " + model.getId() + " from " + model.getUrl());
 
-        return downloadFile(urlString, outputFile, listener);
+        return downloadFile(model.getUrl(), outputFile, listener, model.needsAuth() ? authToken : null);
     }
 
     // specific download logic (simplified version of what's in LocalTranscriptionManager)
-    private boolean downloadFile(String urlString, File outputFile, DownloadProgressListener listener) throws IOException {
+    private boolean downloadFile(String urlString, File outputFile, DownloadProgressListener listener, String authToken) throws IOException {
         File tempFile = new File(outputFile.getAbsolutePath() + ".tmp");
         HttpURLConnection connection = null;
         try {
@@ -92,12 +109,20 @@ public class LiteRtLLMManager {
             connection.setInstanceFollowRedirects(true);
             connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36");
 
+            // Add HuggingFace authentication if required
+            if (authToken != null && !authToken.isEmpty()) {
+                connection.setRequestProperty("Authorization", "Bearer " + authToken);
+            }
+
             int responseCode = connection.getResponseCode();
             if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP || responseCode == HttpURLConnection.HTTP_MOVED_PERM) {
                  String newUrl = connection.getHeaderField("Location");
                  connection.disconnect();
                  connection = (HttpURLConnection) new URL(newUrl).openConnection();
                  connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36");
+                 if (authToken != null && !authToken.isEmpty()) {
+                     connection.setRequestProperty("Authorization", "Bearer " + authToken);
+                 }
                  responseCode = connection.getResponseCode();
             }
 
@@ -107,14 +132,14 @@ public class LiteRtLLMManager {
             }
 
             long contentLength = connection.getContentLengthLong();
-            
+
             try (InputStream input = connection.getInputStream();
                  FileOutputStream output = new FileOutputStream(tempFile)) {
-                
+
                 byte[] buffer = new byte[8192];
                 long totalRead = 0;
                 int bytesRead;
-                
+
                 while ((bytesRead = input.read(buffer)) != -1) {
                     output.write(buffer, 0, bytesRead);
                     totalRead += bytesRead;
@@ -183,30 +208,67 @@ public class LiteRtLLMManager {
 
     /**
      * Validates a model by initializing it and generating a test response.
-     * @param modelName The model to validate
+     * @param modelId The model ID to validate
      * @return The model's response to a test prompt
      * @throws Exception if the model fails to initialize or generate a response
      */
-    public String validateModel(String modelName) throws Exception {
-        File modelFile = getModelPath(modelName);
+    public String validateModel(String modelId) throws Exception {
+        LlmModel model = LlmModel.fromId(modelId);
+        return validateModel(modelId, model);
+    }
+
+    /**
+     * Converts LlmModel.BackendType to MediaPipe Backend.
+     */
+    private LlmInference.Backend toMediaPipeBackend(LlmModel.BackendType backendType) {
+        if (backendType == null) {
+            return LlmInference.Backend.CPU;
+        }
+        switch (backendType) {
+            case GPU:
+                return LlmInference.Backend.GPU;
+            case CPU:
+            default:
+                return LlmInference.Backend.CPU;
+        }
+    }
+
+    /**
+     * Validates a model by initializing it and generating a test response.
+     * @param modelId The model ID to validate
+     * @param model The LlmModel config (can be null for manual imports)
+     * @return The model's response to a test prompt
+     * @throws Exception if the model fails to initialize or generate a response
+     */
+    public String validateModel(String modelId, LlmModel model) throws Exception {
+        File modelFile = getModelPath(modelId);
         if (!modelFile.exists()) {
             throw new IllegalStateException("Model file not found: " + modelFile.getAbsolutePath());
         }
 
-        Log.i(TAG, "Validating model: " + modelName);
+        Log.i(TAG, "Validating model: " + modelId);
+
+        // Use model-specific settings if available, otherwise use defaults
+        LlmInference.Backend backend = model != null
+                ? toMediaPipeBackend(model.getPreferredBackend())
+                : LlmInference.Backend.CPU;
+        int maxTokens = model != null ? model.getMaxTokens() : 512;
 
         LlmInferenceOptions options = LlmInferenceOptions.builder()
                 .setModelPath(modelFile.getAbsolutePath())
-                .setPreferredBackend(LlmInference.Backend.CPU)
-                .setMaxTokens(512)
+                .setPreferredBackend(backend)
+                .setMaxTokens(maxTokens)
                 .build();
 
         LlmInference inference = null;
         try {
             inference = LlmInference.createFromOptions(context, options);
 
-            // Test with a simple prompt using Gemma format
-            String testPrompt = "<start_of_turn>user\nSay hi to the user<end_of_turn>\n<start_of_turn>model\n";
+            // Format the test prompt using model-specific format
+            String userMessage = "Say hi to the user";
+            String testPrompt = model != null ? model.formatPrompt(userMessage)
+                    : "<start_of_turn>user\n" + userMessage + "<end_of_turn>\n<start_of_turn>model\n";
+
             String response = inference.generateResponse(testPrompt);
 
             if (response == null || response.trim().isEmpty()) {
@@ -230,5 +292,34 @@ public class LiteRtLLMManager {
                 }
             }
         }
+    }
+
+    /**
+     * Gets all available models (excluding manual import).
+     */
+    public LlmModel[] getAvailableModels() {
+        LlmModel[] all = LlmModel.values();
+        LlmModel[] result = new LlmModel[all.length - 1];
+        int idx = 0;
+        for (LlmModel m : all) {
+            if (m != LlmModel.MANUAL_IMPORT) {
+                result[idx++] = m;
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Gets models that don't require HuggingFace authentication.
+     */
+    public LlmModel[] getPublicModels() {
+        return LlmModel.getPublicModels();
+    }
+
+    /**
+     * Gets recommended models for ad analysis.
+     */
+    public LlmModel[] getRecommendedModels() {
+        return LlmModel.getRecommendedModels();
     }
 }

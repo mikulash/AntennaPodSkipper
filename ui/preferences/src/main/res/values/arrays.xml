@@ -313,12 +313,34 @@
     </string-array>
 
     <string-array name="pref_local_ad_analysis_model_entries">
-        <item>Gemma3 1B IT (LiteRT)</item>
+        <item>Gemma3 1B (CPU)</item>
+        <item>Gemma3 1B (GPU)</item>
+        <item>Gemma2 2B (CPU)</item>
+        <item>Llama 3.2 1B</item>
+        <item>Llama 3.2 3B</item>
+        <item>Qwen 2.5 0.5B (Fastest)</item>
+        <item>Qwen 2.5 1.5B</item>
+        <item>Qwen 2.5 3B</item>
+        <item>DeepSeek R1 Qwen 1.5B</item>
+        <item>Phi-4 Mini</item>
+        <item>SmolLM 135M (Tiny)</item>
+        <item>TinyLlama 1.1B</item>
         <item>Manual Import</item>
     </string-array>
 
     <string-array name="pref_local_ad_analysis_model_values">
-        <item>gemma3-1b-it</item>
+        <item>gemma3-1b-cpu</item>
+        <item>gemma3-1b-gpu</item>
+        <item>gemma2-2b-cpu</item>
+        <item>llama-3.2-1b</item>
+        <item>llama-3.2-3b</item>
+        <item>qwen2.5-0.5b</item>
+        <item>qwen2.5-1.5b</item>
+        <item>qwen2.5-3b</item>
+        <item>deepseek-r1-qwen-1.5b</item>
+        <item>phi-4-mini</item>
+        <item>smollm-135m</item>
+        <item>tinyllama-1.1b</item>
         <item>manual_import</item>
     </string-array>
 </resources>
