@@ -33,7 +33,7 @@ public final class OpenAiPreferences {
     // Local Ad Analysis (LiteRT) settings
     private static final String PREF_USE_LOCAL_AD_ANALYSIS = "prefLocalAdAnalysisEnabled";
     private static final String PREF_LOCAL_AD_ANALYSIS_MODEL = "prefLocalAdAnalysisModel";
-    private static final String DEFAULT_LOCAL_LLM_MODEL = "qwen-0.6b";
+    private static final String DEFAULT_LOCAL_LLM_MODEL = "gemma3-1b-it";
 
     private static final String PREF_MANUAL_MODEL_PATH = "prefManualModelPath";
     public static final String MANUAL_MODEL_ID = "manual_import";

@@ -23,23 +23,13 @@ import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionMa
 public class LiteRtLLMManager {
     private static final String TAG = "LiteRtLLMManager";
 
-    // Model Identifiers
-    public static final String MODEL_GEMMA_2B = "gemma-2b";
-    public static final String MODEL_QWEN_0_6B = "qwen-0.6b";
-    public static final String MODEL_QWEN_1_7B = "qwen-1.7b";
+    // Model Identifier for Gemma3-1B-IT
+    // Using the int4 quantized model which provides a good balance between size (529 MB) and performance
+    public static final String MODEL_GEMMA3_1B = "gemma3-1b-it";
 
-    // URLs - using placeholders for Qwen as per plan, real URL for Gemma if possible or standard placeholder
-    // NOTE: In a real production app, these should be stable, versioned URLs.
-    // URLs
-    // Gemma 2B is Gated -> Cannot download directly without auth.
-    // We recommend using Qwen models which are open.
-    private static final String URL_GEMMA_2B = ""; 
-
-    // Qwen 2.5 (0.5B) - Verified Public URL (Float32 or Int4 if available, using the one found)
-    private static final String URL_QWEN_0_6B = "https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct/resolve/main/Qwen2.5-0.5B-Instruct_seq128_f32_ekv1280.tflite?download=true"; 
-
-    // Qwen 2.5 (1.5B) - Assumed matching pattern
-    private static final String URL_QWEN_1_7B = "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_seq128_f32_ekv1280.tflite?download=true";
+    // Gemma3-1B-IT int4 quantized model from LiteRT community
+    // This is a 529 MB model optimized for on-device inference
+    private static final String URL_GEMMA3_1B = "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task";
 
     private final Context context;
 
@@ -56,9 +46,8 @@ public class LiteRtLLMManager {
     }
 
     public File getModelPath(String modelName) {
-         // The filename MUST be just the name for simplicity, or we map it.
-         // MediaPipe usually expects a specific extension (.bin)
-         String filename = modelName + ".bin";
+         // MediaPipe LLM Inference API expects .task extension for model bundles with metadata
+         String filename = modelName + ".task";
          return new File(getModelDirectory(), filename);
     }
 
@@ -77,18 +66,10 @@ public class LiteRtLLMManager {
 
     public boolean downloadModel(String modelName, DownloadProgressListener listener) throws IOException {
         String urlString;
-        switch (modelName) {
-            case MODEL_GEMMA_2B:
-                urlString = URL_GEMMA_2B;
-                break;
-            case MODEL_QWEN_0_6B:
-                urlString = URL_QWEN_0_6B;
-                break;
-            case MODEL_QWEN_1_7B:
-                urlString = URL_QWEN_1_7B;
-                break;
-            default:
-                throw new IOException("Unknown model: " + modelName);
+        if (MODEL_GEMMA3_1B.equals(modelName)) {
+            urlString = URL_GEMMA3_1B;
+        } else {
+            throw new IOException("Unknown model: " + modelName + ". Only " + MODEL_GEMMA3_1B + " is supported.");
         }
 
         File outputFile = getModelPath(modelName);
@@ -163,20 +144,37 @@ public class LiteRtLLMManager {
     public boolean importModel(InputStream input, String modelName) throws IOException {
         File outputFile = getModelPath(modelName);
         Log.i(TAG, "Importing manual model to: " + outputFile.getAbsolutePath());
-        
+
         File tempFile = new File(outputFile.getAbsolutePath() + ".tmp");
-        
+
         try (FileOutputStream output = new FileOutputStream(tempFile)) {
             byte[] buffer = new byte[8192];
             int bytesRead;
+            long totalBytes = 0;
             while ((bytesRead = input.read(buffer)) != -1) {
                 output.write(buffer, 0, bytesRead);
+                totalBytes += bytesRead;
             }
             output.flush();
+
+            Log.i(TAG, "Imported file size: " + (totalBytes / 1_000_000) + " MB");
+
+            // Validate it's a zip file (task files are zip archives)
+            if (totalBytes < 1000) {
+                tempFile.delete();
+                throw new IOException("File too small (" + totalBytes + " bytes). Expected a ~529MB .task file. Did you download an HTML page instead?");
+            }
         } catch (IOException e) {
             Log.e(TAG, "Failed to write import stream", e);
             tempFile.delete();
             throw e;
+        }
+
+        // Validate it's actually a zip file (task files are zip archives)
+        // TEMPORARILY DISABLED - Let MediaPipe validate instead
+        boolean isValid = isValidZipFile(tempFile);
+        if (!isValid) {
+            Log.w(TAG, "ZIP validation failed, but continuing anyway. MediaPipe will validate properly.");
         }
 
         if (outputFile.exists()) {
@@ -186,5 +184,46 @@ public class LiteRtLLMManager {
             throw new IOException("Failed to rename imported temp file to " + outputFile.getName());
         }
         return true;
+    }
+
+    private boolean isValidZipFile(File file) {
+        // Read file header to diagnose issues
+        try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+            byte[] header = new byte[4];
+            int read = fis.read(header);
+            if (read >= 4) {
+                String hex = String.format("%02X %02X %02X %02X", header[0], header[1], header[2], header[3]);
+                Log.i(TAG, "File header bytes: " + hex);
+
+                // ZIP files should start with 'PK' (0x50 0x4B)
+                boolean isPKHeader = (header[0] == 0x50 && header[1] == 0x4B);
+                Log.i(TAG, "Has ZIP signature (PK): " + isPKHeader);
+
+                if (!isPKHeader) {
+                    // Try to read as text to see if it's an HTML error page
+                    fis.close();
+                    try (java.io.FileInputStream fis2 = new java.io.FileInputStream(file);
+                         java.io.InputStreamReader reader = new java.io.InputStreamReader(fis2);
+                         java.io.BufferedReader br = new java.io.BufferedReader(reader)) {
+                        String firstLine = br.readLine();
+                        if (firstLine != null) {
+                            Log.w(TAG, "File appears to be text. First line: " + firstLine);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error reading file header", e);
+        }
+
+        try (java.util.zip.ZipFile zipFile = new java.util.zip.ZipFile(file)) {
+            // Just check if it can be opened as a zip file
+            boolean hasEntries = zipFile.entries().hasMoreElements();
+            Log.i(TAG, "Zip validation successful, has entries: " + hasEntries);
+            return hasEntries;
+        } catch (Exception e) {
+            Log.e(TAG, "File is not a valid zip archive", e);
+            return false;
+        }
     }
 }

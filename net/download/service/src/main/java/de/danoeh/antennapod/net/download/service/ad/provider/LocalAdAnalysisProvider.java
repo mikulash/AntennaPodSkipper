@@ -1,5 +1,7 @@
 package de.danoeh.antennapod.net.download.service.ad.provider;
 
+import static com.google.mediapipe.tasks.genai.llminference.LlmInference.Backend.GPU;
+
 import android.content.Context;
 import android.os.Build;
 import android.util.Log;
@@ -43,6 +45,7 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
 
         LlmInferenceOptions options = LlmInferenceOptions.builder()
                 .setModelPath(modelFile.getAbsolutePath())
+                .setPreferredBackend(GPU)
                 .setMaxTokens(1024)
                 .build();
 
@@ -78,13 +81,14 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
     }
 
     private String formatPromptForModel(String rawPrompt) {
-        // Gemma
+        // Gemma3 uses the same prompt format as Gemma2
+        // Format: <start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n
         if (litertModelName.contains("gemma")) {
             return "<start_of_turn>user\n" + rawPrompt + "<end_of_turn>\n<start_of_turn>model\n";
         }
-        // Qwen
-        if (litertModelName.contains("qwen") || litertModelName.equals(OpenAiPreferences.MANUAL_MODEL_ID)) {
-             return "<|im_start|>user\n" + rawPrompt + "<|im_end|>\n<|im_start|>assistant\n";
+        // For manually imported models, assume Gemma format as default
+        if (litertModelName.equals(OpenAiPreferences.MANUAL_MODEL_ID)) {
+             return "<start_of_turn>user\n" + rawPrompt + "<end_of_turn>\n<start_of_turn>model\n";
         }
         return rawPrompt;
     }

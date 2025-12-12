@@ -80,7 +80,7 @@
 
         <ListPreference
                 android:key="prefLocalAdAnalysisModel"
-                android:defaultValue="qwen-0.6b"
+                android:defaultValue="gemma3-1b-it"
                 android:title="@string/pref_local_ad_analysis_model_title"
                 android:entries="@array/pref_local_ad_analysis_model_entries"
                 android:entryValues="@array/pref_local_ad_analysis_model_values"
@@ -94,7 +94,7 @@
         <Preference
                 android:key="prefLocalAdAnalysisImport"
                 android:title="Import Model File (Manual)"
-                android:summary="Import a downloaded .bin or .task model file" />
+                android:summary="Import a downloaded .task model file" />
 
         <Preference
                 android:key="prefLocalAdAnalysisDelete"
