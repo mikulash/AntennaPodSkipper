@@ -78,6 +78,65 @@ public class LiteRtLLMManager {
         }
     }
 
+    /**
+     * Deletes all downloaded LLM model files.
+     * 
+     * @return The number of deleted models.
+     */
+    public int deleteAllModels() {
+        File modelDir = getModelDirectory();
+        int deletedCount = 0;
+        File[] files = modelDir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isFile() && file.delete()) {
+                    Log.i(TAG, "Deleted model file: " + file.getName());
+                    deletedCount++;
+                }
+            }
+        }
+        Log.i(TAG, "Deleted " + deletedCount + " LLM model(s)");
+        return deletedCount;
+    }
+
+    /**
+     * Gets the number of downloaded LLM models.
+     * 
+     * @return Count of downloaded models.
+     */
+    public int getDownloadedModelsCount() {
+        File modelDir = getModelDirectory();
+        int count = 0;
+        File[] files = modelDir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isFile()) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Gets the total size of all downloaded LLM models in bytes.
+     * 
+     * @return Total size in bytes.
+     */
+    public long getDownloadedModelsSize() {
+        File modelDir = getModelDirectory();
+        long totalSize = 0;
+        File[] files = modelDir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isFile()) {
+                    totalSize += file.length();
+                }
+            }
+        }
+        return totalSize;
+    }
+
     public boolean downloadModel(String modelId, DownloadProgressListener listener) throws IOException {
         LlmModel model = LlmModel.fromId(modelId);
         if (model == null) {
@@ -86,7 +145,8 @@ public class LiteRtLLMManager {
         return downloadModel(model, listener, null);
     }
 
-    public boolean downloadModel(LlmModel model, DownloadProgressListener listener, String authToken) throws IOException {
+    public boolean downloadModel(LlmModel model, DownloadProgressListener listener, String authToken)
+            throws IOException {
         if (model.getUrl() == null) {
             throw new IOException("Model " + model.getId() + " does not support download (manual import only)");
         }
@@ -97,8 +157,10 @@ public class LiteRtLLMManager {
         return downloadFile(model.getUrl(), outputFile, listener, model.needsAuth() ? authToken : null);
     }
 
-    // specific download logic (simplified version of what's in LocalTranscriptionManager)
-    private boolean downloadFile(String urlString, File outputFile, DownloadProgressListener listener, String authToken) throws IOException {
+    // specific download logic (simplified version of what's in
+    // LocalTranscriptionManager)
+    private boolean downloadFile(String urlString, File outputFile, DownloadProgressListener listener, String authToken)
+            throws IOException {
         File tempFile = new File(outputFile.getAbsolutePath() + ".tmp");
         HttpURLConnection connection = null;
         try {
@@ -107,7 +169,8 @@ public class LiteRtLLMManager {
             connection.setConnectTimeout(30000);
             connection.setReadTimeout(60000);
             connection.setInstanceFollowRedirects(true);
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36");
+            connection.setRequestProperty("User-Agent",
+                    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36");
 
             // Add HuggingFace authentication if required
             if (authToken != null && !authToken.isEmpty()) {
@@ -115,15 +178,17 @@ public class LiteRtLLMManager {
             }
 
             int responseCode = connection.getResponseCode();
-            if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP || responseCode == HttpURLConnection.HTTP_MOVED_PERM) {
-                 String newUrl = connection.getHeaderField("Location");
-                 connection.disconnect();
-                 connection = (HttpURLConnection) new URL(newUrl).openConnection();
-                 connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36");
-                 if (authToken != null && !authToken.isEmpty()) {
-                     connection.setRequestProperty("Authorization", "Bearer " + authToken);
-                 }
-                 responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_MOVED_TEMP
+                    || responseCode == HttpURLConnection.HTTP_MOVED_PERM) {
+                String newUrl = connection.getHeaderField("Location");
+                connection.disconnect();
+                connection = (HttpURLConnection) new URL(newUrl).openConnection();
+                connection.setRequestProperty("User-Agent",
+                        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36");
+                if (authToken != null && !authToken.isEmpty()) {
+                    connection.setRequestProperty("Authorization", "Bearer " + authToken);
+                }
+                responseCode = connection.getResponseCode();
             }
 
             if (responseCode != HttpURLConnection.HTTP_OK) {
@@ -134,7 +199,7 @@ public class LiteRtLLMManager {
             long contentLength = connection.getContentLengthLong();
 
             try (InputStream input = connection.getInputStream();
-                 FileOutputStream output = new FileOutputStream(tempFile)) {
+                    FileOutputStream output = new FileOutputStream(tempFile)) {
 
                 byte[] buffer = new byte[8192];
                 long totalRead = 0;
@@ -144,7 +209,7 @@ public class LiteRtLLMManager {
                     output.write(buffer, 0, bytesRead);
                     totalRead += bytesRead;
                     if (listener != null) {
-                        int progress = contentLength > 0 ? (int)((totalRead * 100) / contentLength) : -1;
+                        int progress = contentLength > 0 ? (int) ((totalRead * 100) / contentLength) : -1;
                         listener.onProgress(progress, totalRead, contentLength);
                     }
                 }
@@ -154,17 +219,21 @@ public class LiteRtLLMManager {
                 outputFile.delete();
             }
             if (!tempFile.renameTo(outputFile)) {
-                 throw new IOException("Failed to rename temp file");
+                throw new IOException("Failed to rename temp file");
             }
             return true;
         } finally {
-            if (connection != null) connection.disconnect();
-            if (tempFile.exists()) tempFile.delete();
+            if (connection != null)
+                connection.disconnect();
+            if (tempFile.exists())
+                tempFile.delete();
         }
     }
+
     /**
      * Imports a model from an input stream (e.g. from a content URI).
-     * @param input The input stream of the source file.
+     * 
+     * @param input     The input stream of the source file.
      * @param modelName The name to save the model as (e.g. manual_import).
      * @return true if successful.
      */
@@ -189,7 +258,8 @@ public class LiteRtLLMManager {
             // Validate it's a zip file (task files are zip archives)
             if (totalBytes < 1000) {
                 tempFile.delete();
-                throw new IOException("File too small (" + totalBytes + " bytes). Expected a ~529MB .task file. Did you download an HTML page instead?");
+                throw new IOException("File too small (" + totalBytes
+                        + " bytes). Expected a ~529MB .task file. Did you download an HTML page instead?");
             }
         } catch (IOException e) {
             Log.e(TAG, "Failed to write import stream", e);
@@ -208,6 +278,7 @@ public class LiteRtLLMManager {
 
     /**
      * Validates a model by initializing it and generating a test response.
+     * 
      * @param modelId The model ID to validate
      * @return The model's response to a test prompt
      * @throws Exception if the model fails to initialize or generate a response
@@ -235,8 +306,9 @@ public class LiteRtLLMManager {
 
     /**
      * Validates a model by initializing it and generating a test response.
+     * 
      * @param modelId The model ID to validate
-     * @param model The LlmModel config (can be null for manual imports)
+     * @param model   The LlmModel config (can be null for manual imports)
      * @return The model's response to a test prompt
      * @throws Exception if the model fails to initialize or generate a response
      */

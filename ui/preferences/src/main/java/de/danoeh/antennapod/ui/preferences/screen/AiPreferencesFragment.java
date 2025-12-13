@@ -48,6 +48,9 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private static final String PREF_LOCAL_LLM_IMPORT = "prefLocalAdAnalysisImport";
     private static final String PREF_LOCAL_LLM_DELETE = "prefLocalAdAnalysisDelete";
 
+    // Delete all models
+    private static final String PREF_DELETE_ALL_MODELS = "prefDeleteAllModels";
+
     private LocalTranscriptionManager transcriptionManager;
     private de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager llmManager;
     private ExecutorService downloadExecutor;
@@ -75,6 +78,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         setupAnalysisTypePreference();
         setupLocalTranscriptionPreferences();
         setupLocalLlmPreferences();
+        setupDeleteAllModels();
         setupStatistics();
     }
 
@@ -92,6 +96,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         updateStatistics();
         updateLocalTranscriptionUI();
         updateLocalLlmUI();
+        updateDeleteAllModelsSummary();
     }
 
     @Override
@@ -136,7 +141,8 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     }
 
     private void updateVisibility(String analysisType) {
-        // Always show API key and Model preferences as they are required for cloud analysis
+        // Always show API key and Model preferences as they are required for cloud
+        // analysis
         Preference apiKeyPref = findPreference(PREF_OPENAI_API_KEY);
         if (apiKeyPref != null) {
             apiKeyPref.setVisible(true);
@@ -304,6 +310,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                                     Toast.LENGTH_SHORT).show();
                         }
                         updateLocalTranscriptionUI();
+                        updateDeleteAllModelsSummary();
                     });
                 }
             } catch (Exception e) {
@@ -350,6 +357,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                 Toast.LENGTH_SHORT).show();
 
         updateLocalTranscriptionUI();
+        updateDeleteAllModelsSummary();
     }
 
     private void setupLocalLlmPreferences() {
@@ -438,9 +446,12 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         if (downloadPref != null) {
             if (isLlmDownloading) {
                 downloadPref.setEnabled(false);
-                downloadPref.setSummary(R.string.pref_local_transcription_downloading); // Reuse string or generic "Downloading..."
+                downloadPref.setSummary(R.string.pref_local_transcription_downloading); // Reuse string or generic
+                                                                                        // "Downloading..."
             } else if (isDownloaded) {
-                downloadPref.setSummary(R.string.pref_local_transcription_download_summary_downloaded); // Reuse "Downloaded" string
+                downloadPref.setSummary(R.string.pref_local_transcription_download_summary_downloaded); // Reuse
+                                                                                                        // "Downloaded"
+                                                                                                        // string
                 downloadPref.setEnabled(false);
             } else {
                 downloadPref.setSummary(R.string.pref_local_ad_analysis_download_summary);
@@ -500,6 +511,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                                     Toast.LENGTH_SHORT).show();
                         }
                         updateLocalLlmUI();
+                        updateDeleteAllModelsSummary();
                     });
                 }
             } catch (Exception e) {
@@ -546,6 +558,103 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                 Toast.LENGTH_SHORT).show();
 
         updateLocalLlmUI();
+        updateDeleteAllModelsSummary();
+    }
+
+    private void setupDeleteAllModels() {
+        Preference deleteAllPref = findPreference(PREF_DELETE_ALL_MODELS);
+        if (deleteAllPref != null) {
+            deleteAllPref.setOnPreferenceClickListener(preference -> {
+                showDeleteAllModelsConfirmation();
+                return true;
+            });
+        }
+        updateDeleteAllModelsSummary();
+    }
+
+    private void updateDeleteAllModelsSummary() {
+        Preference deleteAllPref = findPreference(PREF_DELETE_ALL_MODELS);
+        if (deleteAllPref == null) {
+            return;
+        }
+
+        int transcriptionCount = transcriptionManager.getDownloadedModelsCount();
+        int llmCount = llmManager.getDownloadedModelsCount();
+        int totalCount = transcriptionCount + llmCount;
+
+        long transcriptionSize = transcriptionManager.getDownloadedModelsSize();
+        long llmSize = llmManager.getDownloadedModelsSize();
+        long totalSize = transcriptionSize + llmSize;
+
+        if (totalCount == 0) {
+            deleteAllPref.setSummary(R.string.pref_delete_all_models_summary);
+        } else {
+            String sizeStr = formatSize(totalSize);
+            String summary = totalCount + " model" + (totalCount > 1 ? "s" : "") + " (" + sizeStr + ")";
+            deleteAllPref.setSummary(summary);
+        }
+    }
+
+    private String formatSize(long bytes) {
+        if (bytes < 1024) {
+            return bytes + " B";
+        } else if (bytes < 1024 * 1024) {
+            return String.format(Locale.US, "%.1f KB", bytes / 1024.0);
+        } else if (bytes < 1024 * 1024 * 1024) {
+            return String.format(Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0));
+        } else {
+            return String.format(Locale.US, "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
+        }
+    }
+
+    private void showDeleteAllModelsConfirmation() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.pref_delete_all_models_confirm_title)
+                .setMessage(R.string.pref_delete_all_models_confirm_message)
+                .setPositiveButton(R.string.confirm_label, (dialog, which) -> {
+                    deleteAllModels();
+                })
+                .setNegativeButton(R.string.cancel_label, null)
+                .show();
+    }
+
+    private void deleteAllModels() {
+        // Disable local features if enabled
+        if (OpenAiPreferences.isLocalTranscriptionEnabled(requireContext())) {
+            OpenAiPreferences.setLocalTranscriptionEnabled(requireContext(), false);
+            SwitchPreferenceCompat transcriptionSwitch = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
+            if (transcriptionSwitch != null) {
+                transcriptionSwitch.setChecked(false);
+            }
+        }
+        if (OpenAiPreferences.isLocalAdAnalysisEnabled(requireContext())) {
+            OpenAiPreferences.setLocalAdAnalysisEnabled(requireContext(), false);
+            SwitchPreferenceCompat llmSwitch = findPreference(PREF_LOCAL_LLM_ENABLED);
+            if (llmSwitch != null) {
+                llmSwitch.setChecked(false);
+            }
+        }
+
+        // Delete all models
+        int transcriptionCount = transcriptionManager.deleteAllModels();
+        int llmCount = llmManager.deleteAllModels();
+        int totalCount = transcriptionCount + llmCount;
+
+        // Update UI
+        updateLocalTranscriptionUI();
+        updateLocalLlmUI();
+        updateDeleteAllModelsSummary();
+
+        // Show result
+        if (totalCount > 0) {
+            Toast.makeText(requireContext(),
+                    getString(R.string.pref_delete_all_models_success, totalCount),
+                    Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(requireContext(),
+                    R.string.pref_delete_all_models_none,
+                    Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void updateApiKeySummary(EditTextPreference apiKeyPref) {
@@ -605,12 +714,14 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
             costPref.setSummary(String.format(Locale.getDefault(), "$%.4f", cost));
         }
     }
+
     private void importManualModel(Uri uri) {
         downloadExecutor.execute(() -> {
             try {
                 // Step 1: Copy the file
                 try (InputStream inputStream = requireContext().getContentResolver().openInputStream(uri)) {
-                    if (inputStream == null) throw new IllegalArgumentException("Cannot open file stream");
+                    if (inputStream == null)
+                        throw new IllegalArgumentException("Cannot open file stream");
 
                     llmManager.importModel(inputStream, OpenAiPreferences.MANUAL_MODEL_ID);
                 }

@@ -31,8 +31,10 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * Manages local speech recognition model download and on-device transcription using Vosk.
- * Vosk is a lightweight, offline speech recognition toolkit that works well on Android.
+ * Manages local speech recognition model download and on-device transcription
+ * using Vosk.
+ * Vosk is a lightweight, offline speech recognition toolkit that works well on
+ * Android.
  */
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class LocalTranscriptionManager {
@@ -43,21 +45,18 @@ public class LocalTranscriptionManager {
     public static final String MODEL_MEDIUM = "medium";
     public static final String MODEL_LARGE = "large";
 
-    private static final String MODEL_URL_SMALL =
-            "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip";
-    private static final String MODEL_URL_MEDIUM =
-            "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip";
-    private static final String MODEL_URL_LARGE =
-            "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip";
+    private static final String MODEL_URL_SMALL = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip";
+    private static final String MODEL_URL_MEDIUM = "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip";
+    private static final String MODEL_URL_LARGE = "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip";
 
     // Model sizes for progress tracking
-    private static final long MODEL_SIZE_SMALL = 40_000_000L;    // ~40 MB
-    private static final long MODEL_SIZE_MEDIUM = 128_000_000L;  // ~128 MB
+    private static final long MODEL_SIZE_SMALL = 40_000_000L; // ~40 MB
+    private static final long MODEL_SIZE_MEDIUM = 128_000_000L; // ~128 MB
     private static final long MODEL_SIZE_LARGE = 1_800_000_000L; // ~1.8 GB
 
     // Minimum available memory required for each model (with safety margin)
-    private static final long MIN_MEMORY_SMALL = 100_000_000L;   // 100 MB
-    private static final long MIN_MEMORY_MEDIUM = 300_000_000L;  // 300 MB
+    private static final long MIN_MEMORY_SMALL = 100_000_000L; // 100 MB
+    private static final long MIN_MEMORY_MEDIUM = 300_000_000L; // 300 MB
     private static final long MIN_MEMORY_LARGE = 2_500_000_000L; // 2.5 GB
 
     // Audio processing constants
@@ -160,8 +159,8 @@ public class LocalTranscriptionManager {
      * so we check system-wide available memory instead of just Java heap.
      */
     public boolean hasEnoughMemory(String modelName) {
-        android.app.ActivityManager activityManager = (android.app.ActivityManager)
-                context.getSystemService(Context.ACTIVITY_SERVICE);
+        android.app.ActivityManager activityManager = (android.app.ActivityManager) context
+                .getSystemService(Context.ACTIVITY_SERVICE);
         android.app.ActivityManager.MemoryInfo memInfo = new android.app.ActivityManager.MemoryInfo();
         activityManager.getMemoryInfo(memInfo);
 
@@ -204,8 +203,8 @@ public class LocalTranscriptionManager {
      * Gets the estimated per-app memory limit for this device.
      */
     public long getPerAppMemoryLimit() {
-        android.app.ActivityManager activityManager = (android.app.ActivityManager)
-                context.getSystemService(Context.ACTIVITY_SERVICE);
+        android.app.ActivityManager activityManager = (android.app.ActivityManager) context
+                .getSystemService(Context.ACTIVITY_SERVICE);
         android.app.ActivityManager.MemoryInfo memInfo = new android.app.ActivityManager.MemoryInfo();
         activityManager.getMemoryInfo(memInfo);
         long totalRam = memInfo.totalMem;
@@ -315,7 +314,7 @@ public class LocalTranscriptionManager {
             }
 
             try (InputStream input = connection.getInputStream();
-                 FileOutputStream output = new FileOutputStream(tempFile)) {
+                    FileOutputStream output = new FileOutputStream(tempFile)) {
 
                 byte[] buffer = new byte[8192];
                 long totalRead = 0;
@@ -400,6 +399,86 @@ public class LocalTranscriptionManager {
         }
 
         Log.i(TAG, "Model deleted: " + modelName);
+    }
+
+    /**
+     * Deletes all downloaded transcription model files.
+     * 
+     * @return The number of deleted models.
+     */
+    public int deleteAllModels() {
+        // Unload any loaded model first
+        if (isModelLoaded) {
+            unloadModel();
+        }
+
+        File modelDir = getModelDirectory();
+        int deletedCount = 0;
+        File[] files = modelDir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    deleteRecursively(file);
+                    deletedCount++;
+                    Log.i(TAG, "Deleted model directory: " + file.getName());
+                }
+            }
+        }
+        Log.i(TAG, "Deleted " + deletedCount + " transcription model(s)");
+        return deletedCount;
+    }
+
+    /**
+     * Gets the number of downloaded transcription models.
+     * 
+     * @return Count of downloaded models.
+     */
+    public int getDownloadedModelsCount() {
+        File modelDir = getModelDirectory();
+        int count = 0;
+        File[] files = modelDir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Gets the total size of all downloaded transcription models in bytes.
+     * 
+     * @return Total size in bytes.
+     */
+    public long getDownloadedModelsSize() {
+        File modelDir = getModelDirectory();
+        long totalSize = 0;
+        File[] files = modelDir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    totalSize += getDirectorySize(file);
+                }
+            }
+        }
+        return totalSize;
+    }
+
+    private long getDirectorySize(File directory) {
+        long size = 0;
+        File[] files = directory.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    size += getDirectorySize(file);
+                } else {
+                    size += file.length();
+                }
+            }
+        }
+        return size;
     }
 
     private void deleteRecursively(File file) {
@@ -520,6 +599,7 @@ public class LocalTranscriptionManager {
      */
     public interface ModelLoadCallback {
         void onModelLoaded();
+
         void onModelLoadFailed(Exception e);
     }
 
@@ -602,7 +682,8 @@ public class LocalTranscriptionManager {
     }
 
     /**
-     * Transcribes a chunk of audio and returns VTT-formatted text with offset applied.
+     * Transcribes a chunk of audio and returns VTT-formatted text with offset
+     * applied.
      *
      * @param audioFile     Path to the audio chunk file
      * @param offsetSeconds Time offset to add to timestamps

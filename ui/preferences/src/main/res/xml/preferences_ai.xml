@@ -103,4 +103,9 @@
 
     </PreferenceCategory>
 
+    <Preference
+            android:key="prefDeleteAllModels"
+            android:title="@string/pref_delete_all_models_title"
+            android:summary="@string/pref_delete_all_models_summary" />
+
 </PreferenceScreen>

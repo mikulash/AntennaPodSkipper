@@ -1116,4 +1116,12 @@
     <string name="model_import_failed_title">Import Failed</string>
     <string name="model_import_failed_message">The model could not be validated.\n\nError: %s</string>
 
+    <!-- Delete all models -->
+    <string name="pref_delete_all_models_title">Delete all downloaded models</string>
+    <string name="pref_delete_all_models_summary">Remove all transcription and analysis models to free up storage space</string>
+    <string name="pref_delete_all_models_confirm_title">Delete all models?</string>
+    <string name="pref_delete_all_models_confirm_message">This will delete all downloaded transcription and LLM analysis models. You will need to re-download them to use local processing again.</string>
+    <string name="pref_delete_all_models_success">Deleted %1$d models. Freed up storage space.</string>
+    <string name="pref_delete_all_models_none">No downloaded models found.</string>
+
 </resources>
