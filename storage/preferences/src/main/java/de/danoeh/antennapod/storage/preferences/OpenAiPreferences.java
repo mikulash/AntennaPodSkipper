@@ -25,80 +25,17 @@ public final class OpenAiPreferences {
     private static final String PREF_TOTAL_ANALYSIS_TOKENS = "pref_openai_total_analysis_tokens";
     private static final String PREF_TOTAL_COST = "pref_openai_total_cost_micros";
 
-    // Local transcription preferences
-    private static final String PREF_USE_LOCAL_TRANSCRIPTION = "pref_use_local_transcription";
-    private static final String PREF_LOCAL_TRANSCRIPTION_MODEL = "pref_local_transcription_model";
-    private static final String DEFAULT_LOCAL_MODEL = "small";
-
-    // Local Ad Analysis (LiteRT) settings
-    private static final String PREF_USE_LOCAL_AD_ANALYSIS = "prefLocalAdAnalysisEnabled";
-    private static final String PREF_LOCAL_AD_ANALYSIS_MODEL = "prefLocalAdAnalysisModel";
-    private static final String DEFAULT_LOCAL_LLM_MODEL = "gemma3-1b-cpu";
-
-    private static final String PREF_MANUAL_MODEL_PATH = "prefManualModelPath";
-    public static final String MANUAL_MODEL_ID = "manual_import";
-
     private OpenAiPreferences() {
     }
-
-    public static void setManualModelPath(Context context, String path) {
-        SharedPreferences prefs = getEncryptedPrefs(context);
-        if (prefs == null) return;
-        if (path == null) {
-            prefs.edit().remove(PREF_MANUAL_MODEL_PATH).apply();
-        } else {
-            prefs.edit().putString(PREF_MANUAL_MODEL_PATH, path).apply();
-        }
-    }
-
-    @Nullable
-    public static String getManualModelPath(Context context) {
-        SharedPreferences prefs = getEncryptedPrefs(context);
-        if (prefs == null) return null;
-        return prefs.getString(PREF_MANUAL_MODEL_PATH, null);
-    }
-
-    public static boolean isLocalAdAnalysisEnabled(Context context) {
-        SharedPreferences prefs = getEncryptedPrefs(context);
-        return prefs != null && prefs.getBoolean(PREF_USE_LOCAL_AD_ANALYSIS, false);
-    }
-
-    public static String getLocalAdAnalysisModel(Context context) {
-        SharedPreferences prefs = getEncryptedPrefs(context);
-        if (prefs == null) {
-            return DEFAULT_LOCAL_LLM_MODEL;
-        }
-        return prefs.getString(PREF_LOCAL_AD_ANALYSIS_MODEL, DEFAULT_LOCAL_LLM_MODEL);
-    }
-
-    public static void setLocalAdAnalysisEnabled(Context context, boolean enabled) {
-        SharedPreferences prefs = getEncryptedPrefs(context);
-        if (prefs == null) {
-            return;
-        }
-        prefs.edit().putBoolean(PREF_USE_LOCAL_AD_ANALYSIS, enabled).apply();
-    }
-
-    public static void setLocalAdAnalysisModel(Context context, @Nullable String model) {
-        SharedPreferences prefs = getEncryptedPrefs(context);
-        if (prefs == null) {
-            return;
-        }
-        if (model == null || model.trim().isEmpty()) {
-            prefs.edit().putString(PREF_LOCAL_AD_ANALYSIS_MODEL, DEFAULT_LOCAL_LLM_MODEL).apply();
-        } else {
-            prefs.edit().putString(PREF_LOCAL_AD_ANALYSIS_MODEL, model.trim()).apply();
-        }
-    }
-
 
     /**
      * Returns true if an OpenAI API key is required for ad analysis.
      * Returns false if local ad analysis (LiteRT) is enabled.
      */
     public static boolean isApiKeyRequired(Context context) {
-        return !isLocalAdAnalysisEnabled(context);
+        return !LocalAiPreferences.isLocalAdAnalysisEnabled(context);
     }
+
     @Nullable
     public static String getApiKey(Context context) {
         SharedPreferences prefs = getEncryptedPrefs(context);
@@ -182,43 +119,6 @@ public final class OpenAiPreferences {
         long addMicros = (long) (costDollars * 1_000_000.0);
         prefs.edit().putLong(PREF_TOTAL_COST, currentMicros + addMicros).apply();
     }
-
-    // Local transcription settings
-
-    public static boolean isLocalTranscriptionEnabled(Context context) {
-        SharedPreferences prefs = getEncryptedPrefs(context);
-        return prefs != null && prefs.getBoolean(PREF_USE_LOCAL_TRANSCRIPTION, true);
-    }
-
-    public static void setLocalTranscriptionEnabled(Context context, boolean enabled) {
-        SharedPreferences prefs = getEncryptedPrefs(context);
-        if (prefs == null) {
-            return;
-        }
-        prefs.edit().putBoolean(PREF_USE_LOCAL_TRANSCRIPTION, enabled).apply();
-    }
-
-    public static String getLocalTranscriptionModel(Context context) {
-        SharedPreferences prefs = getEncryptedPrefs(context);
-        if (prefs == null) {
-            return DEFAULT_LOCAL_MODEL;
-        }
-        return prefs.getString(PREF_LOCAL_TRANSCRIPTION_MODEL, DEFAULT_LOCAL_MODEL);
-    }
-
-    public static void setLocalTranscriptionModel(Context context, @Nullable String model) {
-        SharedPreferences prefs = getEncryptedPrefs(context);
-        if (prefs == null) {
-            return;
-        }
-        if (model == null || model.trim().isEmpty()) {
-            prefs.edit().putString(PREF_LOCAL_TRANSCRIPTION_MODEL, DEFAULT_LOCAL_MODEL).apply();
-        } else {
-            prefs.edit().putString(PREF_LOCAL_TRANSCRIPTION_MODEL, model.trim()).apply();
-        }
-    }
-
-
 
     @Nullable
     private static SharedPreferences getEncryptedPrefs(Context context) {

@@ -19,6 +19,32 @@ public enum LlmModel {
             0.95f,
             PromptFormat.GEMMA
     ),
+    GEMMA2_2B_IT_GPU(
+            "gemma2-2b-gpu",
+            "Gemma2 2B (GPU)",
+            "Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task",
+            "https://huggingface.co/litert-community/Gemma2-2B-IT/resolve/main/Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task",
+            true,
+            BackendType.GPU,
+            1280,
+            0.9f,
+            64,
+            0.95f,
+            PromptFormat.GEMMA
+    ),
+    GEMMA3_4B_IT_INT8_GPU(
+            "gemma3-4b-gpu",
+            "Gemma3 4B (GPU, int8)",
+            "gemma3-4b-it-int8-web.task",
+            "https://huggingface.co/litert-community/Gemma3-4B-IT/resolve/main/gemma3-4b-it-int8-web.task",
+            true,
+            BackendType.GPU,
+            2048,
+            0.9f,
+            64,
+            0.95f,
+            PromptFormat.GEMMA
+    ),
 
     DEEPSEEK_R1_QWEN_1_5B(
             "deepseek-r1-qwen-1.5b",
@@ -242,6 +268,8 @@ public enum LlmModel {
      */
     public static LlmModel[] getRecommendedModels() {
         return new LlmModel[]{
+                GEMMA3_4B_IT_INT8_GPU,
+                GEMMA2_2B_IT_GPU,
                 QWEN2_5_1_5B,
                 PHI_4_MINI
         };

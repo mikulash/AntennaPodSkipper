@@ -20,6 +20,7 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.net.download.service.ad.TranscriptionWorkScheduler;
 import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager;
+import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.ui.screen.preferences.PreferenceActivity;
 
@@ -57,8 +58,8 @@ public class TranscribeActionButton extends ItemActionButton {
             Toast.makeText(context, R.string.transcription_requires_download, Toast.LENGTH_LONG).show();
             return;
         }
-        if (OpenAiPreferences.isLocalTranscriptionEnabled(context)) {
-            String model = OpenAiPreferences.getLocalTranscriptionModel(context);
+        if (LocalAiPreferences.isLocalTranscriptionEnabled(context)) {
+            String model = LocalAiPreferences.getLocalTranscriptionModel(context);
             if (!new LocalTranscriptionManager(context).isModelDownloaded(model)) {
                 new MaterialAlertDialogBuilder(context)
                         .setTitle(R.string.ad_analysis_model_missing_title)
@@ -69,7 +70,7 @@ public class TranscribeActionButton extends ItemActionButton {
                             context.startActivity(intent);
                         })
                         .setNeutralButton(R.string.action_use_cloud, (d, w) -> {
-                            OpenAiPreferences.setLocalTranscriptionEnabled(context, false);
+                            LocalAiPreferences.setLocalTranscriptionEnabled(context, false);
                             runTranscription(context, media);
                         })
                         .setNegativeButton(android.R.string.cancel, null)
@@ -79,7 +80,7 @@ public class TranscribeActionButton extends ItemActionButton {
         }
         if (OpenAiPreferences.isApiKeyRequired(context)
                 && TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))
-                && !OpenAiPreferences.isLocalTranscriptionEnabled(context)) {
+                && !LocalAiPreferences.isLocalTranscriptionEnabled(context)) {
             Toast.makeText(context, R.string.ad_analysis_missing_key, Toast.LENGTH_LONG).show();
             return;
         }

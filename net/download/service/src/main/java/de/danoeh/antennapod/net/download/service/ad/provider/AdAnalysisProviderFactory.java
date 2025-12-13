@@ -9,7 +9,7 @@ import androidx.annotation.RequiresApi;
 import java.io.IOException;
 
 import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager;
-import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
+import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**
  * Factory to construct the configured ad analysis provider.
@@ -34,7 +34,7 @@ public final class AdAnalysisProviderFactory {
      * Creates the appropriate transcription provider based on user preferences.
      */
     public static TranscriptionProvider createTranscriptionProvider(Context context) {
-        if (OpenAiPreferences.isLocalTranscriptionEnabled(context)) {
+        if (LocalAiPreferences.isLocalTranscriptionEnabled(context)) {
             Log.i(TAG, "Creating LocalTranscriptionProvider");
             try {
                 return new LocalTranscriptionProvider(context);
@@ -52,7 +52,7 @@ public final class AdAnalysisProviderFactory {
      * Creates the appropriate ad analysis provider based on user preferences.
      */
     public static AdAnalysisProvider createAnalysisProvider(Context context) throws IOException {
-        if (OpenAiPreferences.isLocalAdAnalysisEnabled(context)) {
+        if (LocalAiPreferences.isLocalAdAnalysisEnabled(context)) {
             Log.i(TAG, "Creating LocalAdAnalysisProvider");
             try {
             return new LocalAdAnalysisProvider(context);
@@ -79,10 +79,10 @@ public final class AdAnalysisProviderFactory {
      * Checks if local transcription is available (model downloaded and preference enabled).
      */
     public static boolean isLocalTranscriptionAvailable(Context context) {
-        if (!OpenAiPreferences.isLocalTranscriptionEnabled(context)) {
+        if (!LocalAiPreferences.isLocalTranscriptionEnabled(context)) {
             return false;
         }
-        String localModel = OpenAiPreferences.getLocalTranscriptionModel(context);
+        String localModel = LocalAiPreferences.getLocalTranscriptionModel(context);
         LocalTranscriptionManager manager = new LocalTranscriptionManager(context);
         return manager.isModelDownloaded(localModel);
     }

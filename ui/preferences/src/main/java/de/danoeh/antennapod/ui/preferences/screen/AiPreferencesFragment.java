@@ -25,6 +25,7 @@ import java.io.InputStream;
 import android.net.Uri;
 
 import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager;
+import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.ui.preferences.R;
 
@@ -157,10 +158,10 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         // Enable/disable toggle
         SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
         if (enabledPref != null) {
-            enabledPref.setChecked(OpenAiPreferences.isLocalTranscriptionEnabled(requireContext()));
+            enabledPref.setChecked(LocalAiPreferences.isLocalTranscriptionEnabled(requireContext()));
             enabledPref.setOnPreferenceChangeListener((preference, newValue) -> {
                 boolean enabled = (Boolean) newValue;
-                String model = OpenAiPreferences.getLocalTranscriptionModel(requireContext());
+                String model = LocalAiPreferences.getLocalTranscriptionModel(requireContext());
 
                 // Check if model is downloaded before enabling
                 if (enabled && !transcriptionManager.isModelDownloaded(model)) {
@@ -170,7 +171,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                     return false;
                 }
 
-                OpenAiPreferences.setLocalTranscriptionEnabled(requireContext(), enabled);
+                LocalAiPreferences.setLocalTranscriptionEnabled(requireContext(), enabled);
                 return true;
             });
         }
@@ -178,15 +179,15 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         // Model selection
         ListPreference modelPref = findPreference(PREF_LOCAL_TRANSCRIPTION_MODEL);
         if (modelPref != null) {
-            modelPref.setValue(OpenAiPreferences.getLocalTranscriptionModel(requireContext()));
+            modelPref.setValue(LocalAiPreferences.getLocalTranscriptionModel(requireContext()));
             modelPref.setOnPreferenceChangeListener((preference, newValue) -> {
                 String newModel = (String) newValue;
-                OpenAiPreferences.setLocalTranscriptionModel(requireContext(), newModel);
+                LocalAiPreferences.setLocalTranscriptionModel(requireContext(), newModel);
 
                 // If local transcription is enabled but new model isn't downloaded, disable it
-                if (OpenAiPreferences.isLocalTranscriptionEnabled(requireContext())
+                if (LocalAiPreferences.isLocalTranscriptionEnabled(requireContext())
                         && !transcriptionManager.isModelDownloaded(newModel)) {
-                    OpenAiPreferences.setLocalTranscriptionEnabled(requireContext(), false);
+                    LocalAiPreferences.setLocalTranscriptionEnabled(requireContext(), false);
                     SwitchPreferenceCompat switchPref = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
                     if (switchPref != null) {
                         switchPref.setChecked(false);
@@ -222,7 +223,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     }
 
     private void updateLocalTranscriptionUI() {
-        String selectedModel = OpenAiPreferences.getLocalTranscriptionModel(requireContext());
+        String selectedModel = LocalAiPreferences.getLocalTranscriptionModel(requireContext());
         boolean isDownloaded = transcriptionManager.isModelDownloaded(selectedModel);
 
         // Update download button
@@ -256,7 +257,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     }
 
     private void startModelDownload() {
-        String modelName = OpenAiPreferences.getLocalTranscriptionModel(requireContext());
+        String modelName = LocalAiPreferences.getLocalTranscriptionModel(requireContext());
 
         // Check if device has enough memory for this model
         if (!transcriptionManager.hasEnoughMemory(modelName)) {
@@ -339,11 +340,11 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     }
 
     private void deleteModel() {
-        String modelName = OpenAiPreferences.getLocalTranscriptionModel(requireContext());
+        String modelName = LocalAiPreferences.getLocalTranscriptionModel(requireContext());
 
         // Disable local transcription if it was enabled
-        if (OpenAiPreferences.isLocalTranscriptionEnabled(requireContext())) {
-            OpenAiPreferences.setLocalTranscriptionEnabled(requireContext(), false);
+        if (LocalAiPreferences.isLocalTranscriptionEnabled(requireContext())) {
+            LocalAiPreferences.setLocalTranscriptionEnabled(requireContext(), false);
             SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
             if (enabledPref != null) {
                 enabledPref.setChecked(false);
@@ -364,10 +365,10 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         // Enable/disable toggle
         SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_LLM_ENABLED);
         if (enabledPref != null) {
-            enabledPref.setChecked(OpenAiPreferences.isLocalAdAnalysisEnabled(requireContext()));
+            enabledPref.setChecked(LocalAiPreferences.isLocalAdAnalysisEnabled(requireContext()));
             enabledPref.setOnPreferenceChangeListener((preference, newValue) -> {
                 boolean enabled = (Boolean) newValue;
-                String model = OpenAiPreferences.getLocalAdAnalysisModel(requireContext());
+                String model = LocalAiPreferences.getLocalAdAnalysisModel(requireContext());
 
                 // Check if model is downloaded before enabling
                 if (enabled && !llmManager.isModelDownloaded(model)) {
@@ -377,7 +378,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                     return false;
                 }
 
-                OpenAiPreferences.setLocalAdAnalysisEnabled(requireContext(), enabled);
+                LocalAiPreferences.setLocalAdAnalysisEnabled(requireContext(), enabled);
                 return true;
             });
         }
@@ -385,15 +386,15 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         // Model selection
         ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
         if (modelPref != null) {
-            modelPref.setValue(OpenAiPreferences.getLocalAdAnalysisModel(requireContext()));
+            modelPref.setValue(LocalAiPreferences.getLocalAdAnalysisModel(requireContext()));
             modelPref.setOnPreferenceChangeListener((preference, newValue) -> {
                 String newModel = (String) newValue;
-                OpenAiPreferences.setLocalAdAnalysisModel(requireContext(), newModel);
+                LocalAiPreferences.setLocalAdAnalysisModel(requireContext(), newModel);
 
                 // If enabled but new model isn't downloaded, disable it
-                if (OpenAiPreferences.isLocalAdAnalysisEnabled(requireContext())
+                if (LocalAiPreferences.isLocalAdAnalysisEnabled(requireContext())
                         && !llmManager.isModelDownloaded(newModel)) {
-                    OpenAiPreferences.setLocalAdAnalysisEnabled(requireContext(), false);
+                    LocalAiPreferences.setLocalAdAnalysisEnabled(requireContext(), false);
                     SwitchPreferenceCompat switchPref = findPreference(PREF_LOCAL_LLM_ENABLED);
                     if (switchPref != null) {
                         switchPref.setChecked(false);
@@ -438,7 +439,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     }
 
     private void updateLocalLlmUI() {
-        String selectedModel = OpenAiPreferences.getLocalAdAnalysisModel(requireContext());
+        String selectedModel = LocalAiPreferences.getLocalAdAnalysisModel(requireContext());
         boolean isDownloaded = llmManager.isModelDownloaded(selectedModel);
 
         // Update download button
@@ -474,7 +475,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     }
 
     private void startLlmDownload() {
-        String modelName = OpenAiPreferences.getLocalAdAnalysisModel(requireContext());
+        String modelName = LocalAiPreferences.getLocalAdAnalysisModel(requireContext());
         performLlmDownload(modelName);
     }
 
@@ -540,11 +541,11 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     }
 
     private void deleteLlmModel() {
-        String modelName = OpenAiPreferences.getLocalAdAnalysisModel(requireContext());
+        String modelName = LocalAiPreferences.getLocalAdAnalysisModel(requireContext());
 
         // Disable local analysis if it was enabled
-        if (OpenAiPreferences.isLocalAdAnalysisEnabled(requireContext())) {
-            OpenAiPreferences.setLocalAdAnalysisEnabled(requireContext(), false);
+        if (LocalAiPreferences.isLocalAdAnalysisEnabled(requireContext())) {
+            LocalAiPreferences.setLocalAdAnalysisEnabled(requireContext(), false);
             SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_LLM_ENABLED);
             if (enabledPref != null) {
                 enabledPref.setChecked(false);
@@ -620,15 +621,15 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
 
     private void deleteAllModels() {
         // Disable local features if enabled
-        if (OpenAiPreferences.isLocalTranscriptionEnabled(requireContext())) {
-            OpenAiPreferences.setLocalTranscriptionEnabled(requireContext(), false);
+        if (LocalAiPreferences.isLocalTranscriptionEnabled(requireContext())) {
+            LocalAiPreferences.setLocalTranscriptionEnabled(requireContext(), false);
             SwitchPreferenceCompat transcriptionSwitch = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
             if (transcriptionSwitch != null) {
                 transcriptionSwitch.setChecked(false);
             }
         }
-        if (OpenAiPreferences.isLocalAdAnalysisEnabled(requireContext())) {
-            OpenAiPreferences.setLocalAdAnalysisEnabled(requireContext(), false);
+        if (LocalAiPreferences.isLocalAdAnalysisEnabled(requireContext())) {
+            LocalAiPreferences.setLocalAdAnalysisEnabled(requireContext(), false);
             SwitchPreferenceCompat llmSwitch = findPreference(PREF_LOCAL_LLM_ENABLED);
             if (llmSwitch != null) {
                 llmSwitch.setChecked(false);
@@ -723,22 +724,22 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                     if (inputStream == null)
                         throw new IllegalArgumentException("Cannot open file stream");
 
-                    llmManager.importModel(inputStream, OpenAiPreferences.MANUAL_MODEL_ID);
+                    llmManager.importModel(inputStream, LocalAiPreferences.MANUAL_MODEL_ID);
                 }
 
                 // Step 2: Validate by initializing and getting a test response
                 showImportProgress("Validating model...");
-                String testResponse = llmManager.validateModel(OpenAiPreferences.MANUAL_MODEL_ID);
+                String testResponse = llmManager.validateModel(LocalAiPreferences.MANUAL_MODEL_ID);
 
                 if (getActivity() != null) {
                     getActivity().runOnUiThread(() -> {
                         // Select the manual model
-                        OpenAiPreferences.setLocalAdAnalysisModel(requireContext(), OpenAiPreferences.MANUAL_MODEL_ID);
+                        LocalAiPreferences.setLocalAdAnalysisModel(requireContext(), LocalAiPreferences.MANUAL_MODEL_ID);
 
                         // Update ListPreference
                         ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
                         if (modelPref != null) {
-                            modelPref.setValue(OpenAiPreferences.MANUAL_MODEL_ID);
+                            modelPref.setValue(LocalAiPreferences.MANUAL_MODEL_ID);
                         }
 
                         updateLocalLlmUI();
@@ -754,7 +755,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
             } catch (Exception e) {
                 // Clean up failed import
                 try {
-                    llmManager.deleteModel(OpenAiPreferences.MANUAL_MODEL_ID);
+                    llmManager.deleteModel(LocalAiPreferences.MANUAL_MODEL_ID);
                 } catch (Exception ignored) {
                 }
 

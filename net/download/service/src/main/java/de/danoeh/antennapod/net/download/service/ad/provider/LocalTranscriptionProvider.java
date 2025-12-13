@@ -13,7 +13,7 @@ import java.nio.file.Path;
 import java.util.Locale;
 
 import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager;
-import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
+import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class LocalTranscriptionProvider implements TranscriptionProvider {
@@ -28,7 +28,7 @@ public class LocalTranscriptionProvider implements TranscriptionProvider {
     public LocalTranscriptionProvider(Context context) throws IOException {
         this.transcriptionManager = new LocalTranscriptionManager(context);
 
-        String selectedLocalModel = OpenAiPreferences.getLocalTranscriptionModel(context);
+        String selectedLocalModel = LocalAiPreferences.getLocalTranscriptionModel(context);
         if (TextUtils.isEmpty(selectedLocalModel)) {
             selectedLocalModel = LocalTranscriptionManager.MODEL_SMALL;
         }

@@ -20,6 +20,7 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.net.download.service.ad.AdAnalysisWorkScheduler;
 import de.danoeh.antennapod.storage.database.AdSegmentStore;
+import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.ui.screen.preferences.PreferenceActivity;
 
@@ -67,8 +68,8 @@ public class AnalyzeAdsActionButton extends ItemActionButton {
             return;
         }
         // Check for local analysis model if enabled
-        if (OpenAiPreferences.isLocalAdAnalysisEnabled(context)) {
-            String model = OpenAiPreferences.getLocalAdAnalysisModel(context);
+        if (LocalAiPreferences.isLocalAdAnalysisEnabled(context)) {
+            String model = LocalAiPreferences.getLocalAdAnalysisModel(context);
             if (!new de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager(context).isModelDownloaded(model)) {
                 new MaterialAlertDialogBuilder(context)
                         .setTitle(R.string.ad_analysis_model_missing_title)
@@ -79,8 +80,7 @@ public class AnalyzeAdsActionButton extends ItemActionButton {
                             context.startActivity(intent);
                         })
                         .setNeutralButton(R.string.action_use_cloud, (d, w) -> {
-                            androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
-                                    .edit().putBoolean("prefLocalAdAnalysisEnabled", false).apply();
+                            LocalAiPreferences.setLocalAdAnalysisEnabled(context, false);
                             runAnalysis(context, media);
                         })
                         .setNegativeButton(android.R.string.cancel, null)
@@ -91,7 +91,7 @@ public class AnalyzeAdsActionButton extends ItemActionButton {
         // Check API key if cloud analysis is required
         if (OpenAiPreferences.isApiKeyRequired(context)
                 && TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))
-                && !OpenAiPreferences.isLocalAdAnalysisEnabled(context)) {
+                && !LocalAiPreferences.isLocalAdAnalysisEnabled(context)) {
             Toast.makeText(context, R.string.ad_analysis_missing_key, Toast.LENGTH_LONG).show();
             return;
         }

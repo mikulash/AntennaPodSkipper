@@ -323,7 +323,7 @@ public class LiteRtLLMManager {
         // Use model-specific settings if available, otherwise use defaults
         LlmInference.Backend backend = model != null
                 ? toMediaPipeBackend(model.getPreferredBackend())
-                : LlmInference.Backend.CPU;
+                : LlmInference.Backend.GPU;
         int maxTokens = model != null ? model.getMaxTokens() : 512;
 
         LlmInferenceOptions options = LlmInferenceOptions.builder()

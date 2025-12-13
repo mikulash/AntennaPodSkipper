@@ -11,7 +11,7 @@ import org.tensorflow.lite.gpu.GpuDelegate;
 import java.io.File;
 import java.io.IOException;
 import de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager;
-import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
+import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**
  * Provider that uses the raw LiteRT Interpreter API to run .tflite models directly.
@@ -27,7 +27,7 @@ public class RawAdAnalysisProvider implements AdAnalysisProvider {
 
     public RawAdAnalysisProvider(Context context) throws IOException {
         LiteRtLLMManager llmManager = new LiteRtLLMManager(context);
-        this.modelName = OpenAiPreferences.getLocalAdAnalysisModel(context);
+        this.modelName = LocalAiPreferences.getLocalAdAnalysisModel(context);
         this.modelFile = llmManager.getModelPath(modelName);
 
         if (!modelFile.exists()) {

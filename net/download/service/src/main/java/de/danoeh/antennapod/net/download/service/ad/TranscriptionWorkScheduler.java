@@ -13,6 +13,7 @@ import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
@@ -32,7 +33,7 @@ public final class TranscriptionWorkScheduler {
         }
         if (OpenAiPreferences.isApiKeyRequired(context)
                 && TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))
-                && !OpenAiPreferences.isLocalTranscriptionEnabled(context)) {
+                && !LocalAiPreferences.isLocalTranscriptionEnabled(context)) {
             return;
         }
         if (TextUtils.isEmpty(media.getLocalFileUrl())) {
@@ -43,7 +44,7 @@ public final class TranscriptionWorkScheduler {
                 .build();
 
         // Only require network if not running in fully local mode
-        NetworkType networkType = OpenAiPreferences.isLocalTranscriptionEnabled(context)
+        NetworkType networkType = LocalAiPreferences.isLocalTranscriptionEnabled(context)
                 ? NetworkType.NOT_REQUIRED
                 : NetworkType.CONNECTED;
 

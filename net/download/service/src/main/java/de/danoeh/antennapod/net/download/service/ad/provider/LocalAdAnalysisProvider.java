@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 
 import de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager;
 import de.danoeh.antennapod.net.download.service.ad.litert.LlmModel;
-import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
+import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class LocalAdAnalysisProvider implements AdAnalysisProvider {
@@ -39,7 +39,7 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
     public LocalAdAnalysisProvider(Context context) throws IOException {
         this.context = context;
         this.llmManager = new LiteRtLLMManager(context);
-        this.litertModelId = OpenAiPreferences.getLocalAdAnalysisModel(context);
+        this.litertModelId = LocalAiPreferences.getLocalAdAnalysisModel(context);
         this.llmModelConfig = LlmModel.fromId(litertModelId);
 
         if (!llmManager.isModelDownloaded(litertModelId)) {
