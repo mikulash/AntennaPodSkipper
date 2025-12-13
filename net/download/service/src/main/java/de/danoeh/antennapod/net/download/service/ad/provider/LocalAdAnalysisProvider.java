@@ -6,8 +6,11 @@ import android.util.Log;
 
 import androidx.annotation.RequiresApi;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mediapipe.tasks.genai.llminference.LlmInference;
 import com.google.mediapipe.tasks.genai.llminference.LlmInference.LlmInferenceOptions;
+import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession;
+import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession.LlmInferenceSessionOptions;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -29,12 +32,15 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
     private static final String MODEL_NAME_PREFIX = "local-litert+";
     private static final int DEFAULT_MAX_TOKENS = 2048; // Default max cache size
     private static final int MAX_PROMPT_CHARS = 1500; // Conservative limit for chunking (~500 tokens)
+    private static final com.google.mediapipe.tasks.genai.llminference.ProgressListener<String> NO_OP_LISTENER =
+            (result, done) -> { };
 
     private final Context context;
     private final LiteRtLLMManager llmManager;
     private final String litertModelId;
     private final LlmModel llmModelConfig;
     private LlmInference llmInference;
+    private LlmInferenceSession llmSession;
 
     public LocalAdAnalysisProvider(Context context) throws IOException {
         this.context = context;
@@ -66,6 +72,9 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         Log.i(TAG, "Initializing LiteRT LLM Inference with model: " + litertModelId);
         File modelFile = llmManager.getModelPath(litertModelId);
 
+        // Clear any stale XNNPack cache to avoid native crashes when loading the model.
+        llmManager.clearXnnpackCache(litertModelId);
+
         // Use model-specific configuration if available
         LlmInference.Backend backend = llmModelConfig != null
                 ? toMediaPipeBackend(llmModelConfig.getPreferredBackend())
@@ -83,6 +92,7 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
 
         try {
             this.llmInference = LlmInference.createFromOptions(context, options);
+            this.llmSession = createSession();
         } catch (Exception e) {
             String msg = e.getMessage();
             if (msg != null && (msg.contains("Failed to get metadata") || msg.contains("odml.infra.proto.LlmParameters"))) {
@@ -91,6 +101,25 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
                         "Please convert your model or download a compatible bundle.", e);
             }
             throw new IOException("Failed to initialize MediaPipe engine: " + e.getMessage(), e);
+        }
+    }
+
+    private LlmInferenceSession createSession() throws IOException {
+        if (llmInference == null) {
+            throw new IOException("LLM engine not initialized");
+        }
+        LlmInferenceSessionOptions.Builder optionsBuilder = LlmInferenceSessionOptions.builder();
+        float temperature = llmModelConfig != null ? llmModelConfig.getTemperature() : 1.0f;
+        int topK = llmModelConfig != null ? llmModelConfig.getTopK() : 40;
+        float topP = llmModelConfig != null ? llmModelConfig.getTopP() : 0.95f;
+        optionsBuilder
+                .setTemperature(temperature)
+                .setTopK(topK)
+                .setTopP(topP);
+        try {
+            return LlmInferenceSession.createFromOptions(llmInference, optionsBuilder.build());
+        } catch (Exception e) {
+            throw new IOException("Failed to create LLM session: " + e.getMessage(), e);
         }
     }
 
@@ -106,7 +135,7 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
 
     @Override
     public String analyzeTranscript(String prompt, ProgressListener listener) throws Exception {
-        if (llmInference == null) {
+        if (llmInference == null || llmSession == null) {
             throw new IllegalStateException("LLM engine not initialized");
         }
         Log.i(TAG, "Running LiteRT analysis...");
@@ -120,7 +149,7 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
             listener.onProgress(10);
         }
         String formattedPrompt = formatPromptForModel(prompt);
-        String result = llmInference.generateResponse(formattedPrompt);
+        String result = generateResponse(formattedPrompt);
         Log.d(TAG, "LiteRT result: " + result);
         if (listener != null) {
             listener.onProgress(100);
@@ -156,10 +185,10 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
             String formattedPrompt = formatPromptForModel(chunkPrompt);
 
             try {
-                // Need to recreate session for each chunk due to MediaPipe limitation
-                reinitializeLlmInference();
+                // Recreate session for each chunk to keep context isolated
+                recreateSessionOnly();
 
-                String result = llmInference.generateResponse(formattedPrompt);
+                String result = generateResponse(formattedPrompt);
                 Log.d(TAG, "Chunk " + (i + 1) + " result: " + result);
 
                 // Parse and merge results
@@ -187,8 +216,25 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
             } catch (Exception ignored) {
             }
         }
+        if (llmSession != null) {
+            try {
+                llmSession.close();
+            } catch (Exception ignored) {
+            }
+            llmSession = null;
+        }
         // Create new instance
         initializeLlmInference();
+    }
+
+    private void recreateSessionOnly() throws IOException {
+        if (llmSession != null) {
+            try {
+                llmSession.close();
+            } catch (Exception ignored) {
+            }
+        }
+        llmSession = createSession();
     }
 
     private String extractTranscript(String prompt) {
@@ -319,8 +365,23 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         return "<start_of_turn>user\n" + rawPrompt + "<end_of_turn>\n<start_of_turn>model\n";
     }
 
+    private String generateResponse(String formattedPrompt) throws Exception {
+        if (llmSession == null) {
+            throw new IllegalStateException("LLM session not initialized");
+        }
+        llmSession.addQueryChunk(formattedPrompt);
+        ListenableFuture<String> future = llmSession.generateResponseAsync(NO_OP_LISTENER);
+        return future.get();
+    }
+
     @Override
     public void close() {
+        if (llmSession != null) {
+            try {
+                llmSession.close();
+            } catch (Exception ignored) {
+            }
+        }
         if (llmInference != null) {
             try {
                 llmInference.close();

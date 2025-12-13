@@ -6,8 +6,11 @@ import android.util.Log;
 
 import androidx.annotation.RequiresApi;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mediapipe.tasks.genai.llminference.LlmInference;
 import com.google.mediapipe.tasks.genai.llminference.LlmInference.LlmInferenceOptions;
+import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession;
+import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession.LlmInferenceSessionOptions;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -17,6 +20,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager.DownloadProgressListener;
+import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**
  * Manages download and storage of LiteRT (MediaPipe GenAI) LLM models.
@@ -40,6 +44,15 @@ public class LiteRtLLMManager {
     }
 
     public File getModelPath(String modelId) {
+        if (LocalAiPreferences.MANUAL_MODEL_ID.equals(modelId)) {
+            String storedPath = LocalAiPreferences.getManualModelPath(context);
+            if (storedPath != null) {
+                File storedFile = new File(storedPath);
+                if (storedFile.exists() && storedFile.length() > 0) {
+                    return storedFile;
+                }
+            }
+        }
         LlmModel model = LlmModel.fromId(modelId);
         if (model != null) {
             return new File(getModelDirectory(), model.getFilename());
@@ -60,6 +73,22 @@ public class LiteRtLLMManager {
     public boolean isModelDownloaded(LlmModel model) {
         File file = getModelPath(model);
         return file.exists() && file.length() > 0;
+    }
+
+    /**
+     * Clears any cached XNNPack weight cache for the given model id.
+     * Corrupted cache files can trigger native crashes when loading models.
+     */
+    public void clearXnnpackCache(String modelId) {
+        File cacheDir = context.getCacheDir();
+        File cacheFile = new File(cacheDir, modelId + ".xnnpack_cache");
+        File lockFile = new File(cacheDir, modelId + ".xnnpack_cache.lock");
+        if (cacheFile.exists()) {
+            cacheFile.delete();
+        }
+        if (lockFile.exists()) {
+            lockFile.delete();
+        }
     }
 
     public void deleteModel(String modelId) {
@@ -234,11 +263,15 @@ public class LiteRtLLMManager {
      * Imports a model from an input stream (e.g. from a content URI).
      * 
      * @param input     The input stream of the source file.
-     * @param modelName The name to save the model as (e.g. manual_import).
+     * @param modelName The model ID (e.g. manual_import).
+     * @param sourceFileName The original file name so we preserve the extension.
      * @return true if successful.
      */
-    public boolean importModel(InputStream input, String modelName) throws IOException {
-        File outputFile = getModelPath(modelName);
+    public boolean importModel(InputStream input, String modelName, String sourceFileName) throws IOException {
+        String targetFileName = sourceFileName != null && !sourceFileName.trim().isEmpty()
+                ? sourceFileName
+                : modelName + ".task";
+        File outputFile = new File(getModelDirectory(), targetFileName);
         Log.i(TAG, "Importing manual model to: " + outputFile.getAbsolutePath());
 
         File tempFile = new File(outputFile.getAbsolutePath() + ".tmp");
@@ -272,6 +305,9 @@ public class LiteRtLLMManager {
         }
         if (!tempFile.renameTo(outputFile)) {
             throw new IOException("Failed to rename imported temp file to " + outputFile.getName());
+        }
+        if (LocalAiPreferences.MANUAL_MODEL_ID.equals(modelName)) {
+            LocalAiPreferences.setManualModelPath(context, outputFile.getAbsolutePath());
         }
         return true;
     }
@@ -318,7 +354,13 @@ public class LiteRtLLMManager {
             throw new IllegalStateException("Model file not found: " + modelFile.getAbsolutePath());
         }
 
+        // Remove any stale XNNPack cache for this model before loading.
+        clearXnnpackCache(modelId);
+
         Log.i(TAG, "Validating model: " + modelId);
+
+        // Clear any stale XNNPack cache before loading the model.
+        clearXnnpackCache(modelId);
 
         // Use model-specific settings if available, otherwise use defaults
         LlmInference.Backend backend = model != null
@@ -333,15 +375,26 @@ public class LiteRtLLMManager {
                 .build();
 
         LlmInference inference = null;
+        LlmInferenceSession session = null;
         try {
             inference = LlmInference.createFromOptions(context, options);
+            LlmInferenceSessionOptions.Builder sessionBuilder = LlmInferenceSessionOptions.builder();
+            if (model != null) {
+                sessionBuilder
+                        .setTemperature(model.getTemperature())
+                        .setTopK(model.getTopK())
+                        .setTopP(model.getTopP());
+            }
+            session = LlmInferenceSession.createFromOptions(inference, sessionBuilder.build());
 
             // Format the test prompt using model-specific format
             String userMessage = "Say hi to the user";
             String testPrompt = model != null ? model.formatPrompt(userMessage)
                     : "<start_of_turn>user\n" + userMessage + "<end_of_turn>\n<start_of_turn>model\n";
 
-            String response = inference.generateResponse(testPrompt);
+            session.addQueryChunk(testPrompt);
+            ListenableFuture<String> future = session.generateResponseAsync((result, done) -> { });
+            String response = future.get();
 
             if (response == null || response.trim().isEmpty()) {
                 throw new IllegalStateException("Model returned empty response");
@@ -357,6 +410,12 @@ public class LiteRtLLMManager {
 
             return response;
         } finally {
+            if (session != null) {
+                try {
+                    session.close();
+                } catch (Exception ignored) {
+                }
+            }
             if (inference != null) {
                 try {
                     inference.close();

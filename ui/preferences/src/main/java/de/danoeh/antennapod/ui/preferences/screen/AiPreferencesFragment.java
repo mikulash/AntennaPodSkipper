@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.widget.Toast;
+import android.provider.OpenableColumns;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -387,6 +388,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
         if (modelPref != null) {
             modelPref.setValue(LocalAiPreferences.getLocalAdAnalysisModel(requireContext()));
+            updateManualModelEntry(modelPref);
             modelPref.setOnPreferenceChangeListener((preference, newValue) -> {
                 String newModel = (String) newValue;
                 LocalAiPreferences.setLocalAdAnalysisModel(requireContext(), newModel);
@@ -441,6 +443,10 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private void updateLocalLlmUI() {
         String selectedModel = LocalAiPreferences.getLocalAdAnalysisModel(requireContext());
         boolean isDownloaded = llmManager.isModelDownloaded(selectedModel);
+        ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
+        if (modelPref != null) {
+            updateManualModelEntry(modelPref);
+        }
 
         // Update download button
         Preference downloadPref = findPreference(PREF_LOCAL_LLM_DOWNLOAD);
@@ -553,6 +559,9 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         }
 
         llmManager.deleteModel(modelName);
+        if (LocalAiPreferences.MANUAL_MODEL_ID.equals(modelName)) {
+            LocalAiPreferences.setManualModelPath(requireContext(), null);
+        }
 
         Toast.makeText(requireContext(),
                 R.string.pref_local_transcription_model_deleted,
@@ -571,6 +580,73 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
             });
         }
         updateDeleteAllModelsSummary();
+    }
+
+    private void updateManualModelEntry(ListPreference modelPref) {
+        String manualPath = LocalAiPreferences.getManualModelPath(requireContext());
+        String manualLabel = null;
+        if (!TextUtils.isEmpty(manualPath)) {
+            String fileName = manualPath.substring(manualPath.lastIndexOf('/') + 1);
+            manualLabel = getString(R.string.pref_local_ad_analysis_manual_label, fileName);
+        }
+
+        CharSequence[] entries = modelPref.getEntries();
+        CharSequence[] entryValues = modelPref.getEntryValues();
+
+        boolean hasManual = false;
+        if (entryValues != null) {
+            for (CharSequence val : entryValues) {
+                if (LocalAiPreferences.MANUAL_MODEL_ID.contentEquals(val)) {
+                    hasManual = true;
+                    break;
+                }
+            }
+        }
+
+        if (manualLabel != null && entries != null && entryValues != null) {
+            // Replace or append manual entry with filename
+            int len = entryValues.length;
+            CharSequence[] newEntries = new CharSequence[len];
+            CharSequence[] newValues = new CharSequence[len];
+            boolean replaced = false;
+            for (int i = 0; i < len; i++) {
+                newValues[i] = entryValues[i];
+                if (LocalAiPreferences.MANUAL_MODEL_ID.contentEquals(entryValues[i])) {
+                    newEntries[i] = manualLabel;
+                    replaced = true;
+                } else {
+                    newEntries[i] = entries[i];
+                }
+            }
+            if (!replaced) {
+                // append
+                newEntries = java.util.Arrays.copyOf(newEntries, len + 1);
+                newValues = java.util.Arrays.copyOf(newValues, len + 1);
+                newEntries[len] = manualLabel;
+                newValues[len] = LocalAiPreferences.MANUAL_MODEL_ID;
+            }
+            modelPref.setEntries(newEntries);
+            modelPref.setEntryValues(newValues);
+        } else if (manualLabel == null && hasManual && entries != null && entryValues != null) {
+            // Remove manual entry if path missing
+            java.util.List<CharSequence> entryList = new java.util.ArrayList<>();
+            java.util.List<CharSequence> valueList = new java.util.ArrayList<>();
+            for (int i = 0; i < entryValues.length; i++) {
+                if (!LocalAiPreferences.MANUAL_MODEL_ID.contentEquals(entryValues[i])) {
+                    entryList.add(entries[i]);
+                    valueList.add(entryValues[i]);
+                }
+            }
+            modelPref.setEntries(entryList.toArray(new CharSequence[0]));
+            modelPref.setEntryValues(valueList.toArray(new CharSequence[0]));
+        }
+
+        // Update summary to show filename next to selection
+        if (LocalAiPreferences.MANUAL_MODEL_ID.equals(modelPref.getValue()) && manualLabel != null) {
+            modelPref.setSummary(manualLabel);
+        } else {
+            modelPref.setSummary("%s");
+        }
     }
 
     private void updateDeleteAllModelsSummary() {
@@ -635,6 +711,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                 llmSwitch.setChecked(false);
             }
         }
+        LocalAiPreferences.setManualModelPath(requireContext(), null);
 
         // Delete all models
         int transcriptionCount = transcriptionManager.deleteAllModels();
@@ -720,11 +797,12 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         downloadExecutor.execute(() -> {
             try {
                 // Step 1: Copy the file
+                String sourceFileName = getDisplayNameFromUri(uri);
                 try (InputStream inputStream = requireContext().getContentResolver().openInputStream(uri)) {
                     if (inputStream == null)
                         throw new IllegalArgumentException("Cannot open file stream");
 
-                    llmManager.importModel(inputStream, LocalAiPreferences.MANUAL_MODEL_ID);
+                    llmManager.importModel(inputStream, LocalAiPreferences.MANUAL_MODEL_ID, sourceFileName);
                 }
 
                 // Step 2: Validate by initializing and getting a test response
@@ -740,6 +818,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                         ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
                         if (modelPref != null) {
                             modelPref.setValue(LocalAiPreferences.MANUAL_MODEL_ID);
+                            updateManualModelEntry(modelPref);
                         }
 
                         updateLocalLlmUI();
@@ -753,20 +832,44 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                     });
                 }
             } catch (Exception e) {
-                // Clean up failed import
-                try {
-                    llmManager.deleteModel(LocalAiPreferences.MANUAL_MODEL_ID);
-                } catch (Exception ignored) {
-                }
+                String msg = e.getMessage() == null ? "" : e.getMessage();
+                boolean isRawCandidate = msg.contains("Unable to open zip archive")
+                        || msg.contains("Invalid Model Format");
 
-                if (getActivity() != null) {
-                    getActivity().runOnUiThread(() -> {
-                        new AlertDialog.Builder(requireContext())
-                                .setTitle(R.string.model_import_failed_title)
-                                .setMessage(getString(R.string.model_import_failed_message, e.getMessage()))
-                                .setPositiveButton(android.R.string.ok, null)
-                                .show();
-                    });
+                if (isRawCandidate) {
+                    // Keep the imported file and fall back to raw interpreter
+                    LocalAiPreferences.setLocalAdAnalysisModel(requireContext(), LocalAiPreferences.MANUAL_MODEL_ID);
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> {
+                            ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
+                            if (modelPref != null) {
+                                modelPref.setValue(LocalAiPreferences.MANUAL_MODEL_ID);
+                            }
+                            updateLocalLlmUI();
+                            new AlertDialog.Builder(requireContext())
+                                    .setTitle(R.string.model_import_success_title)
+                                    .setMessage(getString(R.string.model_import_failed_message,
+                                            "Model will use raw interpreter fallback: " + msg))
+                                    .setPositiveButton(android.R.string.ok, null)
+                                    .show();
+                        });
+                    }
+                } else {
+                    // Clean up failed import for other errors
+                    try {
+                        llmManager.deleteModel(LocalAiPreferences.MANUAL_MODEL_ID);
+                    } catch (Exception ignored) {
+                    }
+
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> {
+                            new AlertDialog.Builder(requireContext())
+                                    .setTitle(R.string.model_import_failed_title)
+                                    .setMessage(getString(R.string.model_import_failed_message, msg))
+                                    .setPositiveButton(android.R.string.ok, null)
+                                    .show();
+                        });
+                    }
                 }
             }
         });
@@ -778,5 +881,23 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                 Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
             });
         }
+    }
+
+    private String getDisplayNameFromUri(Uri uri) {
+        String fallback = uri.getLastPathSegment();
+        try (android.database.Cursor cursor = requireContext().getContentResolver()
+                .query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (idx >= 0) {
+                    String name = cursor.getString(idx);
+                    if (!TextUtils.isEmpty(name)) {
+                        return name;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return fallback == null ? "manual_import.task" : fallback;
     }
 }

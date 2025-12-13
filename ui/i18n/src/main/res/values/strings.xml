@@ -1107,6 +1107,8 @@
     <string name="pref_local_ad_analysis_model_qwen06b">Qwen 0.6B (Faster)</string>
     <string name="pref_local_ad_analysis_model_qwen17b">Qwen 2.5 (1.5B)</string>
     <string name="pref_local_ad_analysis_model_manual">Manual Import</string>
+    <string name="pref_local_ad_analysis_manual_placeholder">Manual Import</string>
+    <string name="pref_local_ad_analysis_manual_label">Manual Import (%1$s)</string>
     <string name="pref_local_ad_analysis_download_title">Download Model</string>
     <string name="pref_local_ad_analysis_download_summary">Download the selected model file</string>
     <string name="pref_local_ad_analysis_delete_title">Delete Model</string>

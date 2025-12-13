@@ -58,7 +58,9 @@ public final class AdAnalysisProviderFactory {
             return new LocalAdAnalysisProvider(context);
         } catch (IOException e) {
             // Check for MediaPipe metadata error
-            if (e.getMessage() != null && e.getMessage().contains("Invalid Model Format")) {
+            String message = e.getMessage();
+            if (message != null && (message.contains("Invalid Model Format")
+                    || message.contains("Unable to open zip archive"))) {
                 Log.w(TAG, "MediaPipe failed (invalid format), utilizing Raw LiteRT Interpreter...");
                 try {
                     return new RawAdAnalysisProvider(context);

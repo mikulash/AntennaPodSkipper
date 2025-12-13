@@ -320,7 +320,7 @@
         <item>Qwen 2.5 0.5B (Fastest)</item>
         <item>Qwen 2.5 1.5B</item>
         <item>Qwen 2.5 3B</item>
-        <item>Manual Import</item>
+        <item>@string/pref_local_ad_analysis_manual_placeholder</item>
     </string-array>
 
     <string-array name="pref_local_ad_analysis_model_values">
