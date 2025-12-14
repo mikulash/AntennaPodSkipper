@@ -7,125 +7,100 @@ import android.util.Log;
 import androidx.annotation.RequiresApi;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.mediapipe.tasks.genai.llminference.LlmInference;
-import com.google.mediapipe.tasks.genai.llminference.LlmInference.LlmInferenceOptions;
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession;
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession.LlmInferenceSessionOptions;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager;
+import de.danoeh.antennapod.net.download.service.ad.litert.InferenceModel;
 import de.danoeh.antennapod.net.download.service.ad.litert.LlmModel;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
+/**
+ * Ad analysis provider that uses on-device LLM inference via the singleton
+ * InferenceModel.
+ * The model is loaded once and reused across multiple analysis requests.
+ */
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class LocalAdAnalysisProvider implements AdAnalysisProvider {
     private static final String TAG = "LocalAdAnalysisProv";
     private static final String MODEL_NAME_PREFIX = "local-litert+";
-    private static final int DEFAULT_MAX_TOKENS = 2048; // Default max cache size
-    private static final int MAX_PROMPT_CHARS = 1500; // Conservative limit for chunking (~500 tokens)
-    private static final com.google.mediapipe.tasks.genai.llminference.ProgressListener<String> NO_OP_LISTENER =
-            (result, done) -> { };
+
+    // Characters per token - use conservative 1:1 ratio since LLM tokenization
+    // often results in more tokens than characters (especially for punctuation,
+    // special chars, and non-English text in transcripts)
+    private static final float CHARS_PER_TOKEN = 1.0f;
+
+    // The instruction prompt template (buildChunkPrompt) adds ~500 characters
+    // which translates to ~500 tokens with our conservative 1:1 ratio
+    private static final int INSTRUCTION_PROMPT_TOKENS = 500;
+
+    // Reserve tokens for the expected JSON response
+    private static final int RESPONSE_TOKENS = 150;
+
+    // Total reserved = instruction prompt + response + safety margin
+    private static final int RESERVED_TOKENS = INSTRUCTION_PROMPT_TOKENS + RESPONSE_TOKENS + 50;
+
+    private static final int MAX_UNUSED_TOKEN_COUNT = 20; // Max consecutive <unused> tokens
+    private static final com.google.mediapipe.tasks.genai.llminference.ProgressListener<String> NO_OP_LISTENER = (
+            result, done) -> {
+    };
 
     private final Context context;
-    private final LiteRtLLMManager llmManager;
-    private final String litertModelId;
-    private final LlmModel llmModelConfig;
-    private LlmInference llmInference;
-    private LlmInferenceSession llmSession;
+    private final String modelId;
+    private InferenceModel inferenceModel;
 
     public LocalAdAnalysisProvider(Context context) throws IOException {
-        this.context = context;
-        this.llmManager = new LiteRtLLMManager(context);
-        this.litertModelId = LocalAiPreferences.getLocalAdAnalysisModel(context);
-        this.llmModelConfig = LlmModel.fromId(litertModelId);
-
-        if (!llmManager.isModelDownloaded(litertModelId)) {
-            throw new IOException("Local analysis model not downloaded: " + litertModelId);
-        }
-
-        initializeLlmInference();
-    }
-
-    private LlmInference.Backend toMediaPipeBackend(LlmModel.BackendType backendType) {
-        if (backendType == null) {
-            return LlmInference.Backend.GPU;
-        }
-        switch (backendType) {
-            case GPU:
-                return LlmInference.Backend.GPU;
-            case CPU:
-            default:
-                return LlmInference.Backend.CPU;
-        }
-    }
-
-    private void initializeLlmInference() throws IOException {
-        Log.i(TAG, "Initializing LiteRT LLM Inference with model: " + litertModelId);
-        File modelFile = llmManager.getModelPath(litertModelId);
-
-        // Clear any stale XNNPack cache to avoid native crashes when loading the model.
-        llmManager.clearXnnpackCache(litertModelId);
-
-        // Use model-specific configuration if available
-        LlmInference.Backend backend = llmModelConfig != null
-                ? toMediaPipeBackend(llmModelConfig.getPreferredBackend())
-                : LlmInference.Backend.GPU;
-        int maxTokens = llmModelConfig != null
-                ? llmModelConfig.getMaxTokens()
-                : DEFAULT_MAX_TOKENS;
-
-        LlmInferenceOptions.Builder optionsBuilder = LlmInferenceOptions.builder()
-                .setModelPath(modelFile.getAbsolutePath())
-                .setPreferredBackend(backend)
-                .setMaxTokens(maxTokens);
-
-        LlmInferenceOptions options = optionsBuilder.build();
+        this.context = context.getApplicationContext();
+        this.modelId = LocalAiPreferences.getLocalAdAnalysisModel(context);
 
         try {
-            this.llmInference = LlmInference.createFromOptions(context, options);
-            this.llmSession = createSession();
-        } catch (Exception e) {
-            String msg = e.getMessage();
-            if (msg != null && (msg.contains("Failed to get metadata") || msg.contains("odml.infra.proto.LlmParameters"))) {
-                throw new IOException("Invalid Model Format: The selected file is a raw TFLite model. " +
-                        "MediaPipe requires a Task Bundle (.bin/.task) with metadata. " +
-                        "Please convert your model or download a compatible bundle.", e);
-            }
-            throw new IOException("Failed to initialize MediaPipe engine: " + e.getMessage(), e);
+            // Get the singleton instance - model is loaded only once
+            this.inferenceModel = InferenceModel.getInstance(context);
+            Log.i(TAG, "Using singleton InferenceModel for: " + modelId);
+        } catch (InferenceModel.ModelLoadFailException e) {
+            throw new IOException("Failed to initialize LLM model: " + e.getMessage(), e);
         }
     }
 
-    private LlmInferenceSession createSession() throws IOException {
-        if (llmInference == null) {
-            throw new IOException("LLM engine not initialized");
+    /**
+     * Calculate max transcript chunk size in characters.
+     * 
+     * Token budget breakdown:
+     * - maxTokens: Total tokens the model can handle (input + output)
+     * - INSTRUCTION_PROMPT_TOKENS: ~500 tokens for the system instruction
+     * - RESPONSE_TOKENS: ~150 tokens for the JSON response
+     * - Safety margin: ~50 tokens
+     * 
+     * Remaining tokens are available for the transcript chunk.
+     * Uses 1:1 char-to-token ratio for safety.
+     */
+    private int getMaxTranscriptChunkChars() {
+        int maxTokens = getModelMaxTokens();
+        int availableForTranscript = Math.max(100, maxTokens - RESERVED_TOKENS);
+        int result = (int) (availableForTranscript * CHARS_PER_TOKEN);
+        Log.d(TAG, "Token budget: maxTokens=" + maxTokens + ", reserved=" + RESERVED_TOKENS
+                + ", availableForTranscript=" + availableForTranscript + " -> " + result + " chars");
+        return result;
+    }
+
+    private int getModelMaxTokens() {
+        LlmModel modelConfig = inferenceModel != null ? inferenceModel.getModelConfig() : null;
+        if (modelConfig != null) {
+            return modelConfig.getMaxTokens();
         }
-        LlmInferenceSessionOptions.Builder optionsBuilder = LlmInferenceSessionOptions.builder();
-        float temperature = llmModelConfig != null ? llmModelConfig.getTemperature() : 1.0f;
-        int topK = llmModelConfig != null ? llmModelConfig.getTopK() : 40;
-        float topP = llmModelConfig != null ? llmModelConfig.getTopP() : 0.95f;
-        optionsBuilder
-                .setTemperature(temperature)
-                .setTopK(topK)
-                .setTopP(topP);
-        try {
-            return LlmInferenceSession.createFromOptions(llmInference, optionsBuilder.build());
-        } catch (Exception e) {
-            throw new IOException("Failed to create LLM session: " + e.getMessage(), e);
-        }
+        // For manual imports, use user-configured value
+        return LocalAiPreferences.getManualModelMaxTokens(context);
     }
 
     @Override
     public String getModelName() {
-        return MODEL_NAME_PREFIX + litertModelId;
+        return MODEL_NAME_PREFIX + modelId;
     }
 
     @Override
@@ -135,22 +110,26 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
 
     @Override
     public String analyzeTranscript(String prompt, ProgressListener listener) throws Exception {
-        if (llmInference == null || llmSession == null) {
-            throw new IllegalStateException("LLM engine not initialized");
+        if (inferenceModel == null) {
+            throw new IllegalStateException("InferenceModel not initialized");
         }
         Log.i(TAG, "Running LiteRT analysis...");
 
+        int maxTranscriptChars = getMaxTranscriptChunkChars();
+
         // Check if the prompt is too long and needs chunking
-        if (prompt.length() > MAX_PROMPT_CHARS) {
+        if (prompt.length() > maxTranscriptChars) {
             return analyzeInChunks(prompt, listener);
         }
 
         if (listener != null) {
             listener.onProgress(10);
         }
-        String formattedPrompt = formatPromptForModel(prompt);
+
+        String formattedPrompt = inferenceModel.formatPrompt(prompt);
         String result = generateResponse(formattedPrompt);
         Log.d(TAG, "LiteRT result: " + result);
+
         if (listener != null) {
             listener.onProgress(100);
         }
@@ -160,38 +139,33 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
     private String analyzeInChunks(String fullPrompt, ProgressListener listener) throws Exception {
         Log.i(TAG, "Transcript too long, analyzing in chunks...");
 
-        // Extract transcript from the prompt
         String transcript = extractTranscript(fullPrompt);
         int durationMs = extractDuration(fullPrompt);
 
-        // Split transcript into chunks
         List<TranscriptChunk> chunks = splitTranscript(transcript);
         Log.i(TAG, "Split into " + chunks.size() + " chunks");
 
-        // Analyze each chunk
         JSONArray allAds = new JSONArray();
         for (int i = 0; i < chunks.size(); i++) {
             TranscriptChunk chunk = chunks.get(i);
             Log.i(TAG, "Analyzing chunk " + (i + 1) + "/" + chunks.size() +
                     " (time offset: " + chunk.startTimeSeconds + "s)");
 
-            // Report progress based on chunk completion
             if (listener != null) {
                 int percent = (int) ((i / (float) chunks.size()) * 100);
                 listener.onProgress(percent);
             }
 
             String chunkPrompt = buildChunkPrompt(chunk.text, durationMs, chunk.startTimeSeconds);
-            String formattedPrompt = formatPromptForModel(chunkPrompt);
+            String formattedPrompt = inferenceModel.formatPrompt(chunkPrompt);
 
             try {
-                // Recreate session for each chunk to keep context isolated
-                recreateSessionOnly();
+                // Reset session for each chunk to keep context isolated
+                inferenceModel.resetSession();
 
                 String result = generateResponse(formattedPrompt);
                 Log.d(TAG, "Chunk " + (i + 1) + " result: " + result);
 
-                // Parse and merge results
                 mergeChunkResults(allAds, result);
             } catch (Exception e) {
                 Log.w(TAG, "Chunk " + (i + 1) + " analysis failed: " + e.getMessage());
@@ -202,39 +176,22 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
             listener.onProgress(100);
         }
 
-        // Build final result
         JSONObject finalResult = new JSONObject();
         finalResult.put("ads", allAds);
         return finalResult.toString();
     }
 
-    private void reinitializeLlmInference() throws IOException {
-        // Close existing inference
-        if (llmInference != null) {
-            try {
-                llmInference.close();
-            } catch (Exception ignored) {
-            }
-        }
-        if (llmSession != null) {
-            try {
-                llmSession.close();
-            } catch (Exception ignored) {
-            }
-            llmSession = null;
-        }
-        // Create new instance
-        initializeLlmInference();
-    }
+    private String generateResponse(String formattedPrompt) throws Exception {
+        ListenableFuture<String> future = inferenceModel.generateResponseAsync(formattedPrompt, NO_OP_LISTENER);
+        String result = future.get();
 
-    private void recreateSessionOnly() throws IOException {
-        if (llmSession != null) {
-            try {
-                llmSession.close();
-            } catch (Exception ignored) {
-            }
+        // Validate result
+        if (isGarbageOutput(result)) {
+            throw new Exception("Model generated garbage output (repeated unused tokens). "
+                    + "This may indicate an incompatible model format or wrong prompt template.");
         }
-        llmSession = createSession();
+
+        return result;
     }
 
     private String extractTranscript(String prompt) {
@@ -271,8 +228,11 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         double chunkStartTime = 0;
         double lastEndTime = 0;
 
+        // getMaxTranscriptChunkChars already accounts for instruction prompt and
+        // response overhead
+        int maxChunkSize = getMaxTranscriptChunkChars();
+
         for (String line : lines) {
-            // Parse timestamp lines to track time
             if (line.contains("-->")) {
                 String[] parts = line.split("-->");
                 if (parts.length == 2) {
@@ -287,15 +247,13 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
 
             currentChunk.append(line).append("\n");
 
-            // Check if chunk is large enough to split
-            if (currentChunk.length() > MAX_PROMPT_CHARS - 300) {
+            if (currentChunk.length() > maxChunkSize) {
                 chunks.add(new TranscriptChunk(currentChunk.toString(), chunkStartTime));
                 currentChunk = new StringBuilder();
                 chunkStartTime = lastEndTime;
             }
         }
 
-        // Add remaining content
         if (currentChunk.length() > 0) {
             chunks.add(new TranscriptChunk(currentChunk.toString(), chunkStartTime));
         }
@@ -304,7 +262,6 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
     }
 
     private double parseTimestamp(String timestamp) {
-        // Format: HH:MM:SS.mmm
         String[] parts = timestamp.split(":");
         if (parts.length != 3) {
             return 0;
@@ -320,7 +277,13 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
     }
 
     private String buildChunkPrompt(String chunkText, int durationMs, double timeOffset) {
-        return "You are a classifier that only finds advertisement or sponsor segments in podcasts. "
+        List<String> promptParts = buildChunkPrompt(durationMs, timeOffset);
+        return promptParts.get(0) + chunkText + promptParts.get(1);
+    }
+
+    private List<String> buildChunkPrompt(int durationMs, double timeOffset) {
+        List<String> retval = new ArrayList<>();
+        retval.add("You are a classifier that only finds advertisement or sponsor segments in podcasts. "
                 + "An advertisement is a sponsor read, mid-roll, pre-roll, post-roll, "
                 + "or explicit promotion (coupon codes, giveaways, discounts). "
                 + "Do not tag normal banter, housekeeping, or episode content as ads. "
@@ -329,13 +292,23 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
                 + "Respond ONLY with valid JSON matching {\"ads\":[{\"startSeconds\":number,\"endSeconds\":number,"
                 + "\"reason\":string,\"confidence\":number}]} and nothing else.\n\n"
                 + "Episode duration seconds: " + durationMs / 1000f + "\n"
-                + "Transcript portion (WebVTT):\n\n"
-                + chunkText + "\n\nAgain, output only the JSON structure.";
+                + "Transcript portion (WebVTT):\n\n");
+        retval.add("\n\nAgain, output only the JSON structure.");
+        return retval;
+    }
+
+    private int getJustPromptLength(int durationMs, double timeOffset) {
+        List<String> promptParts = buildChunkPrompt(durationMs, timeOffset);
+        int length = 0;
+        for (String part : promptParts) {
+            length += part.length();
+        }
+        int safetyMargin = 50;
+        return length + safetyMargin; // safety margin
     }
 
     private void mergeChunkResults(JSONArray allAds, String chunkResult) {
         try {
-            // Clean up the result
             String cleaned = chunkResult.trim();
             int start = cleaned.indexOf('{');
             int end = cleaned.lastIndexOf('}');
@@ -355,39 +328,27 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         }
     }
 
-    private String formatPromptForModel(String rawPrompt) {
-        // Use model-specific prompt formatting if available
-        if (llmModelConfig != null) {
-            return llmModelConfig.formatPrompt(rawPrompt);
+    private boolean isGarbageOutput(String output) {
+        if (output == null || output.trim().isEmpty()) {
+            return true;
         }
 
-        // Fallback: For manually imported models or unknown models, assume Gemma format
-        return "<start_of_turn>user\n" + rawPrompt + "<end_of_turn>\n<start_of_turn>model\n";
-    }
-
-    private String generateResponse(String formattedPrompt) throws Exception {
-        if (llmSession == null) {
-            throw new IllegalStateException("LLM session not initialized");
+        int unusedCount = 0;
+        String[] tokens = output.split("<");
+        for (String token : tokens) {
+            if (token.startsWith("unused")) {
+                unusedCount++;
+            }
         }
-        llmSession.addQueryChunk(formattedPrompt);
-        ListenableFuture<String> future = llmSession.generateResponseAsync(NO_OP_LISTENER);
-        return future.get();
+
+        return unusedCount > tokens.length / 2 || unusedCount > MAX_UNUSED_TOKEN_COUNT;
     }
 
     @Override
     public void close() {
-        if (llmSession != null) {
-            try {
-                llmSession.close();
-            } catch (Exception ignored) {
-            }
-        }
-        if (llmInference != null) {
-            try {
-                llmInference.close();
-            } catch (Exception ignored) {
-            }
-        }
+        // Don't close the singleton - it's shared across providers
+        // The singleton is closed when the app exits or model changes
+        Log.d(TAG, "LocalAdAnalysisProvider closed (singleton kept alive)");
     }
 
     private static class TranscriptChunk {

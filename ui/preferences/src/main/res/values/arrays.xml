@@ -319,7 +319,6 @@
         <item>Phi-4 Mini</item>
         <item>Qwen 2.5 0.5B (Fastest)</item>
         <item>Qwen 2.5 1.5B</item>
-        <item>Qwen 2.5 3B</item>
         <item>@string/pref_local_ad_analysis_manual_placeholder</item>
     </string-array>
 
@@ -330,7 +329,6 @@
         <item>phi-4-mini</item>
         <item>qwen2.5-0.5b</item>
         <item>qwen2.5-1.5b</item>
-        <item>qwen2.5-3b</item>
         <item>manual_import</item>
     </string-array>
 </resources>

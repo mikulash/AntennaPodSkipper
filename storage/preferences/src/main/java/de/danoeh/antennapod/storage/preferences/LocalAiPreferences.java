@@ -30,6 +30,10 @@ public final class LocalAiPreferences {
     private static final String DEFAULT_LOCAL_LLM_MODEL = "gemma3-1b-cpu";
 
     private static final String PREF_MANUAL_MODEL_PATH = "prefManualModelPath";
+    private static final String PREF_MANUAL_MODEL_BACKEND = "prefManualModelBackend";
+    private static final String PREF_MANUAL_MODEL_MAX_TOKENS = "prefManualModelMaxTokens";
+    private static final String DEFAULT_MANUAL_MODEL_BACKEND = "GPU";
+    private static final int DEFAULT_MANUAL_MODEL_MAX_TOKENS = 512;
     public static final String MANUAL_MODEL_ID = "manual_import";
 
     private LocalAiPreferences() {
@@ -37,7 +41,8 @@ public final class LocalAiPreferences {
 
     public static void setManualModelPath(Context context, String path) {
         SharedPreferences prefs = getEncryptedPrefs(context);
-        if (prefs == null) return;
+        if (prefs == null)
+            return;
         if (path == null) {
             prefs.edit().remove(PREF_MANUAL_MODEL_PATH).apply();
         } else {
@@ -48,8 +53,44 @@ public final class LocalAiPreferences {
     @Nullable
     public static String getManualModelPath(Context context) {
         SharedPreferences prefs = getEncryptedPrefs(context);
-        if (prefs == null) return null;
+        if (prefs == null)
+            return null;
         return prefs.getString(PREF_MANUAL_MODEL_PATH, null);
+    }
+
+    public static void setManualModelBackend(Context context, @Nullable String backend) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null)
+            return;
+        if (backend == null || backend.trim().isEmpty()) {
+            prefs.edit().putString(PREF_MANUAL_MODEL_BACKEND, DEFAULT_MANUAL_MODEL_BACKEND).apply();
+        } else {
+            prefs.edit().putString(PREF_MANUAL_MODEL_BACKEND, backend.trim().toUpperCase()).apply();
+        }
+    }
+
+    public static String getManualModelBackend(Context context) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null)
+            return DEFAULT_MANUAL_MODEL_BACKEND;
+        return prefs.getString(PREF_MANUAL_MODEL_BACKEND, DEFAULT_MANUAL_MODEL_BACKEND);
+    }
+
+    public static void setManualModelMaxTokens(Context context, int maxTokens) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null)
+            return;
+        if (maxTokens <= 0) {
+            maxTokens = DEFAULT_MANUAL_MODEL_MAX_TOKENS;
+        }
+        prefs.edit().putInt(PREF_MANUAL_MODEL_MAX_TOKENS, maxTokens).apply();
+    }
+
+    public static int getManualModelMaxTokens(Context context) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null)
+            return DEFAULT_MANUAL_MODEL_MAX_TOKENS;
+        return prefs.getInt(PREF_MANUAL_MODEL_MAX_TOKENS, DEFAULT_MANUAL_MODEL_MAX_TOKENS);
     }
 
     public static boolean isLocalAdAnalysisEnabled(Context context) {

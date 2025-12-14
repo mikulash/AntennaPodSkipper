@@ -5,7 +5,6 @@ package de.danoeh.antennapod.net.download.service.ad.litert;
  * Model files are downloaded from HuggingFace litert-community.
  */
 public enum LlmModel {
-
     GEMMA3_1B_IT_GPU(
             "gemma3-1b-gpu",
             "Gemma3 1B (GPU)",
@@ -104,35 +103,23 @@ public enum LlmModel {
             "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
             "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
             false,
-            BackendType.CPU,
+            BackendType.GPU,
             1280,
             0.95f,
             40,
             1.0f,
             PromptFormat.CHATML
     ),
-    QWEN2_5_3B(
-            "qwen2.5-3b",
-            "Qwen 2.5 3B",
-            "Qwen2.5-3B-Instruct_multi-prefill-seq_q8_ekv1280.task",
-            "https://huggingface.co/litert-community/Qwen2.5-3B-Instruct/resolve/main/Qwen2.5-3B-Instruct_multi-prefill-seq_q8_ekv1280.task",
-            false,
-            BackendType.CPU,
-            1280,
-            0.95f,
-            40,
-            1.0f,
-            PromptFormat.CHATML
-    ),
+
     MANUAL_IMPORT(
             "manual_import",
             "Manual Import",
             "manual_import.task",
             null,
             false,
-            BackendType.CPU,
-            2048,
-            1.0f,
+            BackendType.GPU,
+            2000,
+            0.9f,
             64,
             0.95f,
             PromptFormat.GEMMA
@@ -257,7 +244,6 @@ public enum LlmModel {
         return new LlmModel[]{
                 QWEN2_5_0_5B,
                 QWEN2_5_1_5B,
-                QWEN2_5_3B,
                 DEEPSEEK_R1_QWEN_1_5B,
                 PHI_4_MINI,
         };

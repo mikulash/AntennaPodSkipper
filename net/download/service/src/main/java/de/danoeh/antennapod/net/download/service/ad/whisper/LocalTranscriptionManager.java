@@ -7,7 +7,7 @@ import android.media.MediaFormat;
 import android.os.Build;
 import android.util.Log;
 
-import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
 import org.json.JSONArray;
@@ -15,7 +15,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.vosk.Model;
 import org.vosk.Recognizer;
-import org.vosk.android.StorageService;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -425,6 +424,35 @@ public class LocalTranscriptionManager {
             }
         }
         Log.i(TAG, "Deleted " + deletedCount + " transcription model(s)");
+        return deletedCount;
+    }
+
+    /**
+     * Deletes all downloaded transcription models except the given model.
+     *
+     * @param keepModelId model id to keep (may be null)
+     * @return number of deleted models
+     */
+    public int deleteAllModelsExcept(@Nullable String keepModelId) {
+        if (isModelLoaded && keepModelId != null && !keepModelId.equals(loadedModelName)) {
+            unloadModel();
+        }
+        File modelDir = getModelDirectory();
+        int deletedCount = 0;
+        File[] files = modelDir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (!file.isDirectory()) {
+                    continue;
+                }
+                if (keepModelId != null && file.getName().contains(keepModelId)) {
+                    continue;
+                }
+                deleteRecursively(file);
+                deletedCount++;
+                Log.i(TAG, "Deleted model directory: " + file.getName());
+            }
+        }
         return deletedCount;
     }
 

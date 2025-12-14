@@ -4,13 +4,8 @@ import android.content.Context;
 import android.os.Build;
 import android.util.Log;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.mediapipe.tasks.genai.llminference.LlmInference;
-import com.google.mediapipe.tasks.genai.llminference.LlmInference.LlmInferenceOptions;
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession;
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession.LlmInferenceSessionOptions;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -125,6 +120,33 @@ public class LiteRtLLMManager {
             }
         }
         Log.i(TAG, "Deleted " + deletedCount + " LLM model(s)");
+        return deletedCount;
+    }
+
+    /**
+     * Deletes all downloaded models except the one specified to keep.
+     *
+     * @param keepModelId model id to keep (may be null)
+     * @return number of deleted models
+     */
+    public int deleteAllModelsExcept(@Nullable String keepModelId) {
+        File modelDir = getModelDirectory();
+        int deletedCount = 0;
+        File[] files = modelDir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (!file.isFile()) {
+                    continue;
+                }
+                if (keepModelId != null && file.getName().startsWith(keepModelId)) {
+                    continue;
+                }
+                if (file.delete()) {
+                    Log.i(TAG, "Deleted model file: " + file.getName());
+                    deletedCount++;
+                }
+            }
+        }
         return deletedCount;
     }
 
@@ -262,8 +284,8 @@ public class LiteRtLLMManager {
     /**
      * Imports a model from an input stream (e.g. from a content URI).
      * 
-     * @param input     The input stream of the source file.
-     * @param modelName The model ID (e.g. manual_import).
+     * @param input          The input stream of the source file.
+     * @param modelName      The model ID (e.g. manual_import).
      * @param sourceFileName The original file name so we preserve the extension.
      * @return true if successful.
      */
@@ -325,23 +347,9 @@ public class LiteRtLLMManager {
     }
 
     /**
-     * Converts LlmModel.BackendType to MediaPipe Backend.
-     */
-    private LlmInference.Backend toMediaPipeBackend(LlmModel.BackendType backendType) {
-        if (backendType == null) {
-            return LlmInference.Backend.CPU;
-        }
-        switch (backendType) {
-            case GPU:
-                return LlmInference.Backend.GPU;
-            case CPU:
-            default:
-                return LlmInference.Backend.CPU;
-        }
-    }
-
-    /**
      * Validates a model by initializing it and generating a test response.
+     * Uses the InferenceModel singleton to validate with the same code path as
+     * analysis.
      * 
      * @param modelId The model ID to validate
      * @param model   The LlmModel config (can be null for manual imports)
@@ -354,46 +362,26 @@ public class LiteRtLLMManager {
             throw new IllegalStateException("Model file not found: " + modelFile.getAbsolutePath());
         }
 
-        // Remove any stale XNNPack cache for this model before loading.
+        // Clear any stale cache before loading
         clearXnnpackCache(modelId);
 
         Log.i(TAG, "Validating model: " + modelId);
 
-        // Clear any stale XNNPack cache before loading the model.
-        clearXnnpackCache(modelId);
+        // Reset the singleton to force reload with potentially new model
+        InferenceModel.closeInstance();
 
-        // Use model-specific settings if available, otherwise use defaults
-        LlmInference.Backend backend = model != null
-                ? toMediaPipeBackend(model.getPreferredBackend())
-                : LlmInference.Backend.GPU;
-        int maxTokens = model != null ? model.getMaxTokens() : 512;
-
-        LlmInferenceOptions options = LlmInferenceOptions.builder()
-                .setModelPath(modelFile.getAbsolutePath())
-                .setPreferredBackend(backend)
-                .setMaxTokens(maxTokens)
-                .build();
-
-        LlmInference inference = null;
-        LlmInferenceSession session = null;
         try {
-            inference = LlmInference.createFromOptions(context, options);
-            LlmInferenceSessionOptions.Builder sessionBuilder = LlmInferenceSessionOptions.builder();
-            if (model != null) {
-                sessionBuilder
-                        .setTemperature(model.getTemperature())
-                        .setTopK(model.getTopK())
-                        .setTopP(model.getTopP());
-            }
-            session = LlmInferenceSession.createFromOptions(inference, sessionBuilder.build());
+            // Get singleton instance (will load the model)
+            InferenceModel inferenceModel = InferenceModel.resetInstance(context);
 
-            // Format the test prompt using model-specific format
+            // Format the test prompt
             String userMessage = "Say hi to the user";
-            String testPrompt = model != null ? model.formatPrompt(userMessage)
-                    : "<start_of_turn>user\n" + userMessage + "<end_of_turn>\n<start_of_turn>model\n";
+            String testPrompt = inferenceModel.formatPrompt(userMessage);
 
-            session.addQueryChunk(testPrompt);
-            ListenableFuture<String> future = session.generateResponseAsync((result, done) -> { });
+            // Generate response
+            com.google.common.util.concurrent.ListenableFuture<String> future = inferenceModel
+                    .generateResponseAsync(testPrompt, (result, done) -> {
+                    });
             String response = future.get();
 
             if (response == null || response.trim().isEmpty()) {
@@ -409,19 +397,8 @@ public class LiteRtLLMManager {
             }
 
             return response;
-        } finally {
-            if (session != null) {
-                try {
-                    session.close();
-                } catch (Exception ignored) {
-                }
-            }
-            if (inference != null) {
-                try {
-                    inference.close();
-                } catch (Exception ignored) {
-                }
-            }
+        } catch (InferenceModel.ModelLoadFailException e) {
+            throw new Exception("Failed to load model for validation: " + e.getMessage(), e);
         }
     }
 
