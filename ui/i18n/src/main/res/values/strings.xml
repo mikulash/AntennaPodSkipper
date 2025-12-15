@@ -1121,11 +1121,20 @@
 
     <!-- Delete all models -->
     <string name="pref_delete_all_models_title">Delete all downloaded models</string>
-    <string name="pref_delete_all_models_summary">Remove all transcription and analysis models to free up storage space</string>
-    <string name="pref_delete_all_models_confirm_title">Delete all models?</string>
-    <string name="pref_delete_all_models_confirm_message">This will delete all downloaded transcription and LLM analysis models. You will need to re-download them to use local processing again.</string>
-    <string name="pref_delete_all_models_success">Deleted %1$d models. Freed up storage space.</string>
-    <string name="pref_delete_all_models_none">No downloaded models found.</string>
+    
+    <!-- Transcription delete -->
+    <string name="pref_delete_all_transcription_models_summary">Remove all downloaded transcription models to free up storage space</string>
+    <string name="pref_delete_all_transcription_models_confirm_title">Delete transcription models?</string>
+    <string name="pref_delete_all_transcription_models_confirm_message">This will delete all downloaded transcription models. You will need to re-download them to use local transcription again.</string>
+    <string name="pref_delete_all_transcription_models_success">Deleted %1$d transcription models.</string>
+    <string name="pref_delete_all_transcription_models_none">No downloaded transcription models found.</string>
+
+    <!-- LLM delete -->
+    <string name="pref_delete_all_llm_models_summary">Remove all downloaded analysis models to free up storage space</string>
+    <string name="pref_delete_all_llm_models_confirm_title">Delete analysis models?</string>
+    <string name="pref_delete_all_llm_models_confirm_message">This will delete all downloaded analysis models. You will need to re-download them to use local analysis again.</string>
+    <string name="pref_delete_all_llm_models_success">Deleted %1$d analysis models.</string>
+    <string name="pref_delete_all_llm_models_none">No downloaded analysis models found.</string>
 
     <!-- Auth-required model download -->
     <string name="pref_local_llm_auth_required_title">Authentication Required</string>

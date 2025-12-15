@@ -61,6 +61,11 @@
                 android:title="@string/pref_local_transcription_delete_title"
                 android:summary="@string/pref_local_transcription_delete_summary" />
 
+        <Preference
+                android:key="prefDeleteAllTranscriptionModels"
+                android:title="@string/pref_delete_all_models_title"
+                android:summary="@string/pref_delete_all_transcription_models_summary" />
+
     </PreferenceCategory>
     
     <PreferenceCategory
@@ -105,11 +110,13 @@
                 android:title="@string/pref_local_ad_analysis_delete_title"
                 android:summary="@string/pref_local_ad_analysis_delete_summary" />
 
+        <Preference
+                android:key="prefDeleteAllLlmModels"
+                android:title="@string/pref_delete_all_models_title"
+                android:summary="@string/pref_delete_all_llm_models_summary" />
+
     </PreferenceCategory>
 
-    <Preference
-            android:key="prefDeleteAllModels"
-            android:title="@string/pref_delete_all_models_title"
-            android:summary="@string/pref_delete_all_models_summary" />
+
 
 </PreferenceScreen>

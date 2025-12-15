@@ -54,7 +54,10 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private static final String PREF_LOCAL_LLM_DELETE = "prefLocalAdAnalysisDelete";
 
     // Delete all models
-    private static final String PREF_DELETE_ALL_MODELS = "prefDeleteAllModels";
+    // private static final String PREF_DELETE_ALL_MODELS = "prefDeleteAllModels";
+    // // Removed
+    private static final String PREF_DELETE_ALL_TRANSCRIPTION_MODELS = "prefDeleteAllTranscriptionModels";
+    private static final String PREF_DELETE_ALL_LLM_MODELS = "prefDeleteAllLlmModels";
 
     private LocalTranscriptionManager transcriptionManager;
     private de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager llmManager;
@@ -83,7 +86,8 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         setupAnalysisTypePreference();
         setupLocalTranscriptionPreferences();
         setupLocalLlmPreferences();
-        setupDeleteAllModels();
+        setupDeleteAllTranscriptionModels();
+        setupDeleteAllLlmModels();
         setupStatistics();
     }
 
@@ -189,7 +193,8 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         updateStatistics();
         updateLocalTranscriptionUI();
         updateLocalLlmUI();
-        updateDeleteAllModelsSummary();
+        updateDeleteAllTranscriptionModelsSummary();
+        updateDeleteAllLlmModelsSummary();
     }
 
     @Override
@@ -403,7 +408,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                                     Toast.LENGTH_SHORT).show();
                         }
                         updateLocalTranscriptionUI();
-                        updateDeleteAllModelsSummary();
+                        updateDeleteAllTranscriptionModelsSummary();
                     });
                 }
             } catch (Exception e) {
@@ -450,7 +455,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                 Toast.LENGTH_SHORT).show();
 
         updateLocalTranscriptionUI();
-        updateDeleteAllModelsSummary();
+        updateDeleteAllTranscriptionModelsSummary();
     }
 
     private void setupLocalLlmPreferences() {
@@ -646,7 +651,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                                     Toast.LENGTH_SHORT).show();
                         }
                         updateLocalLlmUI();
-                        updateDeleteAllModelsSummary();
+                        updateDeleteAllLlmModelsSummary();
                     });
                 }
             } catch (Exception e) {
@@ -696,18 +701,29 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                 Toast.LENGTH_SHORT).show();
 
         updateLocalLlmUI();
-        updateDeleteAllModelsSummary();
+        updateDeleteAllLlmModelsSummary();
     }
 
-    private void setupDeleteAllModels() {
-        Preference deleteAllPref = findPreference(PREF_DELETE_ALL_MODELS);
+    private void setupDeleteAllTranscriptionModels() {
+        Preference deleteAllPref = findPreference(PREF_DELETE_ALL_TRANSCRIPTION_MODELS);
         if (deleteAllPref != null) {
             deleteAllPref.setOnPreferenceClickListener(preference -> {
-                showDeleteAllModelsConfirmation();
+                showDeleteAllTranscriptionModelsConfirmation();
                 return true;
             });
         }
-        updateDeleteAllModelsSummary();
+        updateDeleteAllTranscriptionModelsSummary();
+    }
+
+    private void setupDeleteAllLlmModels() {
+        Preference deleteAllPref = findPreference(PREF_DELETE_ALL_LLM_MODELS);
+        if (deleteAllPref != null) {
+            deleteAllPref.setOnPreferenceClickListener(preference -> {
+                showDeleteAllLlmModelsConfirmation();
+                return true;
+            });
+        }
+        updateDeleteAllLlmModelsSummary();
     }
 
     private void updateManualModelEntry(ListPreference modelPref) {
@@ -777,25 +793,38 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         }
     }
 
-    private void updateDeleteAllModelsSummary() {
-        Preference deleteAllPref = findPreference(PREF_DELETE_ALL_MODELS);
+    private void updateDeleteAllTranscriptionModelsSummary() {
+        Preference deleteAllPref = findPreference(PREF_DELETE_ALL_TRANSCRIPTION_MODELS);
         if (deleteAllPref == null) {
             return;
         }
 
-        int transcriptionCount = transcriptionManager.getDownloadedModelsCount();
-        int llmCount = llmManager.getDownloadedModelsCount();
-        int totalCount = transcriptionCount + llmCount;
+        int count = transcriptionManager.getDownloadedModelsCount();
+        long size = transcriptionManager.getDownloadedModelsSize();
 
-        long transcriptionSize = transcriptionManager.getDownloadedModelsSize();
-        long llmSize = llmManager.getDownloadedModelsSize();
-        long totalSize = transcriptionSize + llmSize;
-
-        if (totalCount == 0) {
-            deleteAllPref.setSummary(R.string.pref_delete_all_models_summary);
+        if (count == 0) {
+            deleteAllPref.setSummary(R.string.pref_delete_all_transcription_models_summary);
         } else {
-            String sizeStr = formatSize(totalSize);
-            String summary = totalCount + " model" + (totalCount > 1 ? "s" : "") + " (" + sizeStr + ")";
+            String sizeStr = formatSize(size);
+            String summary = count + " model" + (count > 1 ? "s" : "") + " (" + sizeStr + ")";
+            deleteAllPref.setSummary(summary);
+        }
+    }
+
+    private void updateDeleteAllLlmModelsSummary() {
+        Preference deleteAllPref = findPreference(PREF_DELETE_ALL_LLM_MODELS);
+        if (deleteAllPref == null) {
+            return;
+        }
+
+        int count = llmManager.getDownloadedModelsCount();
+        long size = llmManager.getDownloadedModelsSize();
+
+        if (count == 0) {
+            deleteAllPref.setSummary(R.string.pref_delete_all_llm_models_summary);
+        } else {
+            String sizeStr = formatSize(size);
+            String summary = count + " model" + (count > 1 ? "s" : "") + " (" + sizeStr + ")";
             deleteAllPref.setSummary(summary);
         }
     }
@@ -812,18 +841,29 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         }
     }
 
-    private void showDeleteAllModelsConfirmation() {
+    private void showDeleteAllTranscriptionModelsConfirmation() {
         new AlertDialog.Builder(requireContext())
-                .setTitle(R.string.pref_delete_all_models_confirm_title)
-                .setMessage(R.string.pref_delete_all_models_confirm_message)
+                .setTitle(R.string.pref_delete_all_transcription_models_confirm_title)
+                .setMessage(R.string.pref_delete_all_transcription_models_confirm_message)
                 .setPositiveButton(R.string.confirm_label, (dialog, which) -> {
-                    deleteAllModels();
+                    deleteAllTranscriptionModels();
                 })
                 .setNegativeButton(R.string.cancel_label, null)
                 .show();
     }
 
-    private void deleteAllModels() {
+    private void showDeleteAllLlmModelsConfirmation() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.pref_delete_all_llm_models_confirm_title)
+                .setMessage(R.string.pref_delete_all_llm_models_confirm_message)
+                .setPositiveButton(R.string.confirm_label, (dialog, which) -> {
+                    deleteAllLlmModels();
+                })
+                .setNegativeButton(R.string.cancel_label, null)
+                .show();
+    }
+
+    private void deleteAllTranscriptionModels() {
         // Disable local features if enabled
         if (LocalAiPreferences.isLocalTranscriptionEnabled(requireContext())) {
             LocalAiPreferences.setLocalTranscriptionEnabled(requireContext(), false);
@@ -832,6 +872,29 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                 transcriptionSwitch.setChecked(false);
             }
         }
+
+        String keepTranscription = LocalAiPreferences.getLocalTranscriptionModel(requireContext());
+        int totalCount = transcriptionManager.deleteAllModelsExcept(keepTranscription); // Keep selected model
+                                                                                        // consistent with previous
+                                                                                        // behavior
+
+        // Update UI
+        updateLocalTranscriptionUI();
+        updateDeleteAllTranscriptionModelsSummary();
+
+        // Show result
+        if (totalCount > 0) {
+            Toast.makeText(requireContext(),
+                    getString(R.string.pref_delete_all_transcription_models_success, totalCount),
+                    Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(requireContext(),
+                    R.string.pref_delete_all_transcription_models_none,
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void deleteAllLlmModels() {
         if (LocalAiPreferences.isLocalAdAnalysisEnabled(requireContext())) {
             LocalAiPreferences.setLocalAdAnalysisEnabled(requireContext(), false);
             SwitchPreferenceCompat llmSwitch = findPreference(PREF_LOCAL_LLM_ENABLED);
@@ -841,28 +904,21 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         }
         LocalAiPreferences.setManualModelPath(requireContext(), null);
 
-        // Delete all models
-        // Remove all models except the currently selected ones
-        String keepTranscription = LocalAiPreferences.getLocalTranscriptionModel(requireContext());
         String keepLlm = LocalAiPreferences.getLocalAdAnalysisModel(requireContext());
-
-        int transcriptionCount = transcriptionManager.deleteAllModelsExcept(keepTranscription);
-        int llmCount = llmManager.deleteAllModelsExcept(keepLlm);
-        int totalCount = transcriptionCount + llmCount;
+        int totalCount = llmManager.deleteAllModelsExcept(keepLlm);
 
         // Update UI
-        updateLocalTranscriptionUI();
         updateLocalLlmUI();
-        updateDeleteAllModelsSummary();
+        updateDeleteAllLlmModelsSummary();
 
         // Show result
         if (totalCount > 0) {
             Toast.makeText(requireContext(),
-                    getString(R.string.pref_delete_all_models_success, totalCount),
+                    getString(R.string.pref_delete_all_llm_models_success, totalCount),
                     Toast.LENGTH_SHORT).show();
         } else {
             Toast.makeText(requireContext(),
-                    R.string.pref_delete_all_models_none,
+                    R.string.pref_delete_all_llm_models_none,
                     Toast.LENGTH_SHORT).show();
         }
     }
