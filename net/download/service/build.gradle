@@ -24,7 +24,7 @@ dependencies {
     implementation project(':ui:chapters')
     implementation project(':ui:i18n')
     implementation project(':ui:transcript')
-    implementation 'com.google.mediapipe:tasks-genai:0.10.27'
+    implementation 'com.google.mediapipe:tasks-genai:0.10.29'
     implementation 'androidx.room:room-external-antlr:2.8.4'
 
     annotationProcessor "androidx.annotation:annotation:$annotationVersion"
@@ -42,12 +42,15 @@ dependencies {
     implementation "io.reactivex.rxjava3:rxandroid:$rxAndroidVersion"
     implementation "io.reactivex.rxjava3:rxjava:$rxJavaVersion"
     implementation "com.google.guava:guava:31.0.1-android"
-    implementation "com.openai:openai-java:4.8.0"
+    implementation 'com.openai:openai-java:4.11.0'
 
     // Vosk for local on-device speech recognition
-    implementation "com.alphacephei:vosk-android:0.3.47"
-    implementation 'com.google.ai.edge.litert:litert:1.0.1'
-    implementation 'com.google.ai.edge.litert:litert-gpu:1.0.1'
+    implementation "com.alphacephei:vosk-android:0.3.75"
+    implementation 'com.google.ai.edge.litert:litert:2.0.3'
+    implementation 'com.google.ai.edge.litert:litert-gpu:1.4.1'
+    implementation('org.tensorflow:tensorflow-lite:2.15.0') {
+        exclude group: 'org.tensorflow', module: 'tensorflow-lite-api'
+    }
 
 
 

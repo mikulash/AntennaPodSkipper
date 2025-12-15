@@ -86,6 +86,10 @@
                 android:entryValues="@array/pref_local_ad_analysis_model_values"
                 android:summary="%s" />
 
+        <de.danoeh.antennapod.ui.preferences.screen.ManualModelSettingsPreference
+                android:key="prefManualModelSettings"
+                android:visible="false" />
+
         <Preference
                 android:key="prefLocalAdAnalysisDownload"
                 android:title="@string/pref_local_ad_analysis_download_title"

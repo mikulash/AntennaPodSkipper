@@ -48,6 +48,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private static final String PREF_LOCAL_LLM_CATEGORY = "prefLocalAdAnalysisCategory";
     private static final String PREF_LOCAL_LLM_ENABLED = "prefLocalAdAnalysisEnabled";
     private static final String PREF_LOCAL_LLM_MODEL = "prefLocalAdAnalysisModel";
+    private static final String PREF_MANUAL_MODEL_SETTINGS = "prefManualModelSettings";
     private static final String PREF_LOCAL_LLM_DOWNLOAD = "prefLocalAdAnalysisDownload";
     private static final String PREF_LOCAL_LLM_IMPORT = "prefLocalAdAnalysisImport";
     private static final String PREF_LOCAL_LLM_DELETE = "prefLocalAdAnalysisDelete";
@@ -533,9 +534,17 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private void updateLocalLlmUI() {
         String selectedModel = LocalAiPreferences.getLocalAdAnalysisModel(requireContext());
         boolean isDownloaded = llmManager.isModelDownloaded(selectedModel);
+        boolean isManualModel = LocalAiPreferences.MANUAL_MODEL_ID.equals(selectedModel);
+
         ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
         if (modelPref != null) {
             updateManualModelEntry(modelPref);
+        }
+
+        // Show/hide manual model settings
+        Preference manualSettingsPref = findPreference(PREF_MANUAL_MODEL_SETTINGS);
+        if (manualSettingsPref != null) {
+            manualSettingsPref.setVisible(isManualModel && isDownloaded);
         }
 
         // Update download button
