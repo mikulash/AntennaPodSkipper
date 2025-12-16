@@ -17,6 +17,7 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.SwitchPreferenceCompat;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,6 +29,7 @@ import android.net.Uri;
 
 import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager;
 import de.danoeh.antennapod.net.download.service.ad.litert.LlmModel;
+import de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.ui.preferences.R;
@@ -41,7 +43,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     // Local Transcription
     private static final String PREF_LOCAL_TRANSCRIPTION_ENABLED = "prefLocalTranscriptionEnabled";
     private static final String PREF_LOCAL_TRANSCRIPTION_MODEL = "prefLocalTranscriptionModel";
-    private static final String PREF_LOCAL_TRANSCRIPTION_DOWNLOAD = "prefLocalTranscriptionDownload";
+    private static final String PREF_MANAGE_TRANSCRIPTION_MODELS = "prefManageTranscriptionModels";
     private static final String PREF_LOCAL_TRANSCRIPTION_DELETE = "prefLocalTranscriptionDelete";
 
     // Local LLM Analysis
@@ -252,210 +254,116 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     }
 
     private void setupLocalTranscriptionPreferences() {
-        // Enable/disable toggle
-        SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
-        if (enabledPref != null) {
-            enabledPref.setChecked(LocalAiPreferences.isLocalTranscriptionEnabled(requireContext()));
-            enabledPref.setOnPreferenceChangeListener((preference, newValue) -> {
+        // Model Selection
+        setupTranscriptionModelList();
+
+        // Manage Models
+        setupManageTranscriptionModels();
+
+        // Enable Switch
+        SwitchPreferenceCompat transcriptionSwitch = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
+        if (transcriptionSwitch != null) {
+            transcriptionSwitch.setOnPreferenceChangeListener((preference, newValue) -> {
                 boolean enabled = (Boolean) newValue;
-                String model = LocalAiPreferences.getLocalTranscriptionModel(requireContext());
-
-                // Check if model is downloaded before enabling
-                if (enabled && !transcriptionManager.isModelDownloaded(model)) {
-                    Toast.makeText(requireContext(),
-                            R.string.pref_local_transcription_download_summary,
-                            Toast.LENGTH_LONG).show();
-                    return false;
-                }
-
                 LocalAiPreferences.setLocalTranscriptionEnabled(requireContext(), enabled);
-                return true;
-            });
-        }
-
-        // Model selection
-        ListPreference modelPref = findPreference(PREF_LOCAL_TRANSCRIPTION_MODEL);
-        if (modelPref != null) {
-            modelPref.setValue(LocalAiPreferences.getLocalTranscriptionModel(requireContext()));
-            modelPref.setOnPreferenceChangeListener((preference, newValue) -> {
-                String newModel = (String) newValue;
-                LocalAiPreferences.setLocalTranscriptionModel(requireContext(), newModel);
-
-                // If local transcription is enabled but new model isn't downloaded, disable it
-                if (LocalAiPreferences.isLocalTranscriptionEnabled(requireContext())
-                        && !transcriptionManager.isModelDownloaded(newModel)) {
-                    LocalAiPreferences.setLocalTranscriptionEnabled(requireContext(), false);
-                    SwitchPreferenceCompat switchPref = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
-                    if (switchPref != null) {
-                        switchPref.setChecked(false);
-                    }
-                }
-
                 updateLocalTranscriptionUI();
                 return true;
             });
         }
+    }
 
-        // Download button
-        Preference downloadPref = findPreference(PREF_LOCAL_TRANSCRIPTION_DOWNLOAD);
-        if (downloadPref != null) {
-            downloadPref.setOnPreferenceClickListener(preference -> {
-                if (!isDownloading) {
-                    startModelDownload();
+    private void setupManageTranscriptionModels() {
+        Preference managePref = findPreference(PREF_MANAGE_TRANSCRIPTION_MODELS);
+        if (managePref != null) {
+            managePref.setOnPreferenceClickListener(preference -> {
+                ((de.danoeh.antennapod.ui.preferences.PreferenceController) requireActivity())
+                        .openScreen(new TranscriptionModelManagerFragment());
+                return true;
+            });
+        }
+    }
+
+    private void setupTranscriptionModelList() {
+        ListPreference modelPref = findPreference(PREF_LOCAL_TRANSCRIPTION_MODEL);
+        if (modelPref != null) {
+            modelPref.setOnPreferenceChangeListener((preference, newValue) -> {
+                String modelId = (String) newValue;
+
+                // Check if model is downloaded
+                if (!transcriptionManager.isModelDownloaded(modelId)) {
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle("Model not downloaded")
+                            .setMessage(
+                                    "The selected model is not downloaded. Please download it in 'Manage Models' first.")
+                            .setPositiveButton("Go to Manage Models", (d, w) -> {
+                                ((de.danoeh.antennapod.ui.preferences.PreferenceController) requireActivity())
+                                        .openScreen(new TranscriptionModelManagerFragment());
+                            })
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .show();
+                    // Don't update value yet? Or update and let them discover it fails?
+                    // Better to not update if not valid?
+                    // Actually, let's allow setting it, but warn.
                 }
+
+                LocalAiPreferences.setLocalTranscriptionModel(requireContext(), modelId);
+                updateLocalTranscriptionUI();
                 return true;
             });
         }
-
-        // Delete button
-        Preference deletePref = findPreference(PREF_LOCAL_TRANSCRIPTION_DELETE);
-        if (deletePref != null) {
-            deletePref.setOnPreferenceClickListener(preference -> {
-                showDeleteConfirmation();
-                return true;
-            });
-        }
-
-        updateLocalTranscriptionUI();
     }
 
     private void updateLocalTranscriptionUI() {
         String selectedModel = LocalAiPreferences.getLocalTranscriptionModel(requireContext());
         boolean isDownloaded = transcriptionManager.isModelDownloaded(selectedModel);
 
-        // Update download button
-        Preference downloadPref = findPreference(PREF_LOCAL_TRANSCRIPTION_DOWNLOAD);
-        if (downloadPref != null) {
-            if (isDownloading) {
-                downloadPref.setEnabled(false);
-            } else if (isDownloaded) {
-                downloadPref.setSummary(R.string.pref_local_transcription_download_summary_downloaded);
-                downloadPref.setEnabled(false);
-            } else {
-                String sizeStr = transcriptionManager.getModelSizeString(selectedModel);
-                downloadPref.setSummary(getString(R.string.pref_local_transcription_download_summary)
-                        + " (" + sizeStr + ")");
-                downloadPref.setEnabled(true);
-            }
-        }
+        ListPreference modelPref = findPreference(PREF_LOCAL_TRANSCRIPTION_MODEL);
+        if (modelPref != null) {
+            // Update summary
+            de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel model = transcriptionManager
+                    .getModelById(selectedModel);
+            String label = (model != null) ? model.getName() : selectedModel;
+            modelPref.setSummary(label);
+            modelPref.setValue(selectedModel); // Ensure UI matches pref
 
-        // Update delete button
-        Preference deletePref = findPreference(PREF_LOCAL_TRANSCRIPTION_DELETE);
-        if (deletePref != null) {
-            deletePref.setEnabled(isDownloaded && !isDownloading);
-            deletePref.setVisible(isDownloaded);
+            List<VoskModel> models = transcriptionManager
+                    .getAvailableModels();
+            // Filter only downloaded models
+            List<VoskModel> downloadedModels = new java.util.ArrayList<>();
+            for (VoskModel m : models) {
+                if (transcriptionManager.isModelDownloaded(m.getId())) {
+                    downloadedModels.add(m);
+                }
+            }
+
+            // If the currently selected model is not downloaded (e.g. deleted), we should
+            // still probably show it?
+            // Or maybe just show what IS downloaded.
+            // If selected is not in list, ListPreference might act weird.
+            // Let's add the selected one if missing, OR just let the summary handle it.
+            // The request is "show only currently downloaded".
+
+            CharSequence[] entries = new CharSequence[downloadedModels.size()];
+            CharSequence[] entryValues = new CharSequence[downloadedModels.size()];
+            for (int i = 0; i < downloadedModels.size(); i++) {
+                de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel m = downloadedModels.get(i);
+                entries[i] = m.getName();
+                entryValues[i] = m.getId();
+            }
+            modelPref.setEntries(entries);
+            modelPref.setEntryValues(entryValues);
         }
 
         // Update enable switch
         SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
         if (enabledPref != null) {
-            enabledPref.setEnabled(isDownloaded && !isDownloading);
-        }
-    }
-
-    private void startModelDownload() {
-        String modelName = LocalAiPreferences.getLocalTranscriptionModel(requireContext());
-
-        // Check if device has enough memory for this model
-        if (!transcriptionManager.hasEnoughMemory(modelName)) {
-            long requiredMb = transcriptionManager.getMinMemoryRequired(modelName) / 1_000_000;
-            long limitMb = transcriptionManager.getPerAppMemoryLimit() / 1_000_000;
-            new AlertDialog.Builder(requireContext())
-                    .setTitle(R.string.pref_local_transcription_memory_warning_title)
-                    .setMessage(getString(R.string.pref_local_transcription_memory_warning,
-                            requiredMb, limitMb))
-                    .setPositiveButton(R.string.download_anyway_label, (dialog, which) -> {
-                        performModelDownload(modelName);
-                    })
-                    .setNegativeButton(R.string.cancel_label, null)
-                    .show();
-            return;
-        }
-
-        performModelDownload(modelName);
-    }
-
-    private void performModelDownload(String modelName) {
-        isDownloading = true;
-        updateLocalTranscriptionUI();
-
-        Preference downloadPref = findPreference(PREF_LOCAL_TRANSCRIPTION_DOWNLOAD);
-
-        downloadExecutor.execute(() -> {
-            try {
-                boolean success = transcriptionManager.downloadModel(modelName,
-                        (percent, bytesDownloaded, totalBytes) -> {
-                            if (getActivity() != null) {
-                                getActivity().runOnUiThread(() -> {
-                                    if (downloadPref != null) {
-                                        if (percent < 0) {
-                                            downloadPref.setSummary(R.string.pref_local_transcription_extracting);
-                                        } else {
-                                            downloadPref.setSummary(getString(
-                                                    R.string.pref_local_transcription_downloading, percent));
-                                        }
-                                    }
-                                });
-                            }
-                        });
-
-                if (getActivity() != null) {
-                    getActivity().runOnUiThread(() -> {
-                        isDownloading = false;
-                        if (success) {
-                            Toast.makeText(requireContext(),
-                                    R.string.pref_local_transcription_download_complete,
-                                    Toast.LENGTH_SHORT).show();
-                        }
-                        updateLocalTranscriptionUI();
-                        updateDeleteAllTranscriptionModelsSummary();
-                    });
-                }
-            } catch (Exception e) {
-                if (getActivity() != null) {
-                    getActivity().runOnUiThread(() -> {
-                        isDownloading = false;
-                        Toast.makeText(requireContext(),
-                                getString(R.string.pref_local_transcription_download_failed, e.getMessage()),
-                                Toast.LENGTH_LONG).show();
-                        updateLocalTranscriptionUI();
-                    });
-                }
-            }
-        });
-    }
-
-    private void showDeleteConfirmation() {
-        new AlertDialog.Builder(requireContext())
-                .setTitle(R.string.pref_local_transcription_delete_title)
-                .setMessage(R.string.pref_local_transcription_delete_confirm)
-                .setPositiveButton(R.string.confirm_label, (dialog, which) -> {
-                    deleteModel();
-                })
-                .setNegativeButton(R.string.cancel_label, null)
-                .show();
-    }
-
-    private void deleteModel() {
-        String modelName = LocalAiPreferences.getLocalTranscriptionModel(requireContext());
-
-        // Disable local transcription if it was enabled
-        if (LocalAiPreferences.isLocalTranscriptionEnabled(requireContext())) {
-            LocalAiPreferences.setLocalTranscriptionEnabled(requireContext(), false);
-            SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
-            if (enabledPref != null) {
-                enabledPref.setChecked(false);
+            enabledPref.setEnabled(isDownloaded);
+            if (!isDownloaded && enabledPref.isChecked()) {
+                enabledPref.setSummary("Model not downloaded");
+            } else if (enabledPref.isChecked()) {
+                enabledPref.setSummary(R.string.pref_local_transcription_summary);
             }
         }
-
-        transcriptionManager.deleteModel(modelName);
-
-        Toast.makeText(requireContext(),
-                R.string.pref_local_transcription_model_deleted,
-                Toast.LENGTH_SHORT).show();
-
-        updateLocalTranscriptionUI();
-        updateDeleteAllTranscriptionModelsSummary();
     }
 
     private void setupLocalLlmPreferences() {

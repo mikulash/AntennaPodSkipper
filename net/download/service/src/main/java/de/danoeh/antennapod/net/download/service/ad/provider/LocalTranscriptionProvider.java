@@ -18,7 +18,7 @@ import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class LocalTranscriptionProvider implements TranscriptionProvider {
     private static final String TAG = "LocalTranscriptionProv";
-    
+
     // No audio size limit for local transcription
     private static final long MAX_AUDIO_BYTES = Long.MAX_VALUE;
 
@@ -26,11 +26,18 @@ public class LocalTranscriptionProvider implements TranscriptionProvider {
     private final String localModelName;
 
     public LocalTranscriptionProvider(Context context) throws IOException {
+        this(context, null);
+    }
+
+    public LocalTranscriptionProvider(Context context, String overrideModelId) throws IOException {
         this.transcriptionManager = new LocalTranscriptionManager(context);
 
-        String selectedLocalModel = LocalAiPreferences.getLocalTranscriptionModel(context);
+        String selectedLocalModel = overrideModelId;
         if (TextUtils.isEmpty(selectedLocalModel)) {
-            selectedLocalModel = LocalTranscriptionManager.MODEL_SMALL;
+            selectedLocalModel = LocalAiPreferences.getLocalTranscriptionModel(context);
+        }
+        if (TextUtils.isEmpty(selectedLocalModel)) {
+            selectedLocalModel = LocalTranscriptionManager.DEFAULT_MODEL_ID;
         }
         this.localModelName = selectedLocalModel;
 
@@ -72,6 +79,7 @@ public class LocalTranscriptionProvider implements TranscriptionProvider {
                 double offsetSeconds = chunkIndex * 150.0;
 
                 String vttResult = transcriptionManager.transcribeChunk(audioFile, offsetSeconds);
+                Log.d(TAG, "Local transcription result: " + vttResult);
                 Log.d(TAG, "Local transcription " + chunkLabel + " complete, length=" + vttResult.length());
 
                 return vttResult;
@@ -94,11 +102,16 @@ public class LocalTranscriptionProvider implements TranscriptionProvider {
         String message = throwable.getMessage();
         String normalized = message == null ? "" : message.toLowerCase(Locale.US);
 
-        if (normalized.contains("model not loaded")) return true;
-        if (normalized.contains("no audio track")) return true;
-        if (normalized.contains("out of memory")) return true;
-        if (normalized.contains("not enough memory")) return true;
-        if (throwable instanceof OutOfMemoryError) return true;
+        if (normalized.contains("model not loaded"))
+            return true;
+        if (normalized.contains("no audio track"))
+            return true;
+        if (normalized.contains("out of memory"))
+            return true;
+        if (normalized.contains("not enough memory"))
+            return true;
+        if (throwable instanceof OutOfMemoryError)
+            return true;
 
         Throwable cause = throwable.getCause();
         return cause != null && shouldNotRetry(cause);

@@ -62,9 +62,14 @@ public class TranscriptionWorker extends Worker {
         }
 
         TranscriptionProvider transcriptionProvider = null;
+        String modelOverride = null;
+        if (item.getFeed() != null && item.getFeed().getPreferences() != null) {
+            modelOverride = item.getFeed().getPreferences().getTranscriptionModel();
+        }
 
         try {
-            transcriptionProvider = AdAnalysisProviderFactory.createTranscriptionProvider(getApplicationContext());
+            transcriptionProvider = AdAnalysisProviderFactory.createTranscriptionProvider(getApplicationContext(),
+                    modelOverride);
         } catch (Exception e) {
             Log.e(TAG, "Transcription provider could not be created", e);
             closeProvider(transcriptionProvider);
@@ -105,7 +110,8 @@ public class TranscriptionWorker extends Worker {
         if (tp != null) {
             try {
                 tp.close();
-            } catch (Exception ignored) { }
+            } catch (Exception ignored) {
+            }
         }
     }
 

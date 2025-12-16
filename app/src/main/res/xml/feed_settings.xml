@@ -72,6 +72,12 @@
         android:summary="@string/feed_auto_ad_analysis_summary"
         android:title="@string/feed_auto_ad_analysis_title" />
 
+    <de.danoeh.antennapod.ui.preferences.preference.MaterialListPreference
+        android:key="feedTranscriptionModel"
+        android:title="@string/pref_local_transcription_model_title"
+        android:summary="%s"
+        android:icon="@drawable/ic_transcribe_24dp" />
+
     <PreferenceCategory
         android:key="autoDownloadCategory"
         android:title="@string/auto_download_inbox_category">

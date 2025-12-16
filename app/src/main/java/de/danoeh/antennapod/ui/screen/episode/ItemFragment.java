@@ -87,7 +87,8 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
-import org.apache.commons.io.FileUtils;
+import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 
 import java.io.File;
 import java.util.List;
@@ -149,7 +150,7 @@ public class ItemFragment extends Fragment {
 
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
+            @Nullable Bundle savedInstanceState) {
         super.onCreateView(inflater, container, savedInstanceState);
         viewBinding = FeeditemFragmentBinding.inflate(inflater, container, false);
         viewBinding.header.setVisibility(View.INVISIBLE);
@@ -251,8 +252,8 @@ public class ItemFragment extends Fragment {
     }
 
     private void showOnDemandConfigBalloon(boolean offerStreaming) {
-        final boolean isLocaleRtl = TextUtils.getLayoutDirectionFromLocale(Locale.getDefault())
-                == View.LAYOUT_DIRECTION_RTL;
+        final boolean isLocaleRtl = TextUtils
+                .getLayoutDirectionFromLocale(Locale.getDefault()) == View.LAYOUT_DIRECTION_RTL;
         final Balloon balloon = new Balloon.Builder(getContext())
                 .setArrowOrientation(ArrowOrientation.TOP)
                 .setArrowOrientationRules(ArrowOrientationRules.ALIGN_FIXED)
@@ -270,7 +271,8 @@ public class ItemFragment extends Fragment {
         final Button negativeButton = balloon.getContentView().findViewById(R.id.balloon_button_negative);
         final TextView message = balloon.getContentView().findViewById(R.id.balloon_message);
         message.setText(offerStreaming
-                ? R.string.on_demand_config_stream_text : R.string.on_demand_config_download_text);
+                ? R.string.on_demand_config_stream_text
+                : R.string.on_demand_config_download_text);
         positiveButton.setOnClickListener(v1 -> {
             UserPreferences.setStreamOverDownload(offerStreaming);
             // Update all visible lists to reflect new streaming action button
@@ -517,23 +519,32 @@ public class ItemFragment extends Fragment {
             viewBinding.adSegmentsContainer.setVisibility(View.GONE);
             return;
         }
-        if (!AdSegmentStore.hasAnalysis(requireContext(), item.getId())) {
+        boolean hasAnalysis = AdSegmentStore.hasAnalysis(requireContext(), item.getId());
+        FeedMedia media = item.getMedia();
+        boolean hasTranscript = hasExistingTranscript(media);
+
+        if (!hasAnalysis && !hasTranscript) {
             viewBinding.adSegmentsContainer.setVisibility(View.GONE);
             return;
         }
-        FeedMedia media = item.getMedia();
-        AdAnalysisResult result = AdSegmentStore.load(requireContext(), item.getId());
+
+        // Show container
+        viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
+
+        AdAnalysisResult result = hasAnalysis ? AdSegmentStore.load(requireContext(), item.getId()) : null;
+
         if (result == null) {
+            // No analysis, but we have transcript (checked above)
             viewBinding.adSegmentsContent.setText(R.string.ad_segments_not_analyzed);
             viewBinding.adTranscriptContent.setText(loadTranscriptText(media, null));
-            viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
-            selectAdTab(0);
+            // Default to transcript tab if no ad analysis
+            selectAdTab(1);
             return;
         }
+
         if (result.getSegments().isEmpty()) {
             viewBinding.adSegmentsContent.setText(R.string.ad_segments_empty);
             viewBinding.adTranscriptContent.setText(loadTranscriptText(media, result));
-            viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
             selectAdTab(0);
             return;
         }
@@ -563,7 +574,7 @@ public class ItemFragment extends Fragment {
                 int reasonStart = sb.length();
                 sb.append(seg.getReason());
                 sb.setSpan(new ForegroundColorSpan(ThemeUtils.getColorFromAttr(requireContext(),
-                                android.R.attr.textColorSecondary)), reasonStart, sb.length(),
+                        android.R.attr.textColorSecondary)), reasonStart, sb.length(),
                         Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             }
         }
@@ -618,11 +629,21 @@ public class ItemFragment extends Fragment {
         }
         try {
             File transcriptFile = new File(media.getTranscriptFileUrl());
+            Log.d(TAG, "Loading transcript from " + transcriptFile.getAbsolutePath() + ", exists="
+                    + transcriptFile.exists() + ", length=" + transcriptFile.length());
             if (transcriptFile.exists()) {
-                return FileUtils.readFileToString(transcriptFile, (String) null);
+                String content = new String(Files.readAllBytes(transcriptFile.toPath()), StandardCharsets.UTF_8);
+                Log.d(TAG, "Read transcript content length=" + content.length());
+                if (content.length() > 0) {
+                    Log.d(TAG, "First 100 chars: " + content.substring(0, Math.min(content.length(), 100)));
+                    return content;
+                } else {
+                    return "Transcript file exists but is empty.";
+                }
             }
         } catch (Exception e) {
             Log.w(TAG, "Failed to load transcript text", e);
+            return "Failed to load transcript: " + e.getMessage();
         }
         return getString(R.string.ad_segments_not_analyzed);
     }
@@ -672,11 +693,15 @@ public class ItemFragment extends Fragment {
                 return;
             }
             if (info.getState().isFinished()) {
+                boolean wasRunning = isTranscriptionRunning;
                 isTranscriptionRunning = false;
                 transcriptionStageLabel = null;
                 transcriptionPercent = -1;
                 updateButtons();
                 updateAdSegmentsSummary();
+                if (wasRunning) {
+                    load();
+                }
                 return;
             }
         }

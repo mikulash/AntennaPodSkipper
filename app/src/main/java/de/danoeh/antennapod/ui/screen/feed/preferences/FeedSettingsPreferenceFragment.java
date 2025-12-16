@@ -65,6 +65,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     private static final String PREF_NOTIFICATION = "episodeNotification";
     private static final String PREF_TAGS = "tags";
     private static final String PREF_AUTO_AD_ANALYSIS = "autoAdAnalysis";
+    private static final String PREF_FEED_TRANSCRIPTION_MODEL = "feedTranscriptionModel";
 
     private Feed feed;
     private Disposable disposable;
@@ -79,8 +80,8 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     }
 
     boolean notificationPermissionDenied = false;
-    private final ActivityResultLauncher<String> enableNotificationsRequestPermissionLauncher =
-            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+    private final ActivityResultLauncher<String> enableNotificationsRequestPermissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(), isGranted -> {
                 if (isGranted) {
                     SwitchPreferenceCompat pref = findPreference(PREF_NOTIFICATION);
                     pref.setChecked(true);
@@ -122,25 +123,25 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
                 emitter.onComplete();
             }
         })
-        .subscribeOn(Schedulers.io())
-        .observeOn(AndroidSchedulers.mainThread())
-        .subscribe(result -> {
-            feed = result;
-            feedPreferences = feed.getPreferences();
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(result -> {
+                    feed = result;
+                    feedPreferences = feed.getPreferences();
 
-            setupPreferences();
-            updateAutoDeleteSummary();
-            updateAutoDownloadEnabledSummary();
-            updateNewEpisodesActionSummary();
+                    setupPreferences();
+                    updateAutoDeleteSummary();
+                    updateAutoDownloadEnabledSummary();
+                    updateNewEpisodesActionSummary();
 
-            if (feed.isLocalFeed()) {
-                findPreference(PREF_AUTHENTICATION).setVisible(false);
-                findPreference(PREF_CATEGORY_AUTO_DOWNLOAD).setVisible(false);
-            }
+                    if (feed.isLocalFeed()) {
+                        findPreference(PREF_AUTHENTICATION).setVisible(false);
+                        findPreference(PREF_CATEGORY_AUTO_DOWNLOAD).setVisible(false);
+                    }
 
-            findPreference(PREF_SCREEN).setVisible(true);
-        }, error -> Log.d(TAG, Log.getStackTraceString(error)), () -> {
-        });
+                    findPreference(PREF_SCREEN).setVisible(true);
+                }, error -> Log.d(TAG, Log.getStackTraceString(error)), () -> {
+                });
     }
 
     @Override
@@ -269,14 +270,83 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
             notificationPreference.setChecked(checked);
             return false;
         });
+
+        setupTranscriptionModelPreference();
+    }
+
+    private void setupTranscriptionModelPreference() {
+        ListPreference modelPref = findPreference(PREF_FEED_TRANSCRIPTION_MODEL);
+        if (modelPref != null) {
+            de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager tm = new de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager(
+                    requireContext());
+
+            java.util.List<de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel> models = tm
+                    .getAvailableModels();
+            java.util.List<de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel> downloadedModels = new java.util.ArrayList<>();
+            for (de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel model : models) {
+                if (tm.isModelDownloaded(model.getId())) {
+                    downloadedModels.add(model);
+                }
+            }
+
+            // Add "Global default" option
+            CharSequence[] entries = new CharSequence[downloadedModels.size() + 1];
+            CharSequence[] entryValues = new CharSequence[downloadedModels.size() + 1];
+
+            entries[0] = getString(R.string.global_default);
+            entryValues[0] = "global_default"; // Special value
+
+            String currentModel = feedPreferences.getTranscriptionModel();
+            if (currentModel == null)
+                currentModel = "global_default";
+
+            for (int i = 0; i < downloadedModels.size(); i++) {
+                de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel m = downloadedModels.get(i);
+                entries[i + 1] = m.getName();
+                entryValues[i + 1] = m.getId();
+            }
+
+            modelPref.setEntries(entries);
+            modelPref.setEntryValues(entryValues);
+
+            // Set summary
+            if ("global_default".equals(currentModel)) {
+                modelPref.setSummary(getString(R.string.global_default));
+            } else {
+                de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel m = tm.getModelById(currentModel);
+                String label = (m != null) ? m.getName() : currentModel;
+                if (!tm.isModelDownloaded(currentModel)) {
+                    label += " (Not downloaded)";
+                }
+                modelPref.setSummary(label);
+            }
+            modelPref.setValue(currentModel);
+
+            modelPref.setOnPreferenceChangeListener((preference, newValue) -> {
+                String newVal = (String) newValue;
+                if ("global_default".equals(newVal)) {
+                    feedPreferences.setTranscriptionModel(null);
+                    modelPref.setSummary(getString(R.string.global_default));
+                } else {
+                    feedPreferences.setTranscriptionModel(newVal);
+                    de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel m = tm.getModelById(newVal);
+                    String label = (m != null) ? m.getName() : newVal;
+                    modelPref.setSummary(label);
+                }
+                DBWriter.setFeedPreferences(feedPreferences);
+                return true;
+            });
+        }
     }
 
     private void updateAutoDeleteSummary() {
         ListPreference autoDeletePreference = findPreference(PREF_AUTO_DELETE);
         boolean isEnabledGlobally = feed.isLocalFeed()
-                ? UserPreferences.isAutoDeleteLocal() : UserPreferences.isAutoDelete();
+                ? UserPreferences.isAutoDeleteLocal()
+                : UserPreferences.isAutoDelete();
         int globalStringResource = isEnabledGlobally
-                ? R.string.feed_auto_download_always : R.string.feed_auto_download_never;
+                ? R.string.feed_auto_download_always
+                : R.string.feed_auto_download_never;
         String summary = switch (feedPreferences.getAutoDeleteAction()) {
             case GLOBAL -> getString(R.string.global_default_with_value, getString(globalStringResource));
             case ALWAYS -> getString(R.string.feed_auto_download_always);
@@ -331,10 +401,10 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     }
 
     private boolean showPlaybackSpeedDialog(Preference preference) {
-        PlaybackSpeedFeedSettingDialogBinding viewBinding =
-                PlaybackSpeedFeedSettingDialogBinding.inflate(getLayoutInflater());
-        viewBinding.seekBar.setProgressChangedListener(speed ->
-                viewBinding.currentSpeedLabel.setText(String.format(Locale.getDefault(), "%.2fx", speed)));
+        PlaybackSpeedFeedSettingDialogBinding viewBinding = PlaybackSpeedFeedSettingDialogBinding
+                .inflate(getLayoutInflater());
+        viewBinding.seekBar.setProgressChangedListener(
+                speed -> viewBinding.currentSpeedLabel.setText(String.format(Locale.getDefault(), "%.2fx", speed)));
         viewBinding.useGlobalCheckbox.setOnCheckedChangeListener((buttonView, isChecked) -> {
             viewBinding.seekBar.setEnabled(!isChecked);
             viewBinding.seekBar.setAlpha(isChecked ? 0.4f : 1f);
@@ -355,7 +425,8 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
                 .setView(viewBinding.getRoot())
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                     float newSpeed = viewBinding.useGlobalCheckbox.isChecked()
-                            ? FeedPreferences.SPEED_USE_GLOBAL : viewBinding.seekBar.getCurrentSpeed();
+                            ? FeedPreferences.SPEED_USE_GLOBAL
+                            : viewBinding.seekBar.getCurrentSpeed();
                     feedPreferences.setFeedPlaybackSpeed(newSpeed);
                     FeedPreferences.SkipSilence newSkipSilence;
                     if (viewBinding.useGlobalCheckbox.isChecked()) {

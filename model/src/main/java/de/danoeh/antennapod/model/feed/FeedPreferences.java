@@ -123,24 +123,39 @@ public class FeedPreferences implements Serializable {
     private int feedSkipEnding;
     private SkipSilence feedSkipSilence;
     private boolean showEpisodeNotification;
+
     private boolean autoAdAnalysis;
+    private String transcriptionModel;
     private final Set<String> tags = new HashSet<>();
 
     public FeedPreferences(long feedID, AutoDownloadSetting autoDownload, AutoDeleteAction autoDeleteAction,
-                           VolumeAdaptionSetting volumeAdaptionSetting, NewEpisodesAction newEpisodesAction,
-                           String username, String password) {
+            VolumeAdaptionSetting volumeAdaptionSetting, NewEpisodesAction newEpisodesAction,
+            String username, String password) {
         this(feedID, autoDownload, true, autoDeleteAction, volumeAdaptionSetting, username, password,
                 new FeedFilter(), SPEED_USE_GLOBAL, 0, 0, SkipSilence.GLOBAL,
-                false, false, newEpisodesAction, new HashSet<>());
+                false, false, null, newEpisodesAction, new HashSet<>());
     }
 
     public FeedPreferences(long feedID, AutoDownloadSetting autoDownload, boolean keepUpdated,
-                           AutoDeleteAction autoDeleteAction, VolumeAdaptionSetting volumeAdaptionSetting,
-                           String username, String password, @NonNull FeedFilter filter,
-                           float feedPlaybackSpeed, int feedSkipIntro, int feedSkipEnding, SkipSilence feedSkipSilence,
-                           boolean showEpisodeNotification, boolean autoAdAnalysis,
-                           NewEpisodesAction newEpisodesAction,
-                           Set<String> tags) {
+            AutoDeleteAction autoDeleteAction, VolumeAdaptionSetting volumeAdaptionSetting,
+            String username, String password, @NonNull FeedFilter filter,
+            float feedPlaybackSpeed, int feedSkipIntro, int feedSkipEnding, SkipSilence feedSkipSilence,
+            boolean showEpisodeNotification, boolean autoAdAnalysis,
+            NewEpisodesAction newEpisodesAction,
+            Set<String> tags) {
+        this(feedID, autoDownload, keepUpdated, autoDeleteAction, volumeAdaptionSetting, username, password, filter,
+                feedPlaybackSpeed, feedSkipIntro, feedSkipEnding, feedSkipSilence, showEpisodeNotification,
+                autoAdAnalysis,
+                null, newEpisodesAction, tags);
+    }
+
+    public FeedPreferences(long feedID, AutoDownloadSetting autoDownload, boolean keepUpdated,
+            AutoDeleteAction autoDeleteAction, VolumeAdaptionSetting volumeAdaptionSetting,
+            String username, String password, @NonNull FeedFilter filter,
+            float feedPlaybackSpeed, int feedSkipIntro, int feedSkipEnding, SkipSilence feedSkipSilence,
+            boolean showEpisodeNotification, boolean autoAdAnalysis, String transcriptionModel,
+            NewEpisodesAction newEpisodesAction,
+            Set<String> tags) {
         this.feedID = feedID;
         this.autoDownload = autoDownload;
         this.keepUpdated = keepUpdated;
@@ -154,7 +169,9 @@ public class FeedPreferences implements Serializable {
         this.feedSkipEnding = feedSkipEnding;
         this.feedSkipSilence = feedSkipSilence;
         this.showEpisodeNotification = showEpisodeNotification;
+        this.showEpisodeNotification = showEpisodeNotification;
         this.autoAdAnalysis = autoAdAnalysis;
+        this.transcriptionModel = transcriptionModel;
         this.newEpisodesAction = newEpisodesAction;
         this.tags.addAll(tags);
     }
@@ -172,8 +189,9 @@ public class FeedPreferences implements Serializable {
     }
 
     /**
-     * @return true if this feed should be refreshed when everything else is being refreshed
-     *      if false the feed should only be refreshed if requested directly.
+     * @return true if this feed should be refreshed when everything else is being
+     *         refreshed
+     *         if false the feed should only be refreshed if requested directly.
      */
     public boolean getKeepUpdated() {
         return keepUpdated;
@@ -184,7 +202,8 @@ public class FeedPreferences implements Serializable {
     }
 
     /**
-     * Update this FeedPreferences object from another one. The feedID, autoDownload and AutoDeleteAction attributes
+     * Update this FeedPreferences object from another one. The feedID, autoDownload
+     * and AutoDeleteAction attributes
      * are excluded from the update.
      */
     public void updateFromOther(FeedPreferences other) {
@@ -203,8 +222,10 @@ public class FeedPreferences implements Serializable {
     }
 
     /**
-     * This function returns the calculated auto-download state for the given FeedPreference.
-     * By supplying the global default, the returned value will present the actionable state of the
+     * This function returns the calculated auto-download state for the given
+     * FeedPreference.
+     * By supplying the global default, the returned value will present the
+     * actionable state of the
      * download-state choosen by the user. No further checks need to be made.
      *
      * @param globalDefault Global Setting for automatic downloading of items.
@@ -335,5 +356,13 @@ public class FeedPreferences implements Serializable {
 
     public void setAutoAdAnalysisEnabled(boolean enabled) {
         this.autoAdAnalysis = enabled;
+    }
+
+    public String getTranscriptionModel() {
+        return transcriptionModel;
+    }
+
+    public void setTranscriptionModel(String transcriptionModel) {
+        this.transcriptionModel = transcriptionModel;
     }
 }

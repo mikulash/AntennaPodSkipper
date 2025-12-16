@@ -25,6 +25,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -39,24 +41,63 @@ import java.util.zip.ZipInputStream;
 public class LocalTranscriptionManager {
     private static final String TAG = "LocalTranscriptionMgr";
 
-    // Vosk model URLs - English models for on-device transcription
-    public static final String MODEL_SMALL = "small";
-    public static final String MODEL_MEDIUM = "medium";
-    public static final String MODEL_LARGE = "large";
+    // Models
+    public static final String DEFAULT_MODEL_ID = "vosk-model-small-en-us-0.15";
+    private static final List<VoskModel> AVAILABLE_MODELS = new ArrayList<>();
 
-    private static final String MODEL_URL_SMALL = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip";
-    private static final String MODEL_URL_MEDIUM = "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip";
-    private static final String MODEL_URL_LARGE = "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip";
+    static {
+        // English
+        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-en-us-0.15", "English (US) Small", "English",
+                "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip", 40_000_000L));
+        AVAILABLE_MODELS.add(new VoskModel("vosk-model-en-us-0.22-lgraph", "English (US) Medium", "English",
+                "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip", 128_000_000L));
+        AVAILABLE_MODELS.add(new VoskModel("vosk-model-en-us-0.22", "English (US) Large", "English",
+                "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip", 1_800_000_000L));
 
-    // Model sizes for progress tracking
-    private static final long MODEL_SIZE_SMALL = 40_000_000L; // ~40 MB
-    private static final long MODEL_SIZE_MEDIUM = 128_000_000L; // ~128 MB
-    private static final long MODEL_SIZE_LARGE = 1_800_000_000L; // ~1.8 GB
+        // Czech
+        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-cs-0.4", "Czech Small", "Czech",
+                "https://alphacephei.com/vosk/models/vosk-model-small-cs-0.4-rhasspy.zip", 42_000_000L));
 
-    // Minimum available memory required for each model (with safety margin)
-    private static final long MIN_MEMORY_SMALL = 100_000_000L; // 100 MB
-    private static final long MIN_MEMORY_MEDIUM = 300_000_000L; // 300 MB
-    private static final long MIN_MEMORY_LARGE = 2_500_000_000L; // 2.5 GB
+        // German
+        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-de-0.15", "German Small", "German",
+                "https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip", 45_000_000L));
+
+        // French
+        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-fr-0.22", "French Small", "French",
+                "https://alphacephei.com/vosk/models/vosk-model-small-fr-0.22.zip", 41_000_000L));
+
+        // Spanish
+        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-es-0.42", "Spanish Small", "Spanish",
+                "https://alphacephei.com/vosk/models/vosk-model-small-es-0.42.zip", 39_000_000L));
+
+        // Italian
+        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-it-0.22", "Italian Small", "Italian",
+                "https://alphacephei.com/vosk/models/vosk-model-small-it-0.22.zip", 49_000_000L));
+
+        // Portuguese
+        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-pt-0.3", "Portuguese Small", "Portuguese",
+                "https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip", 31_000_000L));
+
+        // Russian
+        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-ru-0.22", "Russian Small", "Russian",
+                "https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip", 45_000_000L));
+
+        // Turkish
+        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-tr-0.3", "Turkish Small", "Turkish",
+                "https://alphacephei.com/vosk/models/vosk-model-small-tr-0.3.zip", 35_000_000L));
+
+        // Vietnamese
+        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-vn-0.4", "Vietnamese Small", "Vietnamese",
+                "https://alphacephei.com/vosk/models/vosk-model-small-vn-0.4.zip", 32_000_000L));
+
+        // Chinese
+        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-cn-0.22", "Chinese Small", "Chinese",
+                "https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip", 42_000_000L));
+
+        // Japanese
+        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-ja-0.22", "Japanese Small", "Japanese",
+                "https://alphacephei.com/vosk/models/vosk-model-small-ja-0.22.zip", 48_000_000L));
+    }
 
     // Audio processing constants
     private static final int SAMPLE_RATE = 16000;
@@ -84,23 +125,35 @@ public class LocalTranscriptionManager {
     }
 
     /**
-     * Returns the model directory for a specific model.
+     * Returns the model directory for a specific model ID.
      */
-    public File getModelPath(String modelName) {
-        String dirName;
-        switch (modelName) {
-            case MODEL_SMALL:
-                dirName = "vosk-model-small-en-us-0.15";
-                break;
-            case MODEL_MEDIUM:
-                dirName = "vosk-model-en-us-0.22-lgraph";
-                break;
-            case MODEL_LARGE:
-            default:
-                dirName = "vosk-model-en-us-0.22";
-                break;
-        }
+    public File getModelPath(String modelId) {
+        String dirName = resolveModelId(modelId);
         return new File(getModelDirectory(), dirName);
+    }
+
+    private String resolveModelId(String modelId) {
+        if ("small".equals(modelId))
+            return "vosk-model-small-en-us-0.15";
+        if ("medium".equals(modelId))
+            return "vosk-model-en-us-0.22-lgraph";
+        if ("large".equals(modelId))
+            return "vosk-model-en-us-0.22";
+        return modelId;
+    }
+
+    public List<VoskModel> getAvailableModels() {
+        return new ArrayList<>(AVAILABLE_MODELS);
+    }
+
+    public VoskModel getModelById(String id) {
+        String resolvedId = resolveModelId(id);
+        for (VoskModel model : AVAILABLE_MODELS) {
+            if (model.getId().equals(resolvedId)) {
+                return model;
+            }
+        }
+        return null; // Or return a dummy unknown model
     }
 
     /**
@@ -125,30 +178,32 @@ public class LocalTranscriptionManager {
     /**
      * Gets the expected model size for download progress.
      */
-    public long getModelSize(String modelName) {
-        switch (modelName) {
-            case MODEL_SMALL:
-                return MODEL_SIZE_SMALL;
-            case MODEL_MEDIUM:
-                return MODEL_SIZE_MEDIUM;
-            case MODEL_LARGE:
-            default:
-                return MODEL_SIZE_LARGE;
+    public long getModelSize(String modelId) {
+        VoskModel model = getModelById(modelId);
+        if (model != null) {
+            return model.getSize();
         }
+        return 0;
     }
 
     /**
      * Gets the minimum memory required to load a model.
      */
-    public long getMinMemoryRequired(String modelName) {
-        switch (modelName) {
-            case MODEL_SMALL:
-                return MIN_MEMORY_SMALL;
-            case MODEL_MEDIUM:
-                return MIN_MEMORY_MEDIUM;
-            case MODEL_LARGE:
-            default:
-                return MIN_MEMORY_LARGE;
+    public long getMinMemoryRequired(String modelId) {
+        VoskModel model = getModelById(modelId);
+        long size = (model != null) ? model.getSize() : 0;
+
+        // Rough estimate based on size.
+        // Small (~40MB) -> 100MB
+        // Medium (~130MB) -> 300MB
+        // Large (~1.8GB) -> 2.5GB
+
+        if (size > 1_000_000_000L) {
+            return 2_500_000_000L;
+        } else if (size > 100_000_000L) {
+            return 300_000_000L;
+        } else {
+            return 100_000_000L;
         }
     }
 
@@ -166,36 +221,40 @@ public class LocalTranscriptionManager {
         long required = getMinMemoryRequired(modelName);
         long totalRam = memInfo.totalMem;
 
-        // Android per-app memory limits vary by device and OEM
-        // High-end devices (8GB+) typically allow more per app
-        // Use a sliding scale: 25% for low-RAM, up to 40% for high-RAM devices
-        double memoryFraction = totalRam > 6_000_000_000L ? 0.40 : 0.33;
+        // Estimate per-app limit for logging/debugging, but don't strictly enforce it
+        // as Android's management is dynamic and native heaps can grow larger.
+        double memoryFraction = totalRam > 6_000_000_000L ? 0.60 : 0.40; // Increased leniency
         long maxPerAppEstimate = (long) (totalRam * memoryFraction);
 
-        // Also account for current app memory usage
         long nativeHeapUsed = android.os.Debug.getNativeHeapAllocatedSize();
         long javaHeapUsed = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
         long currentAppUsage = nativeHeapUsed + javaHeapUsed;
-        long availableForModel = maxPerAppEstimate - currentAppUsage - (100 * 1_000_000L); // 100MB safety
+
+        long availableByPolicy = maxPerAppEstimate - currentAppUsage;
 
         Log.d(TAG, "Memory check for " + modelName + ": total RAM=" + (totalRam / 1_000_000)
-                + "MB, per-app limit ~" + (maxPerAppEstimate / 1_000_000)
+                + "MB, est. soft limit ~" + (maxPerAppEstimate / 1_000_000)
                 + "MB, current usage=" + (currentAppUsage / 1_000_000)
-                + "MB, available for model=" + (availableForModel / 1_000_000)
                 + "MB, required=" + (required / 1_000_000) + "MB");
 
-        if (required > availableForModel) {
-            Log.w(TAG, "Model " + modelName + " requires " + (required / 1_000_000)
-                    + "MB but only ~" + (availableForModel / 1_000_000) + "MB available");
-            return false;
+        if (required > availableByPolicy) {
+            // Log a warning but don't block. If the system has free RAM, we should try.
+            Log.w(TAG, "App usage " + (currentAppUsage / 1_000_000) + "MB exceeds soft limit "
+                    + (maxPerAppEstimate / 1_000_000) + "MB, but proceeding if system RAM is available.");
         }
 
-        // Also check current system available memory
+        // Check current system available memory - this is the real hard limit
         long availableMemory = memInfo.availMem;
         long threshold = memInfo.threshold;
+        // Require enough for the model + a safety buffer (e.g. 100MB)
         long usableSystemMemory = availableMemory - threshold - (100 * 1_000_000L);
 
-        return usableSystemMemory >= required;
+        boolean enoughSystemRam = usableSystemMemory >= required;
+        if (!enoughSystemRam) {
+            Log.e(TAG, "Not enough system RAM. Available: " + (usableSystemMemory / 1_000_000)
+                    + "MB, Required: " + (required / 1_000_000) + "MB");
+        }
+        return enoughSystemRam;
     }
 
     /**
@@ -227,25 +286,19 @@ public class LocalTranscriptionManager {
     /**
      * Downloads and extracts the Vosk model.
      *
-     * @param modelName The model to download (small or large)
-     * @param listener  Progress callback
+     * @param modelId  The modelId of model to download (small or large)
+     * @param listener Progress callback
      * @return true if download was successful
      */
-    public boolean downloadModel(String modelName, DownloadProgressListener listener)
+    public boolean downloadModel(String modelId, DownloadProgressListener listener)
             throws IOException {
-        String modelUrl;
-        switch (modelName) {
-            case MODEL_SMALL:
-                modelUrl = MODEL_URL_SMALL;
-                break;
-            case MODEL_MEDIUM:
-                modelUrl = MODEL_URL_MEDIUM;
-                break;
-            case MODEL_LARGE:
-            default:
-                modelUrl = MODEL_URL_LARGE;
-                break;
+        VoskModel model = getModelById(modelId);
+        if (model == null) {
+            throw new IOException("Unknown model ID: " + modelId);
         }
+        String modelUrl = model.getUrl();
+        String modelName = model.getId();
+
         File modelDir = getModelDirectory();
         File zipFile = new File(modelDir, modelName + ".zip");
 
@@ -263,7 +316,45 @@ public class LocalTranscriptionManager {
                 listener.onProgress(-1, 0, 0); // Indeterminate progress for extraction
             }
 
-            extractZip(zipFile, modelDir);
+            File tempExtractDir = new File(modelDir, "temp_" + modelName);
+            if (tempExtractDir.exists()) {
+                deleteRecursively(tempExtractDir);
+            }
+            tempExtractDir.mkdirs();
+
+            extractZip(zipFile, tempExtractDir);
+
+            // Handle extraction result - find the model root
+            File finalModelPath = new File(modelDir, modelName);
+            if (finalModelPath.exists()) {
+                deleteRecursively(finalModelPath);
+            }
+
+            File[] extractedFiles = tempExtractDir.listFiles();
+            if (extractedFiles != null && extractedFiles.length == 1 && extractedFiles[0].isDirectory()) {
+                // Zip contained a single folder (the standard Vosk case)
+                // Rename that folder to the expected model ID
+                if (!extractedFiles[0].renameTo(finalModelPath)) {
+                    // Fallback if atomic rename fails (e.g. crossing volumes, unlikely here)
+                    // But renaming directories can be flaky.
+                    // If rename fails, we might leave it or try manual move.
+                    // For now assume rename works on same fs.
+                    Log.e(TAG, "Failed to rename extracted directory");
+                    // Try moving content out?
+                    throw new IOException("Failed to finalize model directory");
+                }
+            } else {
+                // Zip was flat or contained multiple items at root
+                // Rename the temp dir itself
+                if (!tempExtractDir.renameTo(finalModelPath)) {
+                    throw new IOException("Failed to finalize model directory (from flat zip)");
+                }
+            }
+
+            // cleanup temp dir shell if we moved the inner folder
+            if (tempExtractDir.exists() && (tempExtractDir.list() == null || tempExtractDir.list().length == 0)) {
+                tempExtractDir.delete();
+            }
 
             Log.i(TAG, "Model download and extraction complete: " + modelName);
             return true;
@@ -309,7 +400,9 @@ public class LocalTranscriptionManager {
 
             long contentLength = connection.getContentLengthLong();
             if (contentLength <= 0) {
-                contentLength = getModelSize(MODEL_SMALL); // Fallback
+                // Fallback size? We don't have it easily here without passing it down.
+                // Just use a default small size or 0.
+                contentLength = 40_000_000L;
             }
 
             try (InputStream input = connection.getInputStream();
@@ -557,7 +650,9 @@ public class LocalTranscriptionManager {
 
         try {
             // Request garbage collection before loading large models
-            if (!MODEL_SMALL.equals(modelName)) {
+            // Assuming > 100MB is "large" enough to warrant GC
+            long requiredMemory = getMinMemoryRequired(modelName);
+            if (requiredMemory > 200_000_000L) {
                 System.gc();
                 try {
                     Thread.sleep(100); // Give GC a moment

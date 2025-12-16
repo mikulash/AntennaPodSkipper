@@ -52,14 +52,9 @@
                 android:summary="%s" />
 
         <Preference
-                android:key="prefLocalTranscriptionDownload"
-                android:title="@string/pref_local_transcription_download_title"
-                android:summary="@string/pref_local_transcription_download_summary" />
-
-        <Preference
-                android:key="prefLocalTranscriptionDelete"
-                android:title="@string/pref_local_transcription_delete_title"
-                android:summary="@string/pref_local_transcription_delete_summary" />
+                android:key="prefManageTranscriptionModels"
+                android:title="@string/pref_manage_transcription_models_title"
+                android:summary="@string/pref_manage_transcription_models_summary" />
 
         <Preference
                 android:key="prefDeleteAllTranscriptionModels"

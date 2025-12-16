@@ -25,19 +25,31 @@ public final class AdAnalysisProviderFactory {
     /**
      * Creates the appropriate ad analysis provider based on user preferences.
      *
-     * If local transcription is enabled, attempts to create LocalTranscriptionProvider.
-     * If local transcription fails, throws an exception instead of falling back to OpenAI.
+     * If local transcription is enabled, attempts to create
+     * LocalTranscriptionProvider.
+     * If local transcription fails, throws an exception instead of falling back to
+     * OpenAI.
      *
-     * @throws IllegalStateException if local transcription is enabled but cannot be initialized
+     * @throws IllegalStateException if local transcription is enabled but cannot be
+     *                               initialized
      */
     /**
      * Creates the appropriate transcription provider based on user preferences.
      */
     public static TranscriptionProvider createTranscriptionProvider(Context context) {
+        return createTranscriptionProvider(context, null);
+    }
+
+    /**
+     * Creates the appropriate transcription provider based on user preferences.
+     * 
+     * @param modelOverride Optional model ID to override global preference
+     */
+    public static TranscriptionProvider createTranscriptionProvider(Context context, String modelOverride) {
         if (LocalAiPreferences.isLocalTranscriptionEnabled(context)) {
-            Log.i(TAG, "Creating LocalTranscriptionProvider");
+            Log.i(TAG, "Creating LocalTranscriptionProvider with override: " + modelOverride);
             try {
-                return new LocalTranscriptionProvider(context);
+                return new LocalTranscriptionProvider(context, modelOverride);
             } catch (IOException e) {
                 Log.e(TAG, "Failed to create local transcription provider", e);
                 throw new IllegalStateException("Failed to initialize local transcription: " + e.getMessage(), e);
@@ -55,22 +67,22 @@ public final class AdAnalysisProviderFactory {
         if (LocalAiPreferences.isLocalAdAnalysisEnabled(context)) {
             Log.i(TAG, "Creating LocalAdAnalysisProvider");
             try {
-            return new LocalAdAnalysisProvider(context);
-        } catch (IOException e) {
-            // Check for MediaPipe metadata error
-            String message = e.getMessage();
-            if (message != null && (message.contains("Invalid Model Format")
-                    || message.contains("Unable to open zip archive"))) {
-                Log.w(TAG, "MediaPipe failed (invalid format), utilizing Raw LiteRT Interpreter...");
-                try {
-                    return new RawAdAnalysisProvider(context);
-                } catch (Exception rawEx) {
-                    Log.e(TAG, "Raw Interpreter fallback also failed", rawEx);
-                    throw e; // Throw original error if both fail
+                return new LocalAdAnalysisProvider(context);
+            } catch (IOException e) {
+                // Check for MediaPipe metadata error
+                String message = e.getMessage();
+                if (message != null && (message.contains("Invalid Model Format")
+                        || message.contains("Unable to open zip archive"))) {
+                    Log.w(TAG, "MediaPipe failed (invalid format), utilizing Raw LiteRT Interpreter...");
+                    try {
+                        return new RawAdAnalysisProvider(context);
+                    } catch (Exception rawEx) {
+                        Log.e(TAG, "Raw Interpreter fallback also failed", rawEx);
+                        throw e; // Throw original error if both fail
+                    }
                 }
+                throw e;
             }
-            throw e;
-        }
         } else {
             Log.i(TAG, "Creating OpenAiAdAnalysisProvider");
             return new OpenAiAdAnalysisProvider(context);
@@ -78,7 +90,8 @@ public final class AdAnalysisProviderFactory {
     }
 
     /**
-     * Checks if local transcription is available (model downloaded and preference enabled).
+     * Checks if local transcription is available (model downloaded and preference
+     * enabled).
      */
     public static boolean isLocalTranscriptionAvailable(Context context) {
         if (!LocalAiPreferences.isLocalTranscriptionEnabled(context)) {

@@ -1044,7 +1044,17 @@
     <string name="transcription_overwrite_title">Replace existing transcript?</string>
     <string name="transcription_overwrite_message">This episode already has a transcript. Running transcription again will overwrite it.</string>
     <string name="transcription_overwrite_confirm">Overwrite and transcribe</string>
+
     <string name="transcription_again">Transcribe again</string>
+
+    <string name="model_title_label">Title</string>
+    <string name="model_name_label">Name</string>
+    <string name="model_size_label">Size</string>
+    <string name="action_download_model_file">Download</string>
+    <string name="action_delete_model_file">Delete</string>
+    <string name="model_action_confirm">Confirm</string>
+    <string name="model_action_cancel">Cancel</string>
+
     <string name="pref_ai_stats_category">Statistics</string>
     <string name="pref_ai_audio_transcribed">Audio Transcribed</string>
     <string name="pref_ai_analysis_tokens">Analysis Tokens</string>
@@ -1059,6 +1069,7 @@
     <string name="pref_local_transcription_model_medium">Medium (~128 MB) - Balanced</string>
     <string name="pref_local_transcription_model_large">Large (~1.8 GB) - Best accuracy, requires 2.5GB RAM</string>
     <string name="pref_local_transcription_model_loading">Loading model...</string>
+    <string name="download_type_extraction">Extracting...</string>
     <string name="pref_local_transcription_memory_error">Not enough memory for this model. Try a smaller model or close other apps.</string>
     <string name="pref_local_transcription_download_title">Download model</string>
     <string name="pref_local_transcription_download_summary">Download the speech recognition model for on-device transcription</string>
@@ -1074,6 +1085,10 @@
     <string name="pref_local_transcription_info">On-device transcription uses the Vosk speech recognition engine. Transcription happens entirely on your phone - no audio is sent to the cloud. The OpenAI API is still used for ad segment analysis.</string>
     <string name="pref_local_transcription_memory_warning_title">Model may be too large</string>
     <string name="pref_local_transcription_memory_warning">This model requires approximately %1$d MB of RAM, but your device\'s per-app limit is around %2$d MB. The app may crash when loading this model. Consider using a smaller model instead.</string>
+
+    <string name="pref_manage_transcription_models_title">Manage Models</string>
+    <string name="pref_manage_transcription_models_summary">Download, delete, and view available transcription models</string>
+
     <string name="download_anyway_label">Download anyway</string>
     <string name="pref_ad_analysis_type_title">Ad Analysis Provider</string>
     <string name="pref_ad_analysis_type_cloud">Cloud (OpenAI)</string>
