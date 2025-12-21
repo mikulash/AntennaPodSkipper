@@ -54,7 +54,7 @@ public class PodDBAdapter {
 
     private static final String TAG = "PodDBAdapter";
     public static final String DATABASE_NAME = "Antennapod.db";
-    public static final int VERSION = 3100000;
+    public static final int VERSION = 3110000;
 
     /**
      * Maximum number of arguments for IN-operator.
@@ -129,6 +129,7 @@ public class PodDBAdapter {
     public static final String KEY_PODCASTINDEX_TRANSCRIPT_URL = "podcastindex_transcript_url";
     public static final String KEY_PODCASTINDEX_TRANSCRIPT_TYPE = "podcastindex_transcript_type";
     public static final String KEY_TRANSCRIPTION_MODEL = "transcription_model";
+    public static final String KEY_TRANSCRIPTION_LANGUAGE = "transcription_language";
 
     // Table names
     public static final String TABLE_NAME_FEEDS = "Feeds";
@@ -182,6 +183,7 @@ public class PodDBAdapter {
             + KEY_AUTO_AD_ANALYSIS + " INTEGER DEFAULT 0,"
             + KEY_STATE + " INTEGER DEFAULT " + Feed.STATE_SUBSCRIBED + ","
             + KEY_TRANSCRIPTION_MODEL + " TEXT,"
+            + KEY_TRANSCRIPTION_LANGUAGE + " TEXT,"
             + KEY_NEW_EPISODES_ACTION + " INTEGER DEFAULT 0)";
 
     private static final String CREATE_TABLE_FEED_ITEMS = "CREATE TABLE "
@@ -342,6 +344,7 @@ public class PodDBAdapter {
             + TABLE_NAME_FEEDS + "." + KEY_AUTO_AD_ANALYSIS + ", "
             + TABLE_NAME_FEEDS + "." + KEY_STATE + ", "
             + TABLE_NAME_FEEDS + "." + KEY_TRANSCRIPTION_MODEL + ", "
+            + TABLE_NAME_FEEDS + "." + KEY_TRANSCRIPTION_LANGUAGE + ", "
             + TABLE_NAME_FEEDS + "." + KEY_NEW_EPISODES_ACTION;
 
     private static final String JOIN_FEED_ITEM_AND_MEDIA = " LEFT JOIN " + TABLE_NAME_FEED_MEDIA
@@ -520,6 +523,7 @@ public class PodDBAdapter {
         values.put(KEY_EPISODE_NOTIFICATION, prefs.getShowEpisodeNotification());
         values.put(KEY_AUTO_AD_ANALYSIS, prefs.isAutoAdAnalysisEnabled());
         values.put(KEY_TRANSCRIPTION_MODEL, prefs.getTranscriptionModel());
+        values.put(KEY_TRANSCRIPTION_LANGUAGE, prefs.getTranscriptionLanguage());
         values.put(KEY_NEW_EPISODES_ACTION, prefs.getNewEpisodesAction().code);
         db.update(TABLE_NAME_FEEDS, values, KEY_ID + "=?", new String[] { String.valueOf(prefs.getFeedID()) });
     }

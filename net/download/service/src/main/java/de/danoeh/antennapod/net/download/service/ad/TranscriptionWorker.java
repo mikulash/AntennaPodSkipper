@@ -63,13 +63,15 @@ public class TranscriptionWorker extends Worker {
 
         TranscriptionProvider transcriptionProvider = null;
         String modelOverride = null;
+        String languageOverride = null;
         if (item.getFeed() != null && item.getFeed().getPreferences() != null) {
             modelOverride = item.getFeed().getPreferences().getTranscriptionModel();
+            languageOverride = item.getFeed().getPreferences().getTranscriptionLanguage();
         }
 
         try {
             transcriptionProvider = AdAnalysisProviderFactory.createTranscriptionProvider(getApplicationContext(),
-                    modelOverride);
+                    modelOverride, languageOverride);
         } catch (Exception e) {
             Log.e(TAG, "Transcription provider could not be created", e);
             closeProvider(transcriptionProvider);

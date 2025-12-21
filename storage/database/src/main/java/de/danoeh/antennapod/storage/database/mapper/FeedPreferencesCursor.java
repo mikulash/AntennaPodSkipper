@@ -34,6 +34,7 @@ public class FeedPreferencesCursor extends CursorWrapper {
     private final int indexNewEpisodesAction;
     private final int indexAutoAdAnalysis;
     private final int indexTranscriptionModel;
+    private final int indexTranscriptionLanguage;
     private final int indexTags;
 
     public FeedPreferencesCursor(Cursor cursor) {
@@ -56,6 +57,7 @@ public class FeedPreferencesCursor extends CursorWrapper {
         indexNewEpisodesAction = cursor.getColumnIndexOrThrow(PodDBAdapter.KEY_NEW_EPISODES_ACTION);
         indexAutoAdAnalysis = cursor.getColumnIndexOrThrow(PodDBAdapter.KEY_AUTO_AD_ANALYSIS);
         indexTranscriptionModel = cursor.getColumnIndexOrThrow(PodDBAdapter.KEY_TRANSCRIPTION_MODEL);
+        indexTranscriptionLanguage = cursor.getColumnIndexOrThrow(PodDBAdapter.KEY_TRANSCRIPTION_LANGUAGE);
         indexTags = cursor.getColumnIndexOrThrow(PodDBAdapter.KEY_FEED_TAGS);
     }
 
@@ -85,6 +87,7 @@ public class FeedPreferencesCursor extends CursorWrapper {
                 getInt(indexEpisodeNotification) > 0,
                 getInt(indexAutoAdAnalysis) > 0,
                 getString(indexTranscriptionModel),
+                getString(indexTranscriptionLanguage),
                 FeedPreferences.NewEpisodesAction.fromCode(getInt(indexNewEpisodesAction)),
                 new HashSet<>(Arrays.asList(tagsString.split(FeedPreferences.TAG_SEPARATOR))));
     }

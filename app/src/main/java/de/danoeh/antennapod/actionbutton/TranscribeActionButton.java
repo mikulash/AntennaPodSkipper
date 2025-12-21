@@ -58,7 +58,22 @@ public class TranscribeActionButton extends ItemActionButton {
             Toast.makeText(context, R.string.transcription_requires_download, Toast.LENGTH_LONG).show();
             return;
         }
-        if (LocalAiPreferences.isLocalTranscriptionEnabled(context)) {
+
+        // Check if feed has a cloud model override
+        String feedModelOverride = null;
+        if (item.getFeed() != null && item.getFeed().getPreferences() != null) {
+            feedModelOverride = item.getFeed().getPreferences().getTranscriptionModel();
+        }
+        boolean feedUsesCloudModel = feedModelOverride != null && feedModelOverride.startsWith("cloud:");
+
+        // If feed uses cloud model, check for API key first
+        if (feedUsesCloudModel && TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))) {
+            showApiKeyMissingDialog(context);
+            return;
+        }
+
+        // Check local model availability (only if not using feed cloud override)
+        if (!feedUsesCloudModel && LocalAiPreferences.isLocalTranscriptionEnabled(context)) {
             String model = LocalAiPreferences.getLocalTranscriptionModel(context);
             if (!new LocalTranscriptionManager(context).isModelDownloaded(model)) {
                 new MaterialAlertDialogBuilder(context)
@@ -78,10 +93,13 @@ public class TranscribeActionButton extends ItemActionButton {
                 return;
             }
         }
-        if (OpenAiPreferences.isApiKeyRequired(context)
+
+        // Check API key for global cloud usage (when not using local and not feed override)
+        if (!feedUsesCloudModel
+                && OpenAiPreferences.isApiKeyRequired(context)
                 && TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))
                 && !LocalAiPreferences.isLocalTranscriptionEnabled(context)) {
-            Toast.makeText(context, R.string.ad_analysis_missing_key, Toast.LENGTH_LONG).show();
+            showApiKeyMissingDialog(context);
             return;
         }
         // Check if transcript already exists
@@ -110,5 +128,18 @@ public class TranscribeActionButton extends ItemActionButton {
     private void runTranscription(Context context, FeedMedia media) {
         TranscriptionWorkScheduler.enqueueManual(context, media);
         Toast.makeText(context, R.string.transcription_requested, Toast.LENGTH_SHORT).show();
+    }
+
+    private void showApiKeyMissingDialog(Context context) {
+        new MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.transcription_api_key_missing_title)
+                .setMessage(R.string.transcription_api_key_missing_message)
+                .setPositiveButton(R.string.open_settings, (d, w) -> {
+                    Intent intent = new Intent(context, PreferenceActivity.class);
+                    intent.putExtra(PreferenceActivity.OPEN_AI_SETTINGS, true);
+                    context.startActivity(intent);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 }

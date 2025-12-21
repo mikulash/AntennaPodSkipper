@@ -31,9 +31,20 @@ public final class TranscriptionWorkScheduler {
         if (media == null || media.getItem() == null) {
             return;
         }
-        if (OpenAiPreferences.isApiKeyRequired(context)
-                && TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))
-                && !LocalAiPreferences.isLocalTranscriptionEnabled(context)) {
+
+        // Check if feed has a cloud model override
+        String feedModelOverride = null;
+        if (media.getItem().getFeed() != null && media.getItem().getFeed().getPreferences() != null) {
+            feedModelOverride = media.getItem().getFeed().getPreferences().getTranscriptionModel();
+        }
+        boolean feedUsesCloudModel = feedModelOverride != null && feedModelOverride.startsWith("cloud:");
+
+        // Determine if we need an API key
+        boolean needsApiKey = feedUsesCloudModel
+                || (!LocalAiPreferences.isLocalTranscriptionEnabled(context)
+                    && OpenAiPreferences.isApiKeyRequired(context));
+
+        if (needsApiKey && TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))) {
             return;
         }
         if (TextUtils.isEmpty(media.getLocalFileUrl())) {
@@ -43,10 +54,9 @@ public final class TranscriptionWorkScheduler {
                 .putLong(TranscriptionWorker.DATA_FEED_ITEM_ID, media.getItem().getId())
                 .build();
 
-        // Only require network if not running in fully local mode
-        NetworkType networkType = LocalAiPreferences.isLocalTranscriptionEnabled(context)
-                ? NetworkType.NOT_REQUIRED
-                : NetworkType.CONNECTED;
+        // Require network if using cloud model or if not running local transcription globally
+        boolean needsNetwork = feedUsesCloudModel || !LocalAiPreferences.isLocalTranscriptionEnabled(context);
+        NetworkType networkType = needsNetwork ? NetworkType.CONNECTED : NetworkType.NOT_REQUIRED;
 
         Constraints constraints = new Constraints.Builder()
                 .setRequiredNetworkType(networkType)

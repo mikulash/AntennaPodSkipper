@@ -32,9 +32,15 @@ public class OpenAiTranscriptionProvider implements TranscriptionProvider {
 
     private final Context context;
     private final OpenAIClient client;
+    private final String languageOverride;
 
     public OpenAiTranscriptionProvider(Context context) {
+        this(context, null);
+    }
+
+    public OpenAiTranscriptionProvider(Context context, String languageOverride) {
         this.context = context;
+        this.languageOverride = languageOverride;
         String apiKey = OpenAiPreferences.getApiKey(context);
         if (TextUtils.isEmpty(apiKey)) {
             throw new IllegalStateException("Missing OpenAI API key");
@@ -57,11 +63,18 @@ public class OpenAiTranscriptionProvider implements TranscriptionProvider {
             if (chunkPath == null || !Files.exists(chunkPath)) {
                 throw new IOException("Chunk file missing: " + chunkPath);
             }
-            TranscriptionCreateParams transcriptionParams = TranscriptionCreateParams.builder()
+            TranscriptionCreateParams.Builder paramsBuilder = TranscriptionCreateParams.builder()
                     .model(AudioModel.WHISPER_1)
                     .file(chunkPath)
-                    .responseFormat(AudioResponseFormat.VTT)
-                    .build();
+                    .responseFormat(AudioResponseFormat.VTT);
+
+            // Add language hint if specified
+            if (!TextUtils.isEmpty(languageOverride)) {
+                paramsBuilder.language(languageOverride);
+                Log.d(TAG, "Using language override: " + languageOverride);
+            }
+
+            TranscriptionCreateParams transcriptionParams = paramsBuilder.build();
             Log.d(TAG, "Transcription attempt " + attempt + " for chunk " + chunkLabel);
             try {
                 attempt++;

@@ -66,6 +66,8 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     private static final String PREF_TAGS = "tags";
     private static final String PREF_AUTO_AD_ANALYSIS = "autoAdAnalysis";
     private static final String PREF_FEED_TRANSCRIPTION_MODEL = "feedTranscriptionModel";
+    private static final String PREF_FEED_TRANSCRIPTION_LANGUAGE = "feedTranscriptionLanguage";
+    private static final String CLOUD_MODEL_OPENAI_WHISPER = "cloud:openai_whisper";
 
     private Feed feed;
     private Disposable disposable;
@@ -275,68 +277,235 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     }
 
     private void setupTranscriptionModelPreference() {
-        ListPreference modelPref = findPreference(PREF_FEED_TRANSCRIPTION_MODEL);
+        Preference modelPref = findPreference(PREF_FEED_TRANSCRIPTION_MODEL);
+        ListPreference languagePref = findPreference(PREF_FEED_TRANSCRIPTION_LANGUAGE);
+
         if (modelPref != null) {
-            de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager tm = new de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager(
-                    requireContext());
-
-            java.util.List<de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel> models = tm
-                    .getAvailableModels();
-            java.util.List<de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel> downloadedModels = new java.util.ArrayList<>();
-            for (de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel model : models) {
-                if (tm.isModelDownloaded(model.getId())) {
-                    downloadedModels.add(model);
-                }
-            }
-
-            // Add "Global default" option
-            CharSequence[] entries = new CharSequence[downloadedModels.size() + 1];
-            CharSequence[] entryValues = new CharSequence[downloadedModels.size() + 1];
-
-            entries[0] = getString(R.string.global_default);
-            entryValues[0] = "global_default"; // Special value
+            de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager tm =
+                    new de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager(requireContext());
 
             String currentModel = feedPreferences.getTranscriptionModel();
-            if (currentModel == null)
+            if (currentModel == null) {
                 currentModel = "global_default";
-
-            for (int i = 0; i < downloadedModels.size(); i++) {
-                de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel m = downloadedModels.get(i);
-                entries[i + 1] = m.getName();
-                entryValues[i + 1] = m.getId();
             }
 
-            modelPref.setEntries(entries);
-            modelPref.setEntryValues(entryValues);
+            // Set initial summary
+            updateTranscriptionModelSummary(modelPref, currentModel, tm);
 
-            // Set summary
-            if ("global_default".equals(currentModel)) {
-                modelPref.setSummary(getString(R.string.global_default));
-            } else {
-                de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel m = tm.getModelById(currentModel);
-                String label = (m != null) ? m.getName() : currentModel;
-                if (!tm.isModelDownloaded(currentModel)) {
-                    label += " (Not downloaded)";
-                }
-                modelPref.setSummary(label);
-            }
-            modelPref.setValue(currentModel);
+            // Update language preference visibility
+            updateLanguagePreferenceVisibility(languagePref, currentModel);
 
-            modelPref.setOnPreferenceChangeListener((preference, newValue) -> {
-                String newVal = (String) newValue;
-                if ("global_default".equals(newVal)) {
-                    feedPreferences.setTranscriptionModel(null);
-                    modelPref.setSummary(getString(R.string.global_default));
-                } else {
-                    feedPreferences.setTranscriptionModel(newVal);
-                    de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel m = tm.getModelById(newVal);
-                    String label = (m != null) ? m.getName() : newVal;
-                    modelPref.setSummary(label);
-                }
-                DBWriter.setFeedPreferences(feedPreferences);
+            // Use custom click handler to show dialog with sections
+            final String finalCurrentModel = currentModel;
+            modelPref.setOnPreferenceClickListener(preference -> {
+                showTranscriptionModelDialog(modelPref, languagePref, tm, finalCurrentModel);
                 return true;
             });
         }
+
+        // Setup language preference
+        if (languagePref != null) {
+            setupTranscriptionLanguagePreference(languagePref);
+        }
+    }
+
+    private void showTranscriptionModelDialog(Preference modelPref, ListPreference languagePref,
+            de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager tm,
+            String initialModel) {
+
+        java.util.List<de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel> models = tm.getAvailableModels();
+        java.util.List<de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel> downloadedModels = new java.util.ArrayList<>();
+        for (de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel model : models) {
+            if (tm.isModelDownloaded(model.getId())) {
+                downloadedModels.add(model);
+            }
+        }
+
+        // Find current selection
+        String currentModel = feedPreferences.getTranscriptionModel();
+        if (currentModel == null) {
+            currentModel = "global_default";
+        }
+
+        // Create custom view with sections
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        float density = getResources().getDisplayMetrics().density;
+        int horizontalPadding = (int) (24 * density); // Dialog content padding
+        int verticalPadding = (int) (12 * density);
+        int sectionTopPadding = (int) (16 * density);
+        int sectionBottomPadding = (int) (4 * density);
+        layout.setPadding(0, (int) (8 * density), 0, 0);
+
+        android.widget.RadioGroup radioGroup = new android.widget.RadioGroup(requireContext());
+        radioGroup.setOrientation(android.widget.RadioGroup.VERTICAL);
+        radioGroup.setPadding(horizontalPadding, 0, horizontalPadding, 0);
+
+        int radioButtonId = 0;
+
+        // Global default option
+        android.widget.RadioButton globalDefault = new android.widget.RadioButton(requireContext());
+        globalDefault.setText(getString(R.string.global_default));
+        globalDefault.setId(radioButtonId++);
+        globalDefault.setPadding(0, verticalPadding, 0, verticalPadding);
+        radioGroup.addView(globalDefault);
+
+        // Local models section
+        if (!downloadedModels.isEmpty()) {
+            android.widget.TextView localHeader = new android.widget.TextView(requireContext());
+            localHeader.setText(getString(R.string.transcription_section_local));
+            localHeader.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_LabelMedium);
+            localHeader.setPadding(0, sectionTopPadding, 0, sectionBottomPadding);
+            localHeader.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(),
+                    com.google.android.material.R.color.material_on_surface_emphasis_medium));
+            radioGroup.addView(localHeader);
+
+            for (de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel m : downloadedModels) {
+                android.widget.RadioButton rb = new android.widget.RadioButton(requireContext());
+                rb.setText(m.getName());
+                rb.setId(radioButtonId++);
+                rb.setTag(m.getId());
+                rb.setPadding(0, verticalPadding, 0, verticalPadding);
+                radioGroup.addView(rb);
+            }
+        }
+
+        // Cloud models section
+        android.widget.TextView cloudHeader = new android.widget.TextView(requireContext());
+        cloudHeader.setText(getString(R.string.transcription_section_cloud));
+        cloudHeader.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_LabelMedium);
+        cloudHeader.setPadding(0, sectionTopPadding, 0, sectionBottomPadding);
+        cloudHeader.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(),
+                com.google.android.material.R.color.material_on_surface_emphasis_medium));
+        radioGroup.addView(cloudHeader);
+
+        android.widget.RadioButton whisperRb = new android.widget.RadioButton(requireContext());
+        whisperRb.setText(getString(R.string.transcription_cloud_openai_whisper));
+        whisperRb.setId(radioButtonId++);
+        whisperRb.setTag(CLOUD_MODEL_OPENAI_WHISPER);
+        whisperRb.setPadding(0, verticalPadding, 0, verticalPadding);
+        radioGroup.addView(whisperRb);
+
+        // Set the initial selection
+        String finalCurrentModel = currentModel;
+        for (int i = 0; i < radioGroup.getChildCount(); i++) {
+            android.view.View child = radioGroup.getChildAt(i);
+            if (child instanceof android.widget.RadioButton) {
+                android.widget.RadioButton rb = (android.widget.RadioButton) child;
+                Object tag = rb.getTag();
+                if (tag == null && "global_default".equals(finalCurrentModel)) {
+                    rb.setChecked(true);
+                } else if (tag != null && tag.equals(finalCurrentModel)) {
+                    rb.setChecked(true);
+                }
+            }
+        }
+
+        android.widget.ScrollView scrollView = new android.widget.ScrollView(requireContext());
+        scrollView.addView(radioGroup);
+        layout.addView(scrollView);
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.pref_local_transcription_model_title)
+                .setView(layout)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    int checkedId = radioGroup.getCheckedRadioButtonId();
+                    android.widget.RadioButton selected = radioGroup.findViewById(checkedId);
+                    String newValue;
+                    if (selected != null && selected.getTag() != null) {
+                        newValue = (String) selected.getTag();
+                    } else {
+                        newValue = "global_default";
+                    }
+
+                    if ("global_default".equals(newValue)) {
+                        feedPreferences.setTranscriptionModel(null);
+                    } else {
+                        feedPreferences.setTranscriptionModel(newValue);
+                    }
+
+                    updateTranscriptionModelSummary(modelPref, newValue, tm);
+                    updateLanguagePreferenceVisibility(languagePref, newValue);
+                    DBWriter.setFeedPreferences(feedPreferences);
+
+                    // Re-register click listener with updated model
+                    modelPref.setOnPreferenceClickListener(preference -> {
+                        showTranscriptionModelDialog(modelPref, languagePref, tm, newValue);
+                        return true;
+                    });
+                })
+                .setNegativeButton(R.string.cancel_label, null)
+                .show();
+    }
+
+    private void updateTranscriptionModelSummary(Preference modelPref, String currentModel,
+            de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager tm) {
+        if ("global_default".equals(currentModel) || currentModel == null) {
+            modelPref.setSummary(getString(R.string.global_default));
+        } else if (CLOUD_MODEL_OPENAI_WHISPER.equals(currentModel)) {
+            modelPref.setSummary(getString(R.string.transcription_cloud_openai_whisper));
+        } else {
+            de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel m = tm.getModelById(currentModel);
+            String label = (m != null) ? m.getName() : currentModel;
+            if (!tm.isModelDownloaded(currentModel)) {
+                label += " (" + getString(R.string.not_downloaded) + ")";
+            }
+            modelPref.setSummary(label);
+        }
+    }
+
+    private void updateLanguagePreferenceVisibility(ListPreference languagePref, String currentModel) {
+        if (languagePref == null) return;
+
+        boolean isCloudModel = currentModel != null && currentModel.startsWith("cloud:");
+        languagePref.setVisible(isCloudModel);
+    }
+
+    private void setupTranscriptionLanguagePreference(ListPreference languagePref) {
+        // Language codes supported by OpenAI Whisper (ISO 639-1)
+        String[] languageCodes = {
+            "", "en", "es", "fr", "de", "it", "pt", "nl", "pl", "ru",
+            "zh", "ja", "ko", "ar", "hi", "tr", "vi", "th", "id", "sv",
+            "da", "no", "fi", "cs", "hu", "ro", "uk", "he", "el", "bg"
+        };
+        String[] languageNames = {
+            getString(R.string.transcription_language_auto),
+            "English", "Spanish", "French", "German", "Italian", "Portuguese",
+            "Dutch", "Polish", "Russian", "Chinese", "Japanese", "Korean",
+            "Arabic", "Hindi", "Turkish", "Vietnamese", "Thai", "Indonesian",
+            "Swedish", "Danish", "Norwegian", "Finnish", "Czech", "Hungarian",
+            "Romanian", "Ukrainian", "Hebrew", "Greek", "Bulgarian"
+        };
+
+        languagePref.setEntries(languageNames);
+        languagePref.setEntryValues(languageCodes);
+
+        String currentLanguage = feedPreferences.getTranscriptionLanguage();
+        if (currentLanguage == null) {
+            currentLanguage = "";
+        }
+
+        languagePref.setValue(currentLanguage);
+        updateLanguageSummary(languagePref, currentLanguage, languageCodes, languageNames);
+
+        languagePref.setOnPreferenceChangeListener((preference, newValue) -> {
+            String newLang = (String) newValue;
+            feedPreferences.setTranscriptionLanguage(newLang.isEmpty() ? null : newLang);
+            updateLanguageSummary(languagePref, newLang, languageCodes, languageNames);
+            DBWriter.setFeedPreferences(feedPreferences);
+            return true;
+        });
+    }
+
+    private void updateLanguageSummary(ListPreference languagePref, String currentLanguage,
+            String[] languageCodes, String[] languageNames) {
+        for (int i = 0; i < languageCodes.length; i++) {
+            if (languageCodes[i].equals(currentLanguage)) {
+                languagePref.setSummary(languageNames[i]);
+                return;
+            }
+        }
+        languagePref.setSummary(getString(R.string.transcription_language_auto));
     }
 
     private void updateAutoDeleteSummary() {

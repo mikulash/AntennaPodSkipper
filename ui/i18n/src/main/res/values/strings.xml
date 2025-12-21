@@ -1089,6 +1089,16 @@
     <string name="pref_manage_transcription_models_title">Manage Models</string>
     <string name="pref_manage_transcription_models_summary">Download, delete, and view available transcription models</string>
 
+    <!-- Transcription engine selection -->
+    <string name="transcription_section_local">Local Models</string>
+    <string name="transcription_section_cloud">Cloud Models</string>
+    <string name="transcription_cloud_openai_whisper">OpenAI Whisper</string>
+    <string name="pref_transcription_language_title">Transcription Language</string>
+    <string name="transcription_language_auto">Auto-detect</string>
+    <string name="not_downloaded">Not downloaded</string>
+    <string name="transcription_api_key_missing_title">API Key Required</string>
+    <string name="transcription_api_key_missing_message">Cloud transcription requires an OpenAI API key. Please configure your API key in settings.</string>
+
     <string name="download_anyway_label">Download anyway</string>
     <string name="pref_ad_analysis_type_title">Ad Analysis Provider</string>
     <string name="pref_ad_analysis_type_cloud">Cloud (OpenAI)</string>

@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git check-ignore:*)",
-      "Bash(./gradlew:*)"
+      "Bash(./gradlew:*)",
+      "Bash(gradlew.bat :app:compileDebugJavaWithJavac:*)"
     ],
     "deny": [],
     "ask": []

@@ -37,15 +37,23 @@ public final class AdAnalysisProviderFactory {
      * Creates the appropriate transcription provider based on user preferences.
      */
     public static TranscriptionProvider createTranscriptionProvider(Context context) {
-        return createTranscriptionProvider(context, null);
+        return createTranscriptionProvider(context, null, null);
     }
 
     /**
      * Creates the appropriate transcription provider based on user preferences.
-     * 
+     *
      * @param modelOverride Optional model ID to override global preference
+     * @param languageOverride Optional language code for cloud transcription
      */
-    public static TranscriptionProvider createTranscriptionProvider(Context context, String modelOverride) {
+    public static TranscriptionProvider createTranscriptionProvider(Context context, String modelOverride,
+            String languageOverride) {
+        // Check if explicitly using a cloud model
+        if (modelOverride != null && modelOverride.startsWith("cloud:")) {
+            Log.i(TAG, "Creating OpenAiTranscriptionProvider with language: " + languageOverride);
+            return new OpenAiTranscriptionProvider(context, languageOverride);
+        }
+
         if (LocalAiPreferences.isLocalTranscriptionEnabled(context)) {
             Log.i(TAG, "Creating LocalTranscriptionProvider with override: " + modelOverride);
             try {
@@ -55,8 +63,8 @@ public final class AdAnalysisProviderFactory {
                 throw new IllegalStateException("Failed to initialize local transcription: " + e.getMessage(), e);
             }
         } else {
-            Log.i(TAG, "Creating OpenAiTranscriptionProvider");
-            return new OpenAiTranscriptionProvider(context);
+            Log.i(TAG, "Creating OpenAiTranscriptionProvider with language: " + languageOverride);
+            return new OpenAiTranscriptionProvider(context, languageOverride);
         }
     }
 
