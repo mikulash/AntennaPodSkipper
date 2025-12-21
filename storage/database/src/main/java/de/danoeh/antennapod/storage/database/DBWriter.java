@@ -7,13 +7,11 @@ import android.net.Uri;
 import android.util.Log;
 
 import android.view.KeyEvent;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.documentfile.provider.DocumentFile;
 
 import com.google.common.util.concurrent.Futures;
-
 import de.danoeh.antennapod.event.DownloadLogEvent;
 
 import de.danoeh.antennapod.model.feed.FeedItemFilter;
@@ -22,7 +20,6 @@ import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterfa
 import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
 import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
 import de.danoeh.antennapod.ui.appstartintent.MediaButtonStarter;
-
 import org.greenrobot.eventbus.EventBus;
 
 import java.io.File;
@@ -55,7 +52,6 @@ import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.model.feed.SortOrder;
 import de.danoeh.antennapod.model.playback.Playable;
 import de.danoeh.antennapod.net.sync.serviceinterface.EpisodeAction;
-import de.danoeh.antennapod.storage.database.AdSegmentStore;
 
 /**
  * Provides methods for writing data to AntennaPod's database.
@@ -935,8 +931,7 @@ public class DBWriter {
     public static Future<?> reorderQueue(@Nullable SortOrder sortOrder, final boolean broadcastUpdate) {
         if (sortOrder == null) {
             Log.w(TAG, "reorderQueue() - sortOrder is null. Do nothing.");
-            return runOnDbThread(() -> {
-            });
+            return runOnDbThread(() -> { });
         }
         final Permutor<FeedItem> permutor = FeedItemPermutors.getPermutor(sortOrder);
         return runOnDbThread(() -> {

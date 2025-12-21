@@ -1,7 +1,6 @@
 package de.danoeh.antennapod.model.feed;
 
 import androidx.annotation.NonNull;
-
 import android.text.TextUtils;
 
 import java.io.Serializable;
@@ -341,7 +340,6 @@ public class FeedPreferences implements Serializable {
 
     /**
      * getter for preference if notifications should be display for new episodes.
-     *
      * @return true for displaying notifications
      */
     public boolean getShowEpisodeNotification() {

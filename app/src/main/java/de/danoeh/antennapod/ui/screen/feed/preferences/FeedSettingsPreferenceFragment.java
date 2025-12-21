@@ -11,7 +11,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 import android.widget.Toast;
-
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.content.ContextCompat;
@@ -20,9 +19,7 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.SwitchPreferenceCompat;
 import androidx.recyclerview.widget.RecyclerView;
-
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.databinding.PlaybackSpeedFeedSettingDialogBinding;
 import de.danoeh.antennapod.event.settings.SkipIntroEndingChangedEvent;
@@ -42,7 +39,6 @@ import io.reactivex.rxjava3.core.MaybeOnSubscribe;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
-
 import org.greenrobot.eventbus.EventBus;
 
 import java.util.Collections;
@@ -142,8 +138,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
                     }
 
                     findPreference(PREF_SCREEN).setVisible(true);
-                }, error -> Log.d(TAG, Log.getStackTraceString(error)), () -> {
-                });
+                }, error -> Log.d(TAG, Log.getStackTraceString(error)), () -> { });
     }
 
     @Override

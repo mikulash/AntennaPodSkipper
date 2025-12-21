@@ -46,5 +46,3 @@ gradle.properties
 *.keystore
 *.p12
 .vscode
-/net/download/service/.cxx/
-/app/.cxx/

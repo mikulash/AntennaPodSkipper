@@ -685,10 +685,8 @@ public class PodDBAdapter {
      * Inserts or updates a feeditem entry
      *
      * @param item     The FeedItem
-     * @param saveFeed true if the Feed of the item should also be saved. This
-     *                 should be set to
-     *                 false if the method is executed on a list of FeedItems of the
-     *                 same Feed.
+     * @param saveFeed true if the Feed of the item should also be saved. This should be set to
+     *                 false if the method is executed on a list of FeedItems of the same Feed.
      * @return the id of the entry
      */
     private long updateOrInsertFeedItem(FeedItem item, boolean saveFeed) {
@@ -775,8 +773,7 @@ public class PodDBAdapter {
     /**
      * Sets the 'read' attribute of the item.
      *
-     * @param read    must be one of FeedItem.PLAYED, FeedItem.NEW,
-     *                FeedItem.UNPLAYED
+     * @param read    must be one of FeedItem.PLAYED, FeedItem.NEW, FeedItem.UNPLAYED
      * @param itemIds items to change the value of
      */
     public void setFeedItemRead(int read, long... itemIds) {
