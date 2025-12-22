@@ -24,7 +24,6 @@ public final class AdAnalysisProviderFactory {
 
     /**
      * Creates the appropriate ad analysis provider based on user preferences.
-     *
      * If local transcription is enabled, attempts to create
      * LocalTranscriptionProvider.
      * If local transcription fails, throws an exception instead of falling back to
@@ -70,27 +69,12 @@ public final class AdAnalysisProviderFactory {
 
     /**
      * Creates the appropriate ad analysis provider based on user preferences.
+     * Uses LiteRT-LM 0.8.1+ with .litertlm format models.
      */
     public static AdAnalysisProvider createAnalysisProvider(Context context) throws IOException {
         if (LocalAiPreferences.isLocalAdAnalysisEnabled(context)) {
-            Log.i(TAG, "Creating LocalAdAnalysisProvider");
-            try {
-                return new LocalAdAnalysisProvider(context);
-            } catch (IOException e) {
-                // Check for MediaPipe metadata error
-                String message = e.getMessage();
-                if (message != null && (message.contains("Invalid Model Format")
-                        || message.contains("Unable to open zip archive"))) {
-                    Log.w(TAG, "MediaPipe failed (invalid format), utilizing Raw LiteRT Interpreter...");
-                    try {
-                        return new RawAdAnalysisProvider(context);
-                    } catch (Exception rawEx) {
-                        Log.e(TAG, "Raw Interpreter fallback also failed", rawEx);
-                        throw e; // Throw original error if both fail
-                    }
-                }
-                throw e;
-            }
+            Log.i(TAG, "Creating LocalAdAnalysisProvider with LiteRT-LM");
+            return new LocalAdAnalysisProvider(context);
         } else {
             Log.i(TAG, "Creating OpenAiAdAnalysisProvider");
             return new OpenAiAdAnalysisProvider(context);

@@ -27,7 +27,7 @@ public final class LocalAiPreferences {
     // Local Ad Analysis (LiteRT) settings
     private static final String PREF_USE_LOCAL_AD_ANALYSIS = "prefLocalAdAnalysisEnabled";
     private static final String PREF_LOCAL_AD_ANALYSIS_MODEL = "prefLocalAdAnalysisModel";
-    private static final String DEFAULT_LOCAL_LLM_MODEL = "gemma3-1b-cpu";
+    private static final String DEFAULT_LOCAL_LLM_MODEL = "gemma3-1b";
 
     private static final String PREF_MANUAL_MODEL_PATH = "prefManualModelPath";
     private static final String PREF_MANUAL_MODEL_BACKEND = "prefManualModelBackend";

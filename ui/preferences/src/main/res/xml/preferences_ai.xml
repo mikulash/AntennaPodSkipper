@@ -80,7 +80,7 @@
 
         <ListPreference
                 android:key="prefLocalAdAnalysisModel"
-                android:defaultValue="gemma3-1b-cpu"
+                android:defaultValue="gemma3-1b"
                 android:title="@string/pref_local_ad_analysis_model_title"
                 android:entries="@array/pref_local_ad_analysis_model_entries"
                 android:entryValues="@array/pref_local_ad_analysis_model_values"

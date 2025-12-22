@@ -18,7 +18,8 @@ import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionMa
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**
- * Manages download and storage of LiteRT (MediaPipe GenAI) LLM models.
+ * Manages download and storage of LiteRT-LM models in .litertlm format.
+ * Uses LiteRT-LM 0.8.1+ with LiteRT 2.1.0+.
  */
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class LiteRtLLMManager {
@@ -53,7 +54,7 @@ public class LiteRtLLMManager {
             return new File(getModelDirectory(), model.getFilename());
         }
         // Fallback for unknown models (e.g., manual imports)
-        return new File(getModelDirectory(), modelId + ".task");
+        return new File(getModelDirectory(), modelId + ".litertlm");
     }
 
     public File getModelPath(LlmModel model) {
@@ -292,7 +293,7 @@ public class LiteRtLLMManager {
     public boolean importModel(InputStream input, String modelName, String sourceFileName) throws IOException {
         String targetFileName = sourceFileName != null && !sourceFileName.trim().isEmpty()
                 ? sourceFileName
-                : modelName + ".task";
+                : modelName + ".litertlm";
         File outputFile = new File(getModelDirectory(), targetFileName);
         Log.i(TAG, "Importing manual model to: " + outputFile.getAbsolutePath());
 
@@ -310,11 +311,11 @@ public class LiteRtLLMManager {
 
             Log.i(TAG, "Imported file size: " + (totalBytes / 1_000_000) + " MB");
 
-            // Validate it's a zip file (task files are zip archives)
+            // Validate file size (.litertlm files should be substantial)
             if (totalBytes < 1000) {
                 tempFile.delete();
                 throw new IOException("File too small (" + totalBytes
-                        + " bytes). Expected a ~529MB .task file. Did you download an HTML page instead?");
+                        + " bytes). Expected a .litertlm file (typically 500MB+). Did you download an HTML page instead?");
             }
         } catch (IOException e) {
             Log.e(TAG, "Failed to write import stream", e);
@@ -374,15 +375,11 @@ public class LiteRtLLMManager {
             // Get singleton instance (will load the model)
             InferenceModel inferenceModel = InferenceModel.resetInstance(context);
 
-            // Format the test prompt
-            String userMessage = "Say hi to the user";
-            String testPrompt = inferenceModel.formatPrompt(userMessage);
+            // Reset session with a simple system message
+            inferenceModel.resetSession("You are a helpful assistant. Be brief.");
 
-            // Generate response
-            com.google.common.util.concurrent.ListenableFuture<String> future = inferenceModel
-                    .generateResponseAsync(testPrompt, (result, done) -> {
-                    });
-            String response = future.get();
+            // Generate response synchronously
+            String response = inferenceModel.generateResponse("Say hello!");
 
             if (response == null || response.trim().isEmpty()) {
                 throw new IllegalStateException("Model returned empty response");

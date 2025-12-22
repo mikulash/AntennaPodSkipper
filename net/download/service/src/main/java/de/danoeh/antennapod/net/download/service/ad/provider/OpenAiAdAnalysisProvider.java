@@ -14,16 +14,29 @@ import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import com.openai.models.completions.CompletionUsage;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
     private static final String TAG = "OpenAiAdAnalysisProv";
     private static final String DEFAULT_MODEL_NAME = "gpt-5-nano";
-    
+
     // Pricing (Estimated)
     private static final double PRICE_INPUT_PER_1M = 0.15; // $0.15 per 1M input tokens
     private static final double PRICE_OUTPUT_PER_1M = 0.60; // $0.60 per 1M output tokens
+
+    // Base system message for ad classification
+    private static final String SYSTEM_MESSAGE_BASE =
+            "You are a classifier that only finds advertisement or sponsor segments in podcasts. "
+            + "An advertisement is a sponsor read, mid-roll, pre-roll, post-roll, "
+            + "or explicit promotion (coupon codes, giveaways, discounts). "
+            + "Do not tag normal banter, housekeeping, or episode content as ads. "
+            + "Use seconds from start of episode for times. "
+            + "Respond ONLY with valid JSON matching {\"ads\":[{\"startSeconds\":number,\"endSeconds\":number,"
+            + "\"reason\":string,\"confidence\":number}]} and nothing else.";
 
     private final Context context;
     private final OpenAIClient client;
@@ -57,9 +70,19 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
         if (listener != null) {
             listener.onProgress(10);
         }
+
+        // Extract transcript and duration from the prompt
+        String transcript = extractTranscript(prompt);
+        int durationMs = extractDuration(prompt);
+
+        // Build system message and user message separately
+        String systemMessage = buildSystemMessage(durationMs);
+        String userMessage = buildUserMessage(transcript);
+
         ChatModel chatModel = resolveChatModel(modelName);
         ChatCompletionCreateParams chatParams = ChatCompletionCreateParams.builder()
-                .addUserMessage(prompt)
+                .addSystemMessage(systemMessage)
+                .addUserMessage(userMessage)
                 .model(chatModel)
                 .build();
         if (listener != null) {
@@ -77,6 +100,50 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
             listener.onProgress(100);
         }
         return completion.choices().get(0).message().content().orElse("");
+    }
+
+    /**
+     * Build the system message with context about the episode.
+     */
+    private String buildSystemMessage(int durationMs) {
+        StringBuilder sb = new StringBuilder(SYSTEM_MESSAGE_BASE);
+        if (durationMs > 0) {
+            sb.append("\n\nEpisode duration: ").append(durationMs / 1000f).append(" seconds.");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Build the user message containing the transcript.
+     */
+    private String buildUserMessage(String transcript) {
+        return "Analyze this transcript for ads:\n\n" + transcript + "\n\nOutput only JSON.";
+    }
+
+    private String extractTranscript(String prompt) {
+        int transcriptStart = prompt.indexOf("Transcript (WebVTT):");
+        if (transcriptStart >= 0) {
+            int start = transcriptStart + "Transcript (WebVTT):".length();
+            int end = prompt.lastIndexOf("Again, output only");
+            if (end > start) {
+                return prompt.substring(start, end).trim();
+            }
+            return prompt.substring(start).trim();
+        }
+        return prompt;
+    }
+
+    private int extractDuration(String prompt) {
+        Pattern pattern = Pattern.compile("Episode duration seconds: ([\\d.]+)");
+        Matcher matcher = pattern.matcher(prompt);
+        if (matcher.find()) {
+            try {
+                return (int) (Float.parseFloat(matcher.group(1)) * 1000);
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return 0;
     }
 
     private void trackTokenUsage(CompletionUsage usage) {

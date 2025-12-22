@@ -2,15 +2,16 @@ package de.danoeh.antennapod.net.download.service.ad.litert;
 
 /**
  * Available LLM models for local ad analysis.
- * Model files are downloaded from HuggingFace litert-community.
+ * Model files are downloaded from HuggingFace litert-community in .litertlm format.
+ * Requires LiteRT-LM 0.8.1+ and LiteRT 2.1.0+.
  */
 public enum LlmModel {
-    GEMMA3_1B_IT_GPU(
-            "gemma3-1b-gpu",
-            "Gemma3 1B (GPU)",
-            "Gemma3-1B-IT_multi-prefill-seq_q8_ekv2048_gpu.task",
-            "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q8_ekv2048.task",
-            true,
+    GEMMA3_1B_IT(
+            "gemma3-1b",
+            "Gemma3 1B (Recommended)",
+            "gemma3-1b-it-int4.litertlm",
+            "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.litertlm",
+            false,
             BackendType.GPU,
             2048,
             1.0f,
@@ -18,107 +19,80 @@ public enum LlmModel {
             0.95f,
             PromptFormat.GEMMA
     ),
-    GEMMA2_2B_IT_GPU(
-            "gemma2-2b-gpu",
-            "Gemma2 2B (GPU)",
-            "Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task",
-            "https://huggingface.co/litert-community/Gemma2-2B-IT/resolve/main/Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task",
-            true,
+    GEMMA3_1B_IT_4K(
+            "gemma3-1b-4k",
+            "Gemma3 1B (4K Context)",
+            "Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm",
+            "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm",
+            false,
             BackendType.GPU,
-            1280,
-            0.9f,
+            4096,
+            1.0f,
             64,
             0.95f,
             PromptFormat.GEMMA
     ),
-    GEMMA3_4B_IT_INT8_GPU(
-            "gemma3-4b-gpu",
-            "Gemma3 4B (GPU, int8)",
-            "gemma3-4b-it-int8-web.task",
-            "https://huggingface.co/litert-community/Gemma3-4B-IT/resolve/main/gemma3-4b-it-int8-web.task",
-            true,
-            BackendType.GPU,
+    QWEN3_0_6B(
+            "qwen3-0.6b",
+            "Qwen3 0.6B (Fastest)",
+            "Qwen3-0.6B.litertlm",
+            "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm",
+            false,
+            BackendType.CPU,
             2048,
+            0.7f,
+            40,
             0.9f,
-            64,
-            0.95f,
-            PromptFormat.GEMMA
+            PromptFormat.QWEN3
     ),
-
+    QWEN2_5_1_5B(
+            "qwen2.5-1.5b",
+            "Qwen 2.5 1.5B",
+            "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
+            "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
+            false,
+            BackendType.GPU,
+            4096,
+            0.95f,
+            40,
+            1.0f,
+            PromptFormat.CHATML
+    ),
     DEEPSEEK_R1_QWEN_1_5B(
             "deepseek-r1-qwen-1.5b",
             "DeepSeek R1 Qwen 1.5B",
-            "DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv1280.task",
-            "https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv1280.task",
+            "DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv4096.litertlm",
+            "https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv4096.litertlm",
             false,
             BackendType.CPU,
-            1280,
+            4096,
             0.6f,
             40,
             0.7f,
             PromptFormat.CHATML
     ),
-     LLAMA_3_2_3B(
-            "llama-3.2-3b",
-            "Llama 3.2 3B",
-            "Llama-3.2-3B-Instruct_multi-prefill-seq_q8_ekv1280.task",
-            "https://huggingface.co/litert-community/Llama-3.2-3B-Instruct/resolve/main/Llama-3.2-3B-Instruct_multi-prefill-seq_q8_ekv1280.task",
-            true,
-            BackendType.CPU,
-            1280,
-            0.6f,
-            64,
-            0.9f,
-            PromptFormat.LLAMA3
-    ),
     PHI_4_MINI(
             "phi-4-mini",
-            "Phi-4 Mini",
-            "Phi-4-mini-instruct_multi-prefill-seq_q8_ekv1280.task",
-            "https://huggingface.co/litert-community/Phi-4-mini-instruct/resolve/main/Phi-4-mini-instruct_multi-prefill-seq_q8_ekv1280.task",
+            "Phi-4 Mini (Large)",
+            "Phi-4-mini-instruct_multi-prefill-seq_q8_ekv4096.litertlm",
+            "https://huggingface.co/litert-community/Phi-4-mini-instruct/resolve/main/Phi-4-mini-instruct_multi-prefill-seq_q8_ekv4096.litertlm",
             false,
             BackendType.CPU,
-            1280,
+            4096,
             0.6f,
             40,
             1.0f,
             PromptFormat.PHI
     ),
-    QWEN2_5_0_5B(
-            "qwen2.5-0.5b",
-            "Qwen 2.5 0.5B (Fastest)",
-            "Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
-            "https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct/resolve/main/Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
-            false,
-            BackendType.CPU,
-            1280,
-            0.95f,
-            40,
-            1.0f,
-            PromptFormat.CHATML
-    ),
-    QWEN2_5_1_5B(
-            "qwen2.5-1.5b",
-            "Qwen 2.5 1.5B",
-            "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
-            "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
-            false,
-            BackendType.GPU,
-            1280,
-            0.95f,
-            40,
-            1.0f,
-            PromptFormat.CHATML
-    ),
 
     MANUAL_IMPORT(
             "manual_import",
             "Manual Import",
-            "manual_import.task",
+            "manual_import.litertlm",
             null,
             false,
             BackendType.GPU,
-            2000,
+            2048,
             0.9f,
             64,
             0.95f,
@@ -126,7 +100,7 @@ public enum LlmModel {
     );
 
     /**
-     * Backend type for LLM inference (decoupled from MediaPipe).
+     * Backend type for LLM inference.
      */
     public enum BackendType {
         CPU,
@@ -137,7 +111,8 @@ public enum LlmModel {
         GEMMA,      // <start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n
         LLAMA3,     // <|begin_of_text|><|start_header_id|>user<|end_header_id|>\n{prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n
         CHATML,     // <|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n
-        PHI         // <|user|>\n{prompt}<|end|>\n<|assistant|>\n
+        PHI,        // <|user|>\n{prompt}<|end|>\n<|assistant|>\n
+        QWEN3       // Same as CHATML but with thinking mode support
     }
 
     private final String id;
@@ -220,6 +195,7 @@ public enum LlmModel {
                 return "<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n" + userMessage
                         + "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n";
             case CHATML:
+            case QWEN3:
                 return "<|im_start|>user\n" + userMessage + "<|im_end|>\n<|im_start|>assistant\n";
             case PHI:
                 return "<|user|>\n" + userMessage + "<|end|>\n<|assistant|>\n";
@@ -242,7 +218,8 @@ public enum LlmModel {
      */
     public static LlmModel[] getPublicModels() {
         return new LlmModel[]{
-                QWEN2_5_0_5B,
+                GEMMA3_1B_IT,
+                QWEN3_0_6B,
                 QWEN2_5_1_5B,
                 DEEPSEEK_R1_QWEN_1_5B,
                 PHI_4_MINI,
@@ -254,10 +231,9 @@ public enum LlmModel {
      */
     public static LlmModel[] getRecommendedModels() {
         return new LlmModel[]{
-                GEMMA3_4B_IT_INT8_GPU,
-                GEMMA2_2B_IT_GPU,
+                GEMMA3_1B_IT,
+                QWEN3_0_6B,
                 QWEN2_5_1_5B,
-                PHI_4_MINI
         };
     }
 }

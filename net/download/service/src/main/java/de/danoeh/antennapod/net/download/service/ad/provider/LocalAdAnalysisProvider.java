@@ -6,8 +6,6 @@ import android.util.Log;
 
 import androidx.annotation.RequiresApi;
 
-import com.google.common.util.concurrent.ListenableFuture;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -22,8 +20,8 @@ import de.danoeh.antennapod.net.download.service.ad.litert.LlmModel;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**
- * Ad analysis provider that uses on-device LLM inference via the singleton
- * InferenceModel.
+ * Ad analysis provider that uses on-device LLM inference via LiteRT-LM 0.8.0.
+ * Uses the singleton InferenceModel with .litertlm format models.
  * The model is loaded once and reused across multiple analysis requests.
  */
 @RequiresApi(api = Build.VERSION_CODES.O)
@@ -36,20 +34,26 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
     // special chars, and non-English text in transcripts)
     private static final float CHARS_PER_TOKEN = 1.0f;
 
-    // The instruction prompt template (buildChunkPrompt) adds ~500 characters
-    // which translates to ~500 tokens with our conservative 1:1 ratio
-    private static final int INSTRUCTION_PROMPT_TOKENS = 500;
+    // The instruction prompt template adds ~400 characters for system message
+    private static final int SYSTEM_MESSAGE_TOKENS = 400;
 
     // Reserve tokens for the expected JSON response
     private static final int RESPONSE_TOKENS = 150;
 
-    // Total reserved = instruction prompt + response + safety margin
-    private static final int RESERVED_TOKENS = INSTRUCTION_PROMPT_TOKENS + RESPONSE_TOKENS + 50;
+    // Total reserved = system message + response + safety margin
+    private static final int RESERVED_TOKENS = SYSTEM_MESSAGE_TOKENS + RESPONSE_TOKENS + 50;
 
     private static final int MAX_UNUSED_TOKEN_COUNT = 20; // Max consecutive <unused> tokens
-    private static final com.google.mediapipe.tasks.genai.llminference.ProgressListener<String> NO_OP_LISTENER = (
-            result, done) -> {
-    };
+
+    // Base system message for ad classification
+    private static final String SYSTEM_MESSAGE_BASE =
+            "You are a classifier that only finds advertisement or sponsor segments in podcasts. "
+            + "An advertisement is a sponsor read, mid-roll, pre-roll, post-roll, "
+            + "or explicit promotion (coupon codes, giveaways, discounts). "
+            + "Do not tag normal banter, housekeeping, or episode content as ads. "
+            + "Use seconds from start of episode for times. "
+            + "Respond ONLY with valid JSON matching {\"ads\":[{\"startSeconds\":number,\"endSeconds\":number,"
+            + "\"reason\":string,\"confidence\":number}]} and nothing else.";
 
     private final Context context;
     private final String modelId;
@@ -70,13 +74,11 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
 
     /**
      * Calculate max transcript chunk size in characters.
-     * 
      * Token budget breakdown:
      * - maxTokens: Total tokens the model can handle (input + output)
-     * - INSTRUCTION_PROMPT_TOKENS: ~500 tokens for the system instruction
+     * - SYSTEM_MESSAGE_TOKENS: ~400 tokens for the system instruction
      * - RESPONSE_TOKENS: ~150 tokens for the JSON response
      * - Safety margin: ~50 tokens
-     * 
      * Remaining tokens are available for the transcript chunk.
      * Uses 1:1 char-to-token ratio for safety.
      */
@@ -113,22 +115,32 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         if (inferenceModel == null) {
             throw new IllegalStateException("InferenceModel not initialized");
         }
-        Log.i(TAG, "Running LiteRT analysis...");
+        Log.i(TAG, "Running LiteRT-LM analysis...");
+
+        // Extract transcript and duration from the prompt
+        String transcript = extractTranscript(prompt);
+        int durationMs = extractDuration(prompt);
 
         int maxTranscriptChars = getMaxTranscriptChunkChars();
 
-        // Check if the prompt is too long and needs chunking
-        if (prompt.length() > maxTranscriptChars) {
-            return analyzeInChunks(prompt, listener);
+        // Check if the transcript is too long and needs chunking
+        if (transcript.length() > maxTranscriptChars) {
+            return analyzeInChunks(transcript, durationMs, listener);
         }
 
         if (listener != null) {
             listener.onProgress(10);
         }
 
-        String formattedPrompt = inferenceModel.formatPrompt(prompt);
-        String result = generateResponse(formattedPrompt);
-        Log.d(TAG, "LiteRT result: " + result);
+        // Build system message and user message separately
+        String systemMessage = buildSystemMessage(durationMs, 0);
+        String userMessage = buildUserMessage(transcript);
+
+        // Reset session with system message
+        inferenceModel.resetSession(systemMessage);
+
+        String result = generateResponse(userMessage);
+        Log.d(TAG, "LiteRT-LM result: " + result);
 
         if (listener != null) {
             listener.onProgress(100);
@@ -136,11 +148,8 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         return result;
     }
 
-    private String analyzeInChunks(String fullPrompt, ProgressListener listener) throws Exception {
+    private String analyzeInChunks(String transcript, int durationMs, ProgressListener listener) throws Exception {
         Log.i(TAG, "Transcript too long, analyzing in chunks...");
-
-        String transcript = extractTranscript(fullPrompt);
-        int durationMs = extractDuration(fullPrompt);
 
         List<TranscriptChunk> chunks = splitTranscript(transcript);
         Log.i(TAG, "Split into " + chunks.size() + " chunks");
@@ -156,14 +165,15 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
                 listener.onProgress(percent);
             }
 
-            String chunkPrompt = buildChunkPrompt(chunk.text, durationMs, chunk.startTimeSeconds);
-            String formattedPrompt = inferenceModel.formatPrompt(chunkPrompt);
+            // Build system message and user message for this chunk
+            String systemMessage = buildSystemMessage(durationMs, chunk.startTimeSeconds);
+            String userMessage = buildUserMessage(chunk.text);
 
             try {
-                // Reset session for each chunk to keep context isolated
-                inferenceModel.resetSession();
+                // Reset session with system message for each chunk
+                inferenceModel.resetSession(systemMessage);
 
-                String result = generateResponse(formattedPrompt);
+                String result = generateResponse(userMessage);
                 Log.d(TAG, "Chunk " + (i + 1) + " result: " + result);
 
                 mergeChunkResults(allAds, result);
@@ -181,9 +191,27 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         return finalResult.toString();
     }
 
-    private String generateResponse(String formattedPrompt) throws Exception {
-        ListenableFuture<String> future = inferenceModel.generateResponseAsync(formattedPrompt, NO_OP_LISTENER);
-        String result = future.get();
+    /**
+     * Build the system message with context about the episode.
+     */
+    private String buildSystemMessage(int durationMs, double timeOffset) {
+        StringBuilder sb = new StringBuilder(SYSTEM_MESSAGE_BASE);
+        sb.append("\n\nEpisode duration: ").append(durationMs / 1000f).append(" seconds.");
+        if (timeOffset > 0) {
+            sb.append("\nThis transcript portion starts at ").append((int) timeOffset).append(" seconds.");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Build the user message containing the transcript.
+     */
+    private String buildUserMessage(String transcript) {
+        return "Analyze this transcript for ads:\n\n" + transcript + "\n\nOutput only JSON.";
+    }
+
+    private String generateResponse(String userMessage) throws Exception {
+        String result = inferenceModel.generateResponse(userMessage);
 
         // Validate result
         if (isGarbageOutput(result)) {
@@ -228,8 +256,6 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         double chunkStartTime = 0;
         double lastEndTime = 0;
 
-        // getMaxTranscriptChunkChars already accounts for instruction prompt and
-        // response overhead
         int maxChunkSize = getMaxTranscriptChunkChars();
 
         for (String line : lines) {
@@ -274,37 +300,6 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         } catch (NumberFormatException e) {
             return 0;
         }
-    }
-
-    private String buildChunkPrompt(String chunkText, int durationMs, double timeOffset) {
-        List<String> promptParts = buildChunkPrompt(durationMs, timeOffset);
-        return promptParts.get(0) + chunkText + promptParts.get(1);
-    }
-
-    private List<String> buildChunkPrompt(int durationMs, double timeOffset) {
-        List<String> retval = new ArrayList<>();
-        retval.add("You are a classifier that only finds advertisement or sponsor segments in podcasts. "
-                + "An advertisement is a sponsor read, mid-roll, pre-roll, post-roll, "
-                + "or explicit promotion (coupon codes, giveaways, discounts). "
-                + "Do not tag normal banter, housekeeping, or episode content as ads. "
-                + "Use seconds from start of episode for times. "
-                + "This is a portion of the transcript starting at " + (int) timeOffset + " seconds. "
-                + "Respond ONLY with valid JSON matching {\"ads\":[{\"startSeconds\":number,\"endSeconds\":number,"
-                + "\"reason\":string,\"confidence\":number}]} and nothing else.\n\n"
-                + "Episode duration seconds: " + durationMs / 1000f + "\n"
-                + "Transcript portion (WebVTT):\n\n");
-        retval.add("\n\nAgain, output only the JSON structure.");
-        return retval;
-    }
-
-    private int getJustPromptLength(int durationMs, double timeOffset) {
-        List<String> promptParts = buildChunkPrompt(durationMs, timeOffset);
-        int length = 0;
-        for (String part : promptParts) {
-            length += part.length();
-        }
-        int safetyMargin = 50;
-        return length + safetyMargin; // safety margin
     }
 
     private void mergeChunkResults(JSONArray allAds, String chunkResult) {

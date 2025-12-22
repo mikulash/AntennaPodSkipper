@@ -7,22 +7,23 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.mediapipe.tasks.genai.llminference.LlmInference;
-import com.google.mediapipe.tasks.genai.llminference.LlmInference.LlmInferenceOptions;
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession;
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession.LlmInferenceSessionOptions;
-import com.google.mediapipe.tasks.genai.llminference.ProgressListener;
+import com.google.ai.edge.litertlm.Backend;
+import com.google.ai.edge.litertlm.Conversation;
+import com.google.ai.edge.litertlm.ConversationConfig;
+import com.google.ai.edge.litertlm.Engine;
+import com.google.ai.edge.litertlm.EngineConfig;
+import com.google.ai.edge.litertlm.Message;
+import com.google.ai.edge.litertlm.SamplerConfig;
 
 import java.io.File;
 
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**
- * Singleton class that manages the LLM inference engine.
+ * Singleton class that manages the LLM inference engine using LiteRT-LM 0.8.0.
  * Loading the model is expensive (~20-30 seconds), so we keep a single instance
- * alive
- * to avoid reloading for each analysis request.
+ * alive to avoid reloading for each analysis request.
+ * Uses the new .litertlm model format with Engine and Conversation APIs.
  */
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class InferenceModel {
@@ -44,8 +45,10 @@ public class InferenceModel {
     private final Context context;
     private final LlmModel modelConfig;
     private final String modelId;
-    private LlmInference llmInference;
-    private LlmInferenceSession llmSession;
+    private final File cacheDir;
+    private Engine engine;
+    private Conversation conversation;
+    private String currentSystemMessage;
 
     /**
      * Private constructor - use getInstance() instead.
@@ -55,6 +58,7 @@ public class InferenceModel {
         this.context = context.getApplicationContext();
         this.modelId = modelId;
         this.modelConfig = modelConfig;
+        this.cacheDir = context.getCacheDir();
 
         LiteRtLLMManager manager = new LiteRtLLMManager(context);
         File modelFile = manager.getModelPath(modelId);
@@ -67,7 +71,7 @@ public class InferenceModel {
         manager.clearXnnpackCache(modelId);
 
         createEngine(modelFile);
-        createSession();
+        createConversation();
     }
 
     /**
@@ -185,37 +189,46 @@ public class InferenceModel {
     }
 
     private void createEngine(File modelFile) throws ModelLoadFailException {
-        Log.i(TAG, "Creating LLM engine with model: " + modelId);
+        Log.i(TAG, "Creating LiteRT-LM engine with model: " + modelId);
 
-        LlmInference.Backend backend = getBackend();
-        int maxTokens = getMaxTokens();
-
-        LlmInferenceOptions options = LlmInferenceOptions.builder()
-                .setModelPath(modelFile.getAbsolutePath())
-                .setMaxTokens(maxTokens)
-                .setPreferredBackend(backend)
-                .build();
+        Backend backend = getBackend();
 
         try {
-            llmInference = LlmInference.createFromOptions(context, options);
-            Log.i(TAG, "LLM engine created successfully with backend: " + backend);
+            // EngineConfig(modelPath, backend, visionBackend, audioBackend, maxCacheSize, cacheDir)
+            EngineConfig config = new EngineConfig(
+                    modelFile.getAbsolutePath(),
+                    backend,
+                    null,  // visionBackend - not needed for text-only
+                    null,  // audioBackend - not needed for text-only
+                    null,  // maxNumTokens - use default
+                    cacheDir.getAbsolutePath()
+            );
+            engine = new Engine(config);
+            engine.initialize();
+            Log.i(TAG, "LiteRT-LM engine created successfully with backend: " + backend);
         } catch (Exception e) {
             Log.e(TAG, "Engine creation failed with backend " + backend + ": " + e.getMessage(), e);
 
             // If GPU failed, try CPU fallback
-            if (backend == LlmInference.Backend.GPU) {
+            if (backend == Backend.GPU) {
                 Log.i(TAG, "Retrying with CPU backend...");
                 try {
-                    LlmInferenceOptions cpuOptions = options.toBuilder()
-                            .setPreferredBackend(LlmInference.Backend.CPU)
-                            .build();
-                    llmInference = LlmInference.createFromOptions(context, cpuOptions);
+                    EngineConfig cpuConfig = new EngineConfig(
+                            modelFile.getAbsolutePath(),
+                            Backend.CPU,
+                            null,
+                            null,
+                            null,
+                            cacheDir.getAbsolutePath()
+                    );
+                    engine = new Engine(cpuConfig);
+                    engine.initialize();
 
                     // Update preference if manual model
                     if (modelConfig == null) {
                         LocalAiPreferences.setManualModelBackend(context, "CPU");
                     }
-                    Log.i(TAG, "LLM engine created successfully with CPU fallback");
+                    Log.i(TAG, "LiteRT-LM engine created successfully with CPU fallback");
                     return;
                 } catch (Exception cpuError) {
                     Log.e(TAG, "CPU fallback also failed: " + cpuError.getMessage(), cpuError);
@@ -227,60 +240,76 @@ public class InferenceModel {
         }
     }
 
-    private void createSession() throws ModelLoadFailException {
-        if (llmInference == null) {
-            throw new ModelLoadFailException("LLM engine not initialized");
+    private void createConversation() throws ModelLoadFailException {
+        createConversation(null);
+    }
+
+    private void createConversation(@Nullable String systemMessage) throws ModelLoadFailException {
+        if (engine == null) {
+            throw new ModelLoadFailException("LiteRT-LM engine not initialized");
         }
 
-        float temperature = modelConfig != null ? modelConfig.getTemperature() : 0.3f;
-        int topK = modelConfig != null ? modelConfig.getTopK() : 20;
-        float topP = modelConfig != null ? modelConfig.getTopP() : 0.9f;
-
-        LlmInferenceSessionOptions sessionOptions = LlmInferenceSessionOptions.builder()
-                .setTemperature(temperature)
-                .setTopK(topK)
-                .setTopP(topP)
-                .build();
-
         try {
-            llmSession = LlmInferenceSession.createFromOptions(llmInference, sessionOptions);
-            Log.d(TAG, "Session created with temp=" + temperature + ", topK=" + topK + ", topP=" + topP);
+            double temperature = modelConfig != null ? modelConfig.getTemperature() : 0.3;
+            int topK = modelConfig != null ? modelConfig.getTopK() : 20;
+            double topP = modelConfig != null ? modelConfig.getTopP() : 0.9;
+            int seed = 42;  // Fixed seed for reproducibility
+
+            // SamplerConfig(topK, topP, temperature, seed)
+            SamplerConfig samplerConfig = new SamplerConfig(topK, topP, temperature, seed);
+
+            // Create system message if provided
+            Message sysMsg = systemMessage != null ? Message.Companion.of(systemMessage) : null;
+            this.currentSystemMessage = systemMessage;
+
+            // ConversationConfig(systemMessage, tools, samplerConfig)
+            ConversationConfig convConfig = new ConversationConfig(
+                    sysMsg,
+                    java.util.Collections.emptyList(),  // tools - empty list (non-null required)
+                    samplerConfig
+            );
+            conversation = engine.createConversation(convConfig);
+            Log.d(TAG, "Conversation created with temp=" + temperature + ", topK=" + topK + ", topP=" + topP
+                    + ", systemMessage=" + (systemMessage != null ? "yes (" + systemMessage.length() + " chars)" : "none"));
         } catch (Exception e) {
-            Log.e(TAG, "Session creation failed: " + e.getMessage(), e);
-            throw new ModelLoadFailException("Failed to create session: " + e.getMessage());
+            Log.e(TAG, "Conversation creation failed: " + e.getMessage(), e);
+            throw new ModelLoadFailException("Failed to create conversation: " + e.getMessage());
         }
     }
 
     /**
-     * Reset the session (clears context) without reloading the model.
+     * Reset the conversation (clears context) without reloading the model.
+     * Preserves the current system message.
      */
     public void resetSession() throws ModelLoadFailException {
-        if (llmSession != null) {
+        resetSession(currentSystemMessage);
+    }
+
+    /**
+     * Reset the conversation with a new system message.
+     * @param systemMessage The system instruction for the model, or null for none.
+     */
+    public void resetSession(@Nullable String systemMessage) throws ModelLoadFailException {
+        if (conversation != null) {
             try {
-                llmSession.close();
+                conversation.close();
             } catch (Exception ignored) {
             }
         }
-        createSession();
+        createConversation(systemMessage);
     }
 
     /**
-     * Generate a response asynchronously.
+     * Generate a response synchronously.
+     * The user message is sent directly - use resetSession(systemMessage) first to set instructions.
      */
-    public ListenableFuture<String> generateResponseAsync(String prompt, ProgressListener<String> progressListener) {
-        llmSession.addQueryChunk(prompt);
-        return llmSession.generateResponseAsync(progressListener);
-    }
-
-    /**
-     * Format a prompt using the model's chat template.
-     */
-    public String formatPrompt(String userMessage) {
-        if (modelConfig != null) {
-            return modelConfig.formatPrompt(userMessage);
+    public String generateResponse(String userPrompt) throws Exception {
+        if (conversation == null) {
+            throw new IllegalStateException("Conversation not initialized");
         }
-        // Default to Gemma format
-        return "<start_of_turn>user\n" + userMessage + "<end_of_turn>\n<start_of_turn>model\n";
+        Message userMessage = Message.Companion.of(userPrompt);
+        Message response = conversation.sendMessage(userMessage);
+        return response.toString();
     }
 
     /**
@@ -298,49 +327,41 @@ public class InferenceModel {
         return modelId;
     }
 
-    private LlmInference.Backend getBackend() {
+    private Backend getBackend() {
         if (modelConfig != null) {
             switch (modelConfig.getPreferredBackend()) {
                 case GPU:
-                    return LlmInference.Backend.GPU;
+                    return Backend.GPU;
                 case CPU:
                 default:
-                    return LlmInference.Backend.CPU;
+                    return Backend.CPU;
             }
         }
 
         // For manual imports, use preference
         String backendPref = LocalAiPreferences.getManualModelBackend(context);
         return "CPU".equalsIgnoreCase(backendPref)
-                ? LlmInference.Backend.CPU
-                : LlmInference.Backend.GPU;
-    }
-
-    private int getMaxTokens() {
-        if (modelConfig != null) {
-            return modelConfig.getMaxTokens();
-        }
-        // For manual imports, use user-configured value from preferences
-        return LocalAiPreferences.getManualModelMaxTokens(context);
+                ? Backend.CPU
+                : Backend.GPU;
     }
 
     /**
      * Close this instance and release resources.
      */
     public void close() {
-        if (llmSession != null) {
+        if (conversation != null) {
             try {
-                llmSession.close();
+                conversation.close();
             } catch (Exception ignored) {
             }
-            llmSession = null;
+            conversation = null;
         }
-        if (llmInference != null) {
+        if (engine != null) {
             try {
-                llmInference.close();
+                engine.close();
             } catch (Exception ignored) {
             }
-            llmInference = null;
+            engine = null;
         }
         Log.i(TAG, "InferenceModel resources released");
     }
