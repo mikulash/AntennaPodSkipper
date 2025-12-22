@@ -49,6 +49,11 @@ public class LiteRtLLMManager {
                 }
             }
         }
+        // Handle imported models with "imported:" prefix
+        if (modelId != null && modelId.startsWith(LocalAiPreferences.IMPORTED_MODEL_PREFIX)) {
+            String filename = modelId.substring(LocalAiPreferences.IMPORTED_MODEL_PREFIX.length());
+            return new File(getModelDirectory(), filename);
+        }
         LlmModel model = LlmModel.fromId(modelId);
         if (model != null) {
             return new File(getModelDirectory(), model.getFilename());
@@ -104,8 +109,45 @@ public class LiteRtLLMManager {
     }
 
     /**
-     * Deletes all downloaded LLM model files.
-     * 
+     * Deletes an imported model by filename and removes it from the imported models list.
+     * @param filename The filename of the imported model
+     */
+    public void deleteImportedModel(String filename) {
+        if (filename == null || filename.trim().isEmpty()) {
+            return;
+        }
+        File file = new File(getModelDirectory(), filename);
+        if (file.exists()) {
+            file.delete();
+            Log.i(TAG, "Deleted imported model: " + filename);
+        }
+        LocalAiPreferences.removeImportedModel(context, filename);
+    }
+
+    /**
+     * Gets the list of imported model filenames that still exist on disk.
+     * Cleans up any entries that no longer exist.
+     * @return Set of imported model filenames
+     */
+    public java.util.Set<String> getImportedModels() {
+        java.util.Set<String> stored = LocalAiPreferences.getImportedModels(context);
+        java.util.Set<String> valid = new java.util.LinkedHashSet<>();
+        for (String filename : stored) {
+            File file = new File(getModelDirectory(), filename);
+            if (file.exists() && file.length() > 0) {
+                valid.add(filename);
+            } else {
+                // Clean up stale entry
+                LocalAiPreferences.removeImportedModel(context, filename);
+                Log.d(TAG, "Removed stale imported model entry: " + filename);
+            }
+        }
+        return valid;
+    }
+
+    /**
+     * Deletes all downloaded LLM model files and clears imported models list.
+     *
      * @return The number of deleted models.
      */
     public int deleteAllModels() {
@@ -120,6 +162,8 @@ public class LiteRtLLMManager {
                 }
             }
         }
+        // Clear imported models list
+        LocalAiPreferences.clearImportedModels(context);
         Log.i(TAG, "Deleted " + deletedCount + " LLM model(s)");
         return deletedCount;
     }
@@ -332,6 +376,8 @@ public class LiteRtLLMManager {
         if (LocalAiPreferences.MANUAL_MODEL_ID.equals(modelName)) {
             LocalAiPreferences.setManualModelPath(context, outputFile.getAbsolutePath());
         }
+        // Register as imported model
+        LocalAiPreferences.addImportedModel(context, targetFileName);
         return true;
     }
 

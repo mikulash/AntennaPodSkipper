@@ -1134,6 +1134,7 @@
     <string name="pref_local_ad_analysis_model_manual">Manual Import</string>
     <string name="pref_local_ad_analysis_manual_placeholder">Manual Import</string>
     <string name="pref_local_ad_analysis_manual_label">Manual Import (%1$s)</string>
+    <string name="pref_local_ad_analysis_imported_label">Imported: %1$s</string>
     <string name="pref_local_ad_analysis_manual_backend_title">Select backend</string>
     <string name="pref_local_ad_analysis_download_title">Download Model</string>
     <string name="pref_local_ad_analysis_download_summary">Download the selected model file</string>
@@ -1166,7 +1167,7 @@
     <string name="pref_local_llm_auth_required_message">The model \"%1$s\" requires you to be logged in to HuggingFace. You can open the model page in your browser to download it, then import it manually.</string>
     <string name="open_browser_label">Open in Browser</string>
     <string name="import_manual_label">Import File</string>
-    <string name="pref_local_llm_manual_download_instructions">Download the .task file from HuggingFace (while logged in), then use the Import button to select it.</string>
+    <string name="pref_local_llm_manual_download_instructions">Download the .litertlm file from HuggingFace (while logged in), then use the Import button to select it.</string>
 
     <!-- Manual model import settings -->
     <string name="pref_local_ad_analysis_import_settings_title">Model Import Settings</string>

@@ -32,11 +32,96 @@ public final class LocalAiPreferences {
     private static final String PREF_MANUAL_MODEL_PATH = "prefManualModelPath";
     private static final String PREF_MANUAL_MODEL_BACKEND = "prefManualModelBackend";
     private static final String PREF_MANUAL_MODEL_MAX_TOKENS = "prefManualModelMaxTokens";
+    private static final String PREF_IMPORTED_MODELS = "prefImportedModels";
     private static final String DEFAULT_MANUAL_MODEL_BACKEND = "GPU";
     private static final int DEFAULT_MANUAL_MODEL_MAX_TOKENS = 512;
     public static final String MANUAL_MODEL_ID = "manual_import";
+    public static final String IMPORTED_MODEL_PREFIX = "imported:";
+    private static final String IMPORTED_MODELS_SEPARATOR = "|||";
 
     private LocalAiPreferences() {
+    }
+
+    /**
+     * Gets the set of imported model filenames.
+     * @return Set of imported model filenames (without the prefix)
+     */
+    public static java.util.Set<String> getImportedModels(Context context) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        java.util.Set<String> result = new java.util.LinkedHashSet<>();
+        if (prefs == null) {
+            return result;
+        }
+        String stored = prefs.getString(PREF_IMPORTED_MODELS, "");
+        if (!stored.isEmpty()) {
+            String[] models = stored.split(java.util.regex.Pattern.quote(IMPORTED_MODELS_SEPARATOR));
+            for (String model : models) {
+                if (!model.trim().isEmpty()) {
+                    result.add(model.trim());
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Adds an imported model to the list.
+     * @param filename The model filename (without path)
+     */
+    public static void addImportedModel(Context context, String filename) {
+        if (filename == null || filename.trim().isEmpty()) {
+            return;
+        }
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return;
+        }
+        java.util.Set<String> models = getImportedModels(context);
+        models.add(filename.trim());
+        saveImportedModels(prefs, models);
+    }
+
+    /**
+     * Removes an imported model from the list.
+     * @param filename The model filename to remove
+     */
+    public static void removeImportedModel(Context context, String filename) {
+        if (filename == null) {
+            return;
+        }
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return;
+        }
+        java.util.Set<String> models = getImportedModels(context);
+        models.remove(filename.trim());
+        saveImportedModels(prefs, models);
+    }
+
+    /**
+     * Clears all imported models from the list.
+     */
+    public static void clearImportedModels(Context context) {
+        SharedPreferences prefs = getEncryptedPrefs(context);
+        if (prefs == null) {
+            return;
+        }
+        prefs.edit().remove(PREF_IMPORTED_MODELS).apply();
+    }
+
+    private static void saveImportedModels(SharedPreferences prefs, java.util.Set<String> models) {
+        if (models.isEmpty()) {
+            prefs.edit().remove(PREF_IMPORTED_MODELS).apply();
+        } else {
+            StringBuilder sb = new StringBuilder();
+            for (String model : models) {
+                if (sb.length() > 0) {
+                    sb.append(IMPORTED_MODELS_SEPARATOR);
+                }
+                sb.append(model);
+            }
+            prefs.edit().putString(PREF_IMPORTED_MODELS, sb.toString()).apply();
+        }
     }
 
     public static void setManualModelPath(Context context, String path) {

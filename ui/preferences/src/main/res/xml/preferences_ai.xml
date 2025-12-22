@@ -98,7 +98,7 @@
         <Preference
                 android:key="prefLocalAdAnalysisImport"
                 android:title="Import Model File (Manual)"
-                android:summary="Import a downloaded .task model file" />
+                android:summary="Import a downloaded .litertlm model file" />
 
         <Preference
                 android:key="prefLocalAdAnalysisDelete"

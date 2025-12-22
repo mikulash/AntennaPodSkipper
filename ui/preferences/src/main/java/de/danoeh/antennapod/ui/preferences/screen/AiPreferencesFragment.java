@@ -448,6 +448,8 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         String selectedModel = LocalAiPreferences.getLocalAdAnalysisModel(requireContext());
         boolean isDownloaded = llmManager.isModelDownloaded(selectedModel);
         boolean isManualModel = LocalAiPreferences.MANUAL_MODEL_ID.equals(selectedModel);
+        boolean isImportedModel = selectedModel != null
+                && selectedModel.startsWith(LocalAiPreferences.IMPORTED_MODEL_PREFIX);
 
         ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
         if (modelPref != null) {
@@ -457,24 +459,26 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         // Show/hide manual model settings
         Preference manualSettingsPref = findPreference(PREF_MANUAL_MODEL_SETTINGS);
         if (manualSettingsPref != null) {
-            manualSettingsPref.setVisible(isManualModel && isDownloaded);
+            manualSettingsPref.setVisible((isManualModel || isImportedModel) && isDownloaded);
         }
 
-        // Update download button
+        // Update download button - hide for imported models (already downloaded)
         Preference downloadPref = findPreference(PREF_LOCAL_LLM_DOWNLOAD);
         if (downloadPref != null) {
-            if (isLlmDownloading) {
-                downloadPref.setEnabled(false);
-                downloadPref.setSummary(R.string.pref_local_transcription_downloading); // Reuse string or generic
-                                                                                        // "Downloading..."
-            } else if (isDownloaded) {
-                downloadPref.setSummary(R.string.pref_local_transcription_download_summary_downloaded); // Reuse
-                                                                                                        // "Downloaded"
-                                                                                                        // string
-                downloadPref.setEnabled(false);
+            if (isImportedModel) {
+                downloadPref.setVisible(false);
             } else {
-                downloadPref.setSummary(R.string.pref_local_ad_analysis_download_summary);
-                downloadPref.setEnabled(true);
+                downloadPref.setVisible(true);
+                if (isLlmDownloading) {
+                    downloadPref.setEnabled(false);
+                    downloadPref.setSummary(R.string.pref_local_transcription_downloading);
+                } else if (isDownloaded) {
+                    downloadPref.setSummary(R.string.pref_local_transcription_download_summary_downloaded);
+                    downloadPref.setEnabled(false);
+                } else {
+                    downloadPref.setSummary(R.string.pref_local_ad_analysis_download_summary);
+                    downloadPref.setEnabled(true);
+                }
             }
         }
 
@@ -599,9 +603,23 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
             }
         }
 
-        llmManager.deleteModel(modelName);
-        if (LocalAiPreferences.MANUAL_MODEL_ID.equals(modelName)) {
-            LocalAiPreferences.setManualModelPath(requireContext(), null);
+        // Handle imported models
+        if (modelName != null && modelName.startsWith(LocalAiPreferences.IMPORTED_MODEL_PREFIX)) {
+            String filename = modelName.substring(LocalAiPreferences.IMPORTED_MODEL_PREFIX.length());
+            llmManager.deleteImportedModel(filename);
+            // Switch to first available model
+            ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
+            if (modelPref != null && modelPref.getEntryValues() != null
+                    && modelPref.getEntryValues().length > 0) {
+                String firstModel = modelPref.getEntryValues()[0].toString();
+                LocalAiPreferences.setLocalAdAnalysisModel(requireContext(), firstModel);
+                modelPref.setValue(firstModel);
+            }
+        } else {
+            llmManager.deleteModel(modelName);
+            if (LocalAiPreferences.MANUAL_MODEL_ID.equals(modelName)) {
+                LocalAiPreferences.setManualModelPath(requireContext(), null);
+            }
         }
 
         Toast.makeText(requireContext(),
@@ -635,67 +653,64 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     }
 
     private void updateManualModelEntry(ListPreference modelPref) {
+        // Start with base entries from XML (built-in models)
+        CharSequence[] baseEntries = getResources().getStringArray(R.array.pref_local_ad_analysis_model_entries);
+        CharSequence[] baseValues = getResources().getStringArray(R.array.pref_local_ad_analysis_model_values);
+
+        java.util.List<CharSequence> entryList = new java.util.ArrayList<>();
+        java.util.List<CharSequence> valueList = new java.util.ArrayList<>();
+
+        // Add base entries (excluding manual_import placeholder if present)
+        for (int i = 0; i < baseValues.length; i++) {
+            if (!LocalAiPreferences.MANUAL_MODEL_ID.contentEquals(baseValues[i])
+                    && !baseValues[i].toString().startsWith(LocalAiPreferences.IMPORTED_MODEL_PREFIX)) {
+                entryList.add(baseEntries[i]);
+                valueList.add(baseValues[i]);
+            }
+        }
+
+        // Add imported models from the tracked list
+        java.util.Set<String> importedModels = llmManager.getImportedModels();
+        for (String filename : importedModels) {
+            String displayName = filename;
+            // Remove extension for display
+            if (displayName.endsWith(".litertlm")) {
+                displayName = displayName.substring(0, displayName.length() - 9);
+            }
+            String label = getString(R.string.pref_local_ad_analysis_imported_label, displayName);
+            String value = LocalAiPreferences.IMPORTED_MODEL_PREFIX + filename;
+            entryList.add(label);
+            valueList.add(value);
+        }
+
+        // Also add manual model if it exists and isn't already in imported list
         String manualPath = LocalAiPreferences.getManualModelPath(requireContext());
-        String manualLabel = null;
         if (!TextUtils.isEmpty(manualPath)) {
+            java.io.File manualFile = new java.io.File(manualPath);
+            String manualFilename = manualFile.getName();
+            // Only add if not already in imported list
+            if (!importedModels.contains(manualFilename)) {
+                String label = getString(R.string.pref_local_ad_analysis_manual_label, manualFilename);
+                entryList.add(label);
+                valueList.add(LocalAiPreferences.MANUAL_MODEL_ID);
+            }
+        }
+
+        modelPref.setEntries(entryList.toArray(new CharSequence[0]));
+        modelPref.setEntryValues(valueList.toArray(new CharSequence[0]));
+
+        // Update summary based on selection
+        String selectedValue = modelPref.getValue();
+        if (selectedValue != null && selectedValue.startsWith(LocalAiPreferences.IMPORTED_MODEL_PREFIX)) {
+            String filename = selectedValue.substring(LocalAiPreferences.IMPORTED_MODEL_PREFIX.length());
+            String displayName = filename;
+            if (displayName.endsWith(".litertlm")) {
+                displayName = displayName.substring(0, displayName.length() - 9);
+            }
+            modelPref.setSummary(getString(R.string.pref_local_ad_analysis_imported_label, displayName));
+        } else if (LocalAiPreferences.MANUAL_MODEL_ID.equals(selectedValue) && !TextUtils.isEmpty(manualPath)) {
             String fileName = manualPath.substring(manualPath.lastIndexOf('/') + 1);
-            manualLabel = getString(R.string.pref_local_ad_analysis_manual_label, fileName);
-        }
-
-        CharSequence[] entries = modelPref.getEntries();
-        CharSequence[] entryValues = modelPref.getEntryValues();
-
-        boolean hasManual = false;
-        if (entryValues != null) {
-            for (CharSequence val : entryValues) {
-                if (LocalAiPreferences.MANUAL_MODEL_ID.contentEquals(val)) {
-                    hasManual = true;
-                    break;
-                }
-            }
-        }
-
-        if (manualLabel != null && entries != null && entryValues != null) {
-            // Replace or append manual entry with filename
-            int len = entryValues.length;
-            CharSequence[] newEntries = new CharSequence[len];
-            CharSequence[] newValues = new CharSequence[len];
-            boolean replaced = false;
-            for (int i = 0; i < len; i++) {
-                newValues[i] = entryValues[i];
-                if (LocalAiPreferences.MANUAL_MODEL_ID.contentEquals(entryValues[i])) {
-                    newEntries[i] = manualLabel;
-                    replaced = true;
-                } else {
-                    newEntries[i] = entries[i];
-                }
-            }
-            if (!replaced) {
-                // append
-                newEntries = java.util.Arrays.copyOf(newEntries, len + 1);
-                newValues = java.util.Arrays.copyOf(newValues, len + 1);
-                newEntries[len] = manualLabel;
-                newValues[len] = LocalAiPreferences.MANUAL_MODEL_ID;
-            }
-            modelPref.setEntries(newEntries);
-            modelPref.setEntryValues(newValues);
-        } else if (manualLabel == null && hasManual && entries != null && entryValues != null) {
-            // Remove manual entry if path missing
-            java.util.List<CharSequence> entryList = new java.util.ArrayList<>();
-            java.util.List<CharSequence> valueList = new java.util.ArrayList<>();
-            for (int i = 0; i < entryValues.length; i++) {
-                if (!LocalAiPreferences.MANUAL_MODEL_ID.contentEquals(entryValues[i])) {
-                    entryList.add(entries[i]);
-                    valueList.add(entryValues[i]);
-                }
-            }
-            modelPref.setEntries(entryList.toArray(new CharSequence[0]));
-            modelPref.setEntryValues(valueList.toArray(new CharSequence[0]));
-        }
-
-        // Update summary to show filename next to selection
-        if (LocalAiPreferences.MANUAL_MODEL_ID.equals(modelPref.getValue()) && manualLabel != null) {
-            modelPref.setSummary(manualLabel);
+            modelPref.setSummary(getString(R.string.pref_local_ad_analysis_manual_label, fileName));
         } else {
             modelPref.setSummary("%s");
         }
@@ -995,6 +1010,6 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
             }
         } catch (Exception ignored) {
         }
-        return fallback == null ? "manual_import.task" : fallback;
+        return fallback == null ? "manual_import.litertlm" : fallback;
     }
 }
