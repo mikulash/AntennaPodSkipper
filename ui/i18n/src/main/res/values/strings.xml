@@ -1065,9 +1065,9 @@
     <string name="pref_local_transcription_title">Use local transcription</string>
     <string name="pref_local_transcription_summary">Transcribe audio on your device instead of using OpenAI Whisper API (saves cost, works offline)</string>
     <string name="pref_local_transcription_model_title">Transcription model</string>
-    <string name="pref_local_transcription_model_small">Small (~40 MB) - Fast, lower accuracy</string>
-    <string name="pref_local_transcription_model_medium">Medium (~128 MB) - Balanced</string>
-    <string name="pref_local_transcription_model_large">Large (~1.8 GB) - Best accuracy, requires 2.5GB RAM</string>
+    <string name="pref_local_transcription_model_small">Small</string>
+    <string name="pref_local_transcription_model_medium">Medium</string>
+    <string name="pref_local_transcription_model_large">Large</string>
     <string name="pref_local_transcription_model_loading">Loading model...</string>
     <string name="download_type_extraction">Extracting...</string>
     <string name="pref_local_transcription_memory_error">Not enough memory for this model. Try a smaller model or close other apps.</string>
@@ -1088,6 +1088,15 @@
 
     <string name="pref_manage_transcription_models_title">Manage Models</string>
     <string name="pref_manage_transcription_models_summary">Download, delete, and view available transcription models</string>
+
+    <string name="pref_manage_llm_models_title">Manage Models</string>
+    <string name="pref_manage_llm_models_summary">Download or delete models here</string>
+    <string name="pref_llm_no_models_downloaded">No models downloaded</string>
+    <string name="pref_llm_model_not_downloaded">Not downloaded</string>
+    <string name="download_starting">Starting…</string>
+    <string name="download_complete">Download complete</string>
+    <string name="pref_local_ad_analysis_import_title">Import Model File</string>
+    <string name="pref_local_ad_analysis_import_summary">Import a downloaded .litertlm model file</string>
 
     <!-- Transcription engine selection -->
     <string name="transcription_section_local">Local Models</string>
@@ -1128,6 +1137,7 @@
     <string name="pref_local_ad_analysis_enabled_title">Enable Local Analysis</string>
     <string name="pref_local_ad_analysis_enabled_summary">Use on-device LLM instead of OpenAI for ad detection</string>
     <string name="pref_local_ad_analysis_model_title">Analysis Model</string>
+    <string name="pref_local_ad_analysis_model_hint">Download more models in Manage Models.</string>
     <string name="pref_local_ad_analysis_model_gemma2b">Gemma 2B (Recommended)</string>
     <string name="pref_local_ad_analysis_model_qwen06b">Qwen 0.6B (Faster)</string>
     <string name="pref_local_ad_analysis_model_qwen17b">Qwen 2.5 (1.5B)</string>

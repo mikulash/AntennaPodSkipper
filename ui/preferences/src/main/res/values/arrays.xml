@@ -313,22 +313,20 @@
     </string-array>
 
     <string-array name="pref_local_ad_analysis_model_entries">
+        <item>Gemma 3n E2B</item>
+        <item>Gemma 3n E4B</item>
         <item>Gemma3 1B (Recommended)</item>
-        <item>Gemma3 1B (4K Context)</item>
-        <item>Qwen3 0.6B (Fastest)</item>
         <item>Qwen 2.5 1.5B</item>
+        <item>Phi-4 Mini</item>
         <item>DeepSeek R1 Qwen 1.5B</item>
-        <item>Phi-4 Mini (Large)</item>
-        <item>@string/pref_local_ad_analysis_manual_placeholder</item>
     </string-array>
 
     <string-array name="pref_local_ad_analysis_model_values">
+        <item>gemma-3n-e2b</item>
+        <item>gemma-3n-e4b</item>
         <item>gemma3-1b</item>
-        <item>gemma3-1b-4k</item>
-        <item>qwen3-0.6b</item>
         <item>qwen2.5-1.5b</item>
-        <item>deepseek-r1-qwen-1.5b</item>
         <item>phi-4-mini</item>
-        <item>manual_import</item>
+        <item>deepseek-r1-qwen-1.5b</item>
     </string-array>
 </resources>

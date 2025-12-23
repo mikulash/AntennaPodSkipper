@@ -328,21 +328,13 @@ public class InferenceModel {
     }
 
     private Backend getBackend() {
-        if (modelConfig != null) {
-            switch (modelConfig.getPreferredBackend()) {
-                case GPU:
-                    return Backend.GPU;
-                case CPU:
-                default:
-                    return Backend.CPU;
-            }
-        }
-
         // For manual imports, use preference
         String backendPref = LocalAiPreferences.getManualModelBackend(context);
-        return "CPU".equalsIgnoreCase(backendPref)
-                ? Backend.CPU
-                : Backend.GPU;
+        if (backendPref != null && "CPU".equalsIgnoreCase(backendPref)) {
+            return Backend.CPU;
+        }
+        // Default to GPU for best performance
+        return Backend.GPU;
     }
 
     /**

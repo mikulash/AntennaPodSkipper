@@ -51,9 +51,8 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private static final String PREF_LOCAL_LLM_ENABLED = "prefLocalAdAnalysisEnabled";
     private static final String PREF_LOCAL_LLM_MODEL = "prefLocalAdAnalysisModel";
     private static final String PREF_MANUAL_MODEL_SETTINGS = "prefManualModelSettings";
-    private static final String PREF_LOCAL_LLM_DOWNLOAD = "prefLocalAdAnalysisDownload";
+    private static final String PREF_MANAGE_LLM_MODELS = "prefManageLlmModels";
     private static final String PREF_LOCAL_LLM_IMPORT = "prefLocalAdAnalysisImport";
-    private static final String PREF_LOCAL_LLM_DELETE = "prefLocalAdAnalysisDelete";
 
     // Delete all models
     // private static final String PREF_DELETE_ALL_MODELS = "prefDeleteAllModels";
@@ -65,7 +64,6 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager llmManager;
     private ExecutorService downloadExecutor;
     private volatile boolean isDownloading = false;
-    private volatile boolean isLlmDownloading = false;
     private ActivityResultLauncher<String> importLauncher;
 
     @Override
@@ -392,7 +390,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
         if (modelPref != null) {
             modelPref.setValue(LocalAiPreferences.getLocalAdAnalysisModel(requireContext()));
-            updateManualModelEntry(modelPref);
+            updateDownloadedModelsDropdown(modelPref);
             modelPref.setOnPreferenceChangeListener((preference, newValue) -> {
                 String newModel = (String) newValue;
                 LocalAiPreferences.setLocalAdAnalysisModel(requireContext(), newModel);
@@ -412,13 +410,12 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
             });
         }
 
-        // Download button
-        Preference downloadPref = findPreference(PREF_LOCAL_LLM_DOWNLOAD);
-        if (downloadPref != null) {
-            downloadPref.setOnPreferenceClickListener(preference -> {
-                if (!isLlmDownloading) {
-                    startLlmDownload();
-                }
+        // Manage LLM Models
+        Preference managePref = findPreference(PREF_MANAGE_LLM_MODELS);
+        if (managePref != null) {
+            managePref.setOnPreferenceClickListener(preference -> {
+                ((de.danoeh.antennapod.ui.preferences.PreferenceController) requireActivity())
+                        .openScreen(new LocalAiModelManagerFragment());
                 return true;
             });
         }
@@ -428,15 +425,6 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         if (importPref != null) {
             importPref.setOnPreferenceClickListener(preference -> {
                 importLauncher.launch("*/*");
-                return true;
-            });
-        }
-
-        // Delete button
-        Preference deletePref = findPreference(PREF_LOCAL_LLM_DELETE);
-        if (deletePref != null) {
-            deletePref.setOnPreferenceClickListener(preference -> {
-                showLlmDeleteConfirmation();
                 return true;
             });
         }
@@ -453,7 +441,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
 
         ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
         if (modelPref != null) {
-            updateManualModelEntry(modelPref);
+            updateDownloadedModelsDropdown(modelPref);
         }
 
         // Show/hide manual model settings
@@ -462,172 +450,11 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
             manualSettingsPref.setVisible((isManualModel || isImportedModel) && isDownloaded);
         }
 
-        // Update download button - hide for imported models (already downloaded)
-        Preference downloadPref = findPreference(PREF_LOCAL_LLM_DOWNLOAD);
-        if (downloadPref != null) {
-            if (isImportedModel) {
-                downloadPref.setVisible(false);
-            } else {
-                downloadPref.setVisible(true);
-                if (isLlmDownloading) {
-                    downloadPref.setEnabled(false);
-                    downloadPref.setSummary(R.string.pref_local_transcription_downloading);
-                } else if (isDownloaded) {
-                    downloadPref.setSummary(R.string.pref_local_transcription_download_summary_downloaded);
-                    downloadPref.setEnabled(false);
-                } else {
-                    downloadPref.setSummary(R.string.pref_local_ad_analysis_download_summary);
-                    downloadPref.setEnabled(true);
-                }
-            }
-        }
-
-        // Update delete button
-        Preference deletePref = findPreference(PREF_LOCAL_LLM_DELETE);
-        if (deletePref != null) {
-            deletePref.setEnabled(isDownloaded && !isLlmDownloading);
-            deletePref.setVisible(isDownloaded);
-        }
-
         // Update enable switch
         SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_LLM_ENABLED);
         if (enabledPref != null) {
-            enabledPref.setEnabled(isDownloaded && !isLlmDownloading);
+            enabledPref.setEnabled(isDownloaded);
         }
-    }
-
-    private void startLlmDownload() {
-        String modelName = LocalAiPreferences.getLocalAdAnalysisModel(requireContext());
-        LlmModel model = LlmModel.fromId(modelName);
-
-        // Check if model requires authentication
-        if (model != null && model.needsAuth()) {
-            showAuthRequiredDialog(model);
-        } else {
-            performLlmDownload(modelName);
-        }
-    }
-
-    private void showAuthRequiredDialog(LlmModel model) {
-        new AlertDialog.Builder(requireContext())
-                .setTitle(R.string.pref_local_llm_auth_required_title)
-                .setMessage(getString(R.string.pref_local_llm_auth_required_message, model.getDisplayName()))
-                .setPositiveButton(R.string.open_browser_label, (dialog, which) -> {
-                    // Open browser to HuggingFace model page
-                    Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(model.getUrl()));
-                    startActivity(browserIntent);
-
-                    // Show toast with instructions
-                    Toast.makeText(requireContext(),
-                            R.string.pref_local_llm_manual_download_instructions,
-                            Toast.LENGTH_LONG).show();
-                })
-                .setNeutralButton(R.string.import_manual_label, (dialog, which) -> {
-                    // Trigger manual import flow
-                    importLauncher.launch("*/*");
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
-    }
-
-    private void performLlmDownload(String modelName) {
-        isLlmDownloading = true;
-        updateLocalLlmUI();
-
-        Preference downloadPref = findPreference(PREF_LOCAL_LLM_DOWNLOAD);
-
-        downloadExecutor.execute(() -> {
-            try {
-                boolean success = llmManager.downloadModel(modelName,
-                        (percent, bytesDownloaded, totalBytes) -> {
-                            if (getActivity() != null) {
-                                getActivity().runOnUiThread(() -> {
-                                    if (downloadPref != null && isLlmDownloading) {
-                                        if (percent < 0) {
-                                            downloadPref.setSummary(R.string.pref_local_transcription_extracting);
-                                        } else {
-                                            downloadPref.setSummary(getString(
-                                                    R.string.pref_local_transcription_downloading, percent));
-                                        }
-                                    }
-                                });
-                            }
-                        });
-
-                if (getActivity() != null) {
-                    getActivity().runOnUiThread(() -> {
-                        isLlmDownloading = false;
-                        if (success) {
-                            Toast.makeText(requireContext(),
-                                    R.string.pref_local_transcription_download_complete,
-                                    Toast.LENGTH_SHORT).show();
-                        }
-                        updateLocalLlmUI();
-                        updateDeleteAllLlmModelsSummary();
-                    });
-                }
-            } catch (Exception e) {
-                if (getActivity() != null) {
-                    getActivity().runOnUiThread(() -> {
-                        isLlmDownloading = false;
-                        Toast.makeText(requireContext(),
-                                getString(R.string.pref_local_transcription_download_failed, e.getMessage()),
-                                Toast.LENGTH_LONG).show();
-                        updateLocalLlmUI();
-                    });
-                }
-            }
-        });
-    }
-
-    private void showLlmDeleteConfirmation() {
-        new AlertDialog.Builder(requireContext())
-                .setTitle(R.string.pref_local_transcription_delete_title) // Reuse title "Delete Model"
-                .setMessage(R.string.pref_local_transcription_delete_confirm)
-                .setPositiveButton(R.string.confirm_label, (dialog, which) -> {
-                    deleteLlmModel();
-                })
-                .setNegativeButton(R.string.cancel_label, null)
-                .show();
-    }
-
-    private void deleteLlmModel() {
-        String modelName = LocalAiPreferences.getLocalAdAnalysisModel(requireContext());
-
-        // Disable local analysis if it was enabled
-        if (LocalAiPreferences.isLocalAdAnalysisEnabled(requireContext())) {
-            LocalAiPreferences.setLocalAdAnalysisEnabled(requireContext(), false);
-            SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_LLM_ENABLED);
-            if (enabledPref != null) {
-                enabledPref.setChecked(false);
-            }
-        }
-
-        // Handle imported models
-        if (modelName != null && modelName.startsWith(LocalAiPreferences.IMPORTED_MODEL_PREFIX)) {
-            String filename = modelName.substring(LocalAiPreferences.IMPORTED_MODEL_PREFIX.length());
-            llmManager.deleteImportedModel(filename);
-            // Switch to first available model
-            ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
-            if (modelPref != null && modelPref.getEntryValues() != null
-                    && modelPref.getEntryValues().length > 0) {
-                String firstModel = modelPref.getEntryValues()[0].toString();
-                LocalAiPreferences.setLocalAdAnalysisModel(requireContext(), firstModel);
-                modelPref.setValue(firstModel);
-            }
-        } else {
-            llmManager.deleteModel(modelName);
-            if (LocalAiPreferences.MANUAL_MODEL_ID.equals(modelName)) {
-                LocalAiPreferences.setManualModelPath(requireContext(), null);
-            }
-        }
-
-        Toast.makeText(requireContext(),
-                R.string.pref_local_transcription_model_deleted,
-                Toast.LENGTH_SHORT).show();
-
-        updateLocalLlmUI();
-        updateDeleteAllLlmModelsSummary();
     }
 
     private void setupDeleteAllTranscriptionModels() {
@@ -652,34 +479,24 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         updateDeleteAllLlmModelsSummary();
     }
 
-    private void updateManualModelEntry(ListPreference modelPref) {
-        // Start with base entries from XML (built-in models)
-        CharSequence[] baseEntries = getResources().getStringArray(R.array.pref_local_ad_analysis_model_entries);
-        CharSequence[] baseValues = getResources().getStringArray(R.array.pref_local_ad_analysis_model_values);
-
+    private void updateDownloadedModelsDropdown(ListPreference modelPref) {
         java.util.List<CharSequence> entryList = new java.util.ArrayList<>();
         java.util.List<CharSequence> valueList = new java.util.ArrayList<>();
 
-        // Add base entries (excluding manual_import placeholder if present)
-        for (int i = 0; i < baseValues.length; i++) {
-            if (!LocalAiPreferences.MANUAL_MODEL_ID.contentEquals(baseValues[i])
-                    && !baseValues[i].toString().startsWith(LocalAiPreferences.IMPORTED_MODEL_PREFIX)) {
-                entryList.add(baseEntries[i]);
-                valueList.add(baseValues[i]);
+        // Add only downloaded built-in models (show just the name, no size info)
+        for (LlmModel model : llmManager.getAvailableModels()) {
+            if (llmManager.isModelDownloaded(model.getId())) {
+                entryList.add(model.getDisplayName());
+                valueList.add(model.getId());
             }
         }
 
-        // Add imported models from the tracked list
+        // Add imported models (which are always downloaded)
         java.util.Set<String> importedModels = llmManager.getImportedModels();
         for (String filename : importedModels) {
-            String displayName = filename;
-            // Remove extension for display
-            if (displayName.endsWith(".litertlm")) {
-                displayName = displayName.substring(0, displayName.length() - 9);
-            }
-            String label = getString(R.string.pref_local_ad_analysis_imported_label, displayName);
+            String displayName = stripModelExtension(filename);
             String value = LocalAiPreferences.IMPORTED_MODEL_PREFIX + filename;
-            entryList.add(label);
+            entryList.add(displayName);
             valueList.add(value);
         }
 
@@ -690,8 +507,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
             String manualFilename = manualFile.getName();
             // Only add if not already in imported list
             if (!importedModels.contains(manualFilename)) {
-                String label = getString(R.string.pref_local_ad_analysis_manual_label, manualFilename);
-                entryList.add(label);
+                entryList.add(stripModelExtension(manualFilename));
                 valueList.add(LocalAiPreferences.MANUAL_MODEL_ID);
             }
         }
@@ -699,21 +515,34 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         modelPref.setEntries(entryList.toArray(new CharSequence[0]));
         modelPref.setEntryValues(valueList.toArray(new CharSequence[0]));
 
-        // Update summary based on selection
-        String selectedValue = modelPref.getValue();
-        if (selectedValue != null && selectedValue.startsWith(LocalAiPreferences.IMPORTED_MODEL_PREFIX)) {
-            String filename = selectedValue.substring(LocalAiPreferences.IMPORTED_MODEL_PREFIX.length());
-            String displayName = filename;
-            if (displayName.endsWith(".litertlm")) {
-                displayName = displayName.substring(0, displayName.length() - 9);
-            }
-            modelPref.setSummary(getString(R.string.pref_local_ad_analysis_imported_label, displayName));
-        } else if (LocalAiPreferences.MANUAL_MODEL_ID.equals(selectedValue) && !TextUtils.isEmpty(manualPath)) {
-            String fileName = manualPath.substring(manualPath.lastIndexOf('/') + 1);
-            modelPref.setSummary(getString(R.string.pref_local_ad_analysis_manual_label, fileName));
+        // Handle case when no models are downloaded
+        if (entryList.isEmpty()) {
+            modelPref.setEnabled(false);
+            modelPref.setSummary(R.string.pref_llm_no_models_downloaded);
         } else {
-            modelPref.setSummary("%s");
+            modelPref.setEnabled(true);
+            // Update summary based on selection
+            String selectedValue = modelPref.getValue();
+            if (selectedValue != null && selectedValue.startsWith(LocalAiPreferences.IMPORTED_MODEL_PREFIX)) {
+                String filename = selectedValue.substring(LocalAiPreferences.IMPORTED_MODEL_PREFIX.length());
+                modelPref.setSummary(stripModelExtension(filename));
+            } else if (LocalAiPreferences.MANUAL_MODEL_ID.equals(selectedValue) && !TextUtils.isEmpty(manualPath)) {
+                String fileName = new java.io.File(manualPath).getName();
+                modelPref.setSummary(stripModelExtension(fileName));
+            } else {
+                modelPref.setSummary("%s");
+            }
         }
+    }
+
+    private String stripModelExtension(String filename) {
+        if (filename == null) {
+            return "";
+        }
+        if (filename.endsWith(".litertlm")) {
+            return filename.substring(0, filename.length() - 9);
+        }
+        return filename;
     }
 
     private void updateDeleteAllTranscriptionModelsSummary() {
@@ -930,7 +759,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                         ListPreference modelPref = findPreference(PREF_LOCAL_LLM_MODEL);
                         if (modelPref != null) {
                             modelPref.setValue(LocalAiPreferences.MANUAL_MODEL_ID);
-                            updateManualModelEntry(modelPref);
+                            updateDownloadedModelsDropdown(modelPref);
                         }
 
                         updateLocalLlmUI();

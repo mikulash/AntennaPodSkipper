@@ -86,24 +86,24 @@
                 android:entryValues="@array/pref_local_ad_analysis_model_values"
                 android:summary="%s" />
 
+        <Preference
+                android:key="prefLocalAdAnalysisModelHint"
+                android:summary="@string/pref_local_ad_analysis_model_hint"
+                android:selectable="false" />
+
+        <Preference
+                android:key="prefManageLlmModels"
+                android:title="@string/pref_manage_llm_models_title"
+                android:summary="@string/pref_manage_llm_models_summary" />
+
         <de.danoeh.antennapod.ui.preferences.screen.ManualModelSettingsPreference
                 android:key="prefManualModelSettings"
                 android:visible="false" />
 
         <Preference
-                android:key="prefLocalAdAnalysisDownload"
-                android:title="@string/pref_local_ad_analysis_download_title"
-                android:summary="@string/pref_local_ad_analysis_download_summary" />
-
-        <Preference
                 android:key="prefLocalAdAnalysisImport"
-                android:title="Import Model File (Manual)"
-                android:summary="Import a downloaded .litertlm model file" />
-
-        <Preference
-                android:key="prefLocalAdAnalysisDelete"
-                android:title="@string/pref_local_ad_analysis_delete_title"
-                android:summary="@string/pref_local_ad_analysis_delete_summary" />
+                android:title="@string/pref_local_ad_analysis_import_title"
+                android:summary="@string/pref_local_ad_analysis_import_summary" />
 
         <Preference
                 android:key="prefDeleteAllLlmModels"
