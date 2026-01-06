@@ -1,5 +1,6 @@
 package de.danoeh.antennapod.ui.preferences.screen;
 
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -210,6 +211,13 @@ public class TranscriptionModelManagerFragment extends Fragment {
 
             private void startDownload(VoskModel model) {
                 String modelId = model.getId();
+
+                // Check memory before starting download
+                if (!transcriptionManager.hasEnoughMemory(modelId)) {
+                    showInsufficientMemoryDialog(model);
+                    return;
+                }
+
                 DownloadStatus status = new DownloadStatus();
                 status.isDownloading = true;
                 status.statusMessage = getString(R.string.download_starting);
@@ -311,6 +319,43 @@ public class TranscriptionModelManagerFragment extends Fragment {
                             notifyItemChanged(getBindingAdapterPosition());
                         })
                         .setNegativeButton(R.string.model_action_cancel, null)
+                        .show();
+            }
+
+            private void showInsufficientMemoryDialog(VoskModel model) {
+                long requiredMb = transcriptionManager.getMinMemoryRequired(model.getId()) / 1_000_000;
+                android.app.ActivityManager activityManager = (android.app.ActivityManager) requireContext()
+                        .getSystemService(Context.ACTIVITY_SERVICE);
+                android.app.ActivityManager.MemoryInfo memInfo = new android.app.ActivityManager.MemoryInfo();
+                activityManager.getMemoryInfo(memInfo);
+                long availableMb = (memInfo.availMem - memInfo.threshold - 100_000_000L) / 1_000_000;
+
+                // Find smaller models
+                List<VoskModel> smallerModels = new ArrayList<>();
+                for (VoskModel m : transcriptionManager.getAvailableModels()) {
+                    if (transcriptionManager.getMinMemoryRequired(m.getId()) <
+                            transcriptionManager.getMinMemoryRequired(model.getId())) {
+                        smallerModels.add(m);
+                    }
+                }
+
+                StringBuilder message = new StringBuilder();
+                message.append(getString(R.string.pref_local_transcription_insufficient_memory,
+                        model.getName(), availableMb, requiredMb));
+
+                if (!smallerModels.isEmpty()) {
+                    message.append("\n\n").append(getString(R.string.pref_local_transcription_try_smaller_model));
+                    for (VoskModel smaller : smallerModels) {
+                        long smallerMb = transcriptionManager.getMinMemoryRequired(smaller.getId()) / 1_000_000;
+                        message.append("\n• ").append(smaller.getName())
+                                .append(" (").append(smallerMb).append(" MB)");
+                    }
+                }
+
+                new AlertDialog.Builder(requireContext())
+                        .setTitle(R.string.pref_local_transcription_memory_error_title)
+                        .setMessage(message.toString())
+                        .setPositiveButton(android.R.string.ok, null)
                         .show();
             }
         }

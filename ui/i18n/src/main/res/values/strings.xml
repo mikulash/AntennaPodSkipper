@@ -1085,6 +1085,10 @@
     <string name="pref_local_transcription_info">On-device transcription uses the Vosk speech recognition engine. Transcription happens entirely on your phone - no audio is sent to the cloud. The OpenAI API is still used for ad segment analysis.</string>
     <string name="pref_local_transcription_memory_warning_title">Model may be too large</string>
     <string name="pref_local_transcription_memory_warning">This model requires approximately %1$d MB of RAM, but your device\'s per-app limit is around %2$d MB. The app may crash when loading this model. Consider using a smaller model instead.</string>
+    <string name="pref_local_transcription_memory_error_title">Insufficient Memory</string>
+    <string name="pref_local_transcription_insufficient_memory">Not enough system RAM to download %1$s. Available: %2$d MB, Required: %3$d MB.</string>
+    <string name="pref_local_transcription_try_smaller_model">Try one of these smaller models instead:</string>
+    <string name="transcription_insufficient_memory_error">Transcription failed: Not enough memory. Please select a smaller model in AI Preferences.</string>
 
     <string name="pref_manage_transcription_models_title">Manage Models</string>
     <string name="pref_manage_transcription_models_summary">Download, delete, and view available transcription models</string>

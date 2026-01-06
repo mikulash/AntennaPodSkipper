@@ -74,6 +74,9 @@ public class TranscriptionWorker extends Worker {
                     modelOverride, languageOverride);
         } catch (Exception e) {
             Log.e(TAG, "Transcription provider could not be created", e);
+            if (isMemoryError(e)) {
+                notifyInsufficientMemory(e);
+            }
             closeProvider(transcriptionProvider);
             return Result.failure();
         }
@@ -275,6 +278,37 @@ public class TranscriptionWorker extends Worker {
                     getApplicationContext().getString(R.string.ad_analysis_invalid_key)));
         } catch (Exception e) {
             Log.w(TAG, "Failed to notify user about invalid OpenAI API key", e);
+        }
+    }
+
+    private boolean isMemoryError(Throwable throwable) {
+        if (throwable == null) {
+            return false;
+        }
+        String message = throwable.getMessage();
+        if (message != null) {
+            String normalized = message.toLowerCase(Locale.US);
+            if (normalized.contains("not enough memory") || normalized.contains("insufficient memory")
+                    || normalized.contains("not enough system ram")) {
+                return true;
+            }
+        }
+        return isMemoryError(throwable.getCause());
+    }
+
+    private void notifyInsufficientMemory(Throwable throwable) {
+        try {
+            String message = getApplicationContext().getString(R.string.transcription_insufficient_memory_error);
+
+            // Try to extract the model name and required memory from the error message
+            String errorMsg = throwable.getMessage();
+            if (errorMsg != null && errorMsg.contains("Required:")) {
+                message = errorMsg; // Use the detailed error message
+            }
+
+            EventBus.getDefault().post(new MessageEvent(message));
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to notify user about insufficient memory", e);
         }
     }
 }
