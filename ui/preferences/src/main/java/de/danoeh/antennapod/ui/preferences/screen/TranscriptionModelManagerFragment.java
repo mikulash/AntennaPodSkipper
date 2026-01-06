@@ -10,6 +10,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -34,6 +35,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager;
 import de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel;
@@ -159,6 +161,7 @@ public class TranscriptionModelManagerFragment extends Fragment {
             Button actionButton;
             ProgressBar progressBar;
             TextView statusText;
+            ImageButton cancelButton;
 
             public ModelItemViewHolder(@NonNull View itemView) {
                 super(itemView);
@@ -167,6 +170,7 @@ public class TranscriptionModelManagerFragment extends Fragment {
                 actionButton = itemView.findViewById(R.id.actionButton);
                 progressBar = itemView.findViewById(R.id.progressBar);
                 statusText = itemView.findViewById(R.id.statusText);
+                cancelButton = itemView.findViewById(R.id.cancelButton);
             }
 
             public void bind(VoskModel model) {
@@ -181,8 +185,10 @@ public class TranscriptionModelManagerFragment extends Fragment {
                     actionButton.setVisibility(View.GONE);
                     progressBar.setVisibility(View.VISIBLE);
                     statusText.setVisibility(View.VISIBLE);
+                    cancelButton.setVisibility(View.VISIBLE);
                     progressBar.setProgress(status.progress);
                     statusText.setText(status.statusMessage);
+                    cancelButton.setOnClickListener(v -> cancelDownload(model));
                 } else if (isDownloaded) {
                     // Downloaded state
                     actionButton.setVisibility(View.VISIBLE);
@@ -190,6 +196,7 @@ public class TranscriptionModelManagerFragment extends Fragment {
                     actionButton.setOnClickListener(v -> confirmDelete(model));
                     progressBar.setVisibility(View.GONE);
                     statusText.setVisibility(View.GONE);
+                    cancelButton.setVisibility(View.GONE);
                 } else {
                     // Not downloaded state
                     actionButton.setVisibility(View.VISIBLE);
@@ -197,6 +204,7 @@ public class TranscriptionModelManagerFragment extends Fragment {
                     actionButton.setOnClickListener(v -> startDownload(model));
                     progressBar.setVisibility(View.GONE);
                     statusText.setVisibility(View.GONE);
+                    cancelButton.setVisibility(View.GONE);
                 }
             }
 
@@ -211,10 +219,10 @@ public class TranscriptionModelManagerFragment extends Fragment {
                     notifyItemChanged(startPos);
                 }
 
-                executorService.execute(() -> {
+                Future<?> downloadTask = executorService.submit(() -> {
                     try {
-                        transcriptionManager.downloadModel(modelId, (progress, currentBytes, totalBytes) -> {
-                            if (getActivity() == null) {
+                        boolean success = transcriptionManager.downloadModel(modelId, (progress, currentBytes, totalBytes) -> {
+                            if (getActivity() == null || Thread.currentThread().isInterrupted()) {
                                 return;
                             }
                             requireActivity().runOnUiThread(() -> {
@@ -235,17 +243,24 @@ public class TranscriptionModelManagerFragment extends Fragment {
                             });
                         });
 
-                        if (getActivity() == null) {
+                        if (getActivity() == null || Thread.currentThread().isInterrupted()) {
                             return;
                         }
+
                         requireActivity().runOnUiThread(() -> {
+                            // Check if download was already canceled (status removed from map)
+                            boolean wasCanceled = !downloadStatusMap.containsKey(modelId);
                             downloadStatusMap.remove(modelId);
                             int currentPos = findPositionByModelId(modelId);
                             if (currentPos >= 0) {
                                 notifyItemChanged(currentPos);
                             }
-                            Toast.makeText(requireContext(), R.string.pref_local_transcription_download_complete,
-                                    Toast.LENGTH_SHORT).show();
+
+                            // Only show success message if download completed and wasn't canceled
+                            if (success && !wasCanceled) {
+                                Toast.makeText(requireContext(), R.string.pref_local_transcription_download_complete,
+                                        Toast.LENGTH_SHORT).show();
+                            }
                         });
                     } catch (Exception e) {
                         Log.e(TAG, "Download failed", e);
@@ -253,17 +268,38 @@ public class TranscriptionModelManagerFragment extends Fragment {
                             return;
                         }
                         requireActivity().runOnUiThread(() -> {
+                            // Check if download was already canceled (status removed from map)
+                            boolean wasCanceled = !downloadStatusMap.containsKey(modelId);
                             downloadStatusMap.remove(modelId);
                             int currentPos = findPositionByModelId(modelId);
                             if (currentPos >= 0) {
                                 notifyItemChanged(currentPos);
                             }
-                            Toast.makeText(requireContext(),
-                                    getString(R.string.pref_local_transcription_download_failed, e.getMessage()),
-                                    Toast.LENGTH_SHORT).show();
+                            // Only show error message if download wasn't canceled
+                            if (!wasCanceled) {
+                                Toast.makeText(requireContext(),
+                                        getString(R.string.pref_local_transcription_download_failed, e.getMessage()),
+                                        Toast.LENGTH_SHORT).show();
+                            }
                         });
                     }
                 });
+                status.downloadTask = downloadTask;
+            }
+
+            private void cancelDownload(VoskModel model) {
+                String modelId = model.getId();
+                DownloadStatus status = downloadStatusMap.get(modelId);
+                if (status != null && status.downloadTask != null) {
+                    status.downloadTask.cancel(true);
+                    downloadStatusMap.remove(modelId);
+                    int currentPos = findPositionByModelId(modelId);
+                    if (currentPos >= 0) {
+                        notifyItemChanged(currentPos);
+                    }
+                    Toast.makeText(requireContext(), R.string.download_canceled_msg,
+                            Toast.LENGTH_SHORT).show();
+                }
             }
 
             private void confirmDelete(VoskModel model) {
@@ -313,5 +349,6 @@ public class TranscriptionModelManagerFragment extends Fragment {
         boolean isDownloading;
         int progress;
         String statusMessage;
+        Future<?> downloadTask;
     }
 }

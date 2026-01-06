@@ -369,6 +369,12 @@ public class LocalTranscriptionManager {
                 int bytesRead;
 
                 while ((bytesRead = input.read(buffer)) != -1) {
+                    // Check if thread is interrupted (for cancellation)
+                    if (Thread.currentThread().isInterrupted()) {
+                        Log.i(TAG, "Download interrupted for model");
+                        return false;
+                    }
+
                     output.write(buffer, 0, bytesRead);
                     totalRead += bytesRead;
 
@@ -713,7 +719,7 @@ public class LocalTranscriptionManager {
             throw new IllegalStateException("Model not loaded. Call loadModel() first.");
         }
 
-        Log.i(TAG, "Transcribing: " + audioFile.getName());
+        Log.i(TAG, "Transcribing with model " + loadedModelName + ": " + audioFile.getName());
 
         // Convert audio to 16kHz mono PCM
         short[] audioData = loadAndResampleAudio(audioFile);
@@ -773,7 +779,8 @@ public class LocalTranscriptionManager {
             throw new IllegalStateException("Model not loaded. Call loadModel() first.");
         }
 
-        Log.i(TAG, "Transcribing chunk: " + audioFile.getName() + " with offset " + offsetSeconds + "s");
+        Log.i(TAG, "Transcribing chunk with model " + loadedModelName + ": " + audioFile.getName()
+                + " with offset " + offsetSeconds + "s");
 
         short[] audioData = loadAndResampleAudio(audioFile);
 
