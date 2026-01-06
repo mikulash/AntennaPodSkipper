@@ -201,15 +201,22 @@ public class TranscriptionModelManagerFragment extends Fragment {
             }
 
             private void startDownload(VoskModel model) {
+                String modelId = model.getId();
                 DownloadStatus status = new DownloadStatus();
                 status.isDownloading = true;
-                status.statusMessage = "Starting...";
-                downloadStatusMap.put(model.getId(), status);
-                notifyItemChanged(getBindingAdapterPosition());
+                status.statusMessage = getString(R.string.download_starting);
+                downloadStatusMap.put(modelId, status);
+                int startPos = findPositionByModelId(modelId);
+                if (startPos >= 0) {
+                    notifyItemChanged(startPos);
+                }
 
                 executorService.execute(() -> {
                     try {
-                        transcriptionManager.downloadModel(model.getId(), (progress, currentBytes, totalBytes) -> {
+                        transcriptionManager.downloadModel(modelId, (progress, currentBytes, totalBytes) -> {
+                            if (getActivity() == null) {
+                                return;
+                            }
                             requireActivity().runOnUiThread(() -> {
                                 if (progress < 0) {
                                     status.progress = 0; // or indeterminate
@@ -221,22 +228,39 @@ public class TranscriptionModelManagerFragment extends Fragment {
                                     status.statusMessage = Math.round(currentBytes / 1024f / 1024f) + "MB / "
                                             + Math.round(totalBytes / 1024f / 1024f) + "MB";
                                 }
-                                notifyItemChanged(getBindingAdapterPosition());
+                                int currentPos = findPositionByModelId(modelId);
+                                if (currentPos >= 0) {
+                                    notifyItemChanged(currentPos);
+                                }
                             });
                         });
 
+                        if (getActivity() == null) {
+                            return;
+                        }
                         requireActivity().runOnUiThread(() -> {
-                            downloadStatusMap.remove(model.getId());
-                            notifyItemChanged(getBindingAdapterPosition());
-                            Toast.makeText(requireContext(), "Download complete", Toast.LENGTH_SHORT).show();
+                            downloadStatusMap.remove(modelId);
+                            int currentPos = findPositionByModelId(modelId);
+                            if (currentPos >= 0) {
+                                notifyItemChanged(currentPos);
+                            }
+                            Toast.makeText(requireContext(), R.string.pref_local_transcription_download_complete,
+                                    Toast.LENGTH_SHORT).show();
                         });
                     } catch (Exception e) {
                         Log.e(TAG, "Download failed", e);
+                        if (getActivity() == null) {
+                            return;
+                        }
                         requireActivity().runOnUiThread(() -> {
-                            downloadStatusMap.remove(model.getId());
-                            notifyItemChanged(getBindingAdapterPosition());
-                            Toast.makeText(requireContext(), "Download failed: " + e.getMessage(), Toast.LENGTH_SHORT)
-                                    .show();
+                            downloadStatusMap.remove(modelId);
+                            int currentPos = findPositionByModelId(modelId);
+                            if (currentPos >= 0) {
+                                notifyItemChanged(currentPos);
+                            }
+                            Toast.makeText(requireContext(),
+                                    getString(R.string.pref_local_transcription_download_failed, e.getMessage()),
+                                    Toast.LENGTH_SHORT).show();
                         });
                     }
                 });
@@ -266,6 +290,16 @@ public class TranscriptionModelManagerFragment extends Fragment {
             public void bind(String header) {
                 title.setText(header);
             }
+        }
+
+        private int findPositionByModelId(String modelId) {
+            for (int i = 0; i < items.size(); i++) {
+                Object item = items.get(i);
+                if (item instanceof VoskModel && modelId.equals(((VoskModel) item).getId())) {
+                    return i;
+                }
+            }
+            return -1;
         }
     }
 

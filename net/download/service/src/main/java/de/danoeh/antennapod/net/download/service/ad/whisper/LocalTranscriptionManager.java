@@ -53,50 +53,6 @@ public class LocalTranscriptionManager {
                 "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip", 128_000_000L));
         AVAILABLE_MODELS.add(new VoskModel("vosk-model-en-us-0.22", "English (US) Large", "English",
                 "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip", 1_800_000_000L));
-
-        // Czech
-        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-cs-0.4", "Czech Small", "Czech",
-                "https://alphacephei.com/vosk/models/vosk-model-small-cs-0.4-rhasspy.zip", 42_000_000L));
-
-        // German
-        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-de-0.15", "German Small", "German",
-                "https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip", 45_000_000L));
-
-        // French
-        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-fr-0.22", "French Small", "French",
-                "https://alphacephei.com/vosk/models/vosk-model-small-fr-0.22.zip", 41_000_000L));
-
-        // Spanish
-        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-es-0.42", "Spanish Small", "Spanish",
-                "https://alphacephei.com/vosk/models/vosk-model-small-es-0.42.zip", 39_000_000L));
-
-        // Italian
-        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-it-0.22", "Italian Small", "Italian",
-                "https://alphacephei.com/vosk/models/vosk-model-small-it-0.22.zip", 49_000_000L));
-
-        // Portuguese
-        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-pt-0.3", "Portuguese Small", "Portuguese",
-                "https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip", 31_000_000L));
-
-        // Russian
-        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-ru-0.22", "Russian Small", "Russian",
-                "https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip", 45_000_000L));
-
-        // Turkish
-        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-tr-0.3", "Turkish Small", "Turkish",
-                "https://alphacephei.com/vosk/models/vosk-model-small-tr-0.3.zip", 35_000_000L));
-
-        // Vietnamese
-        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-vn-0.4", "Vietnamese Small", "Vietnamese",
-                "https://alphacephei.com/vosk/models/vosk-model-small-vn-0.4.zip", 32_000_000L));
-
-        // Chinese
-        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-cn-0.22", "Chinese Small", "Chinese",
-                "https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip", 42_000_000L));
-
-        // Japanese
-        AVAILABLE_MODELS.add(new VoskModel("vosk-model-small-ja-0.22", "Japanese Small", "Japanese",
-                "https://alphacephei.com/vosk/models/vosk-model-small-ja-0.22.zip", 48_000_000L));
     }
 
     // Audio processing constants
