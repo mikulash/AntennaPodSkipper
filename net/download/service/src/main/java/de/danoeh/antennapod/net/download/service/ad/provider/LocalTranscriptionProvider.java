@@ -12,7 +12,8 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Locale;
 
-import de.danoeh.antennapod.net.download.service.ad.vosk.LocalTranscriptionManager;
+import de.danoeh.antennapod.net.download.service.ad.transcription.TranscriptionManager;
+import de.danoeh.antennapod.net.download.service.ad.vosk.VoskTranscriptionManager;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
@@ -22,7 +23,7 @@ public class LocalTranscriptionProvider implements TranscriptionProvider {
     // No audio size limit for local transcription
     private static final long MAX_AUDIO_BYTES = Long.MAX_VALUE;
 
-    private final LocalTranscriptionManager transcriptionManager;
+    private final TranscriptionManager transcriptionManager;
     private final String localModelName;
 
     public LocalTranscriptionProvider(Context context) throws IOException {
@@ -30,14 +31,14 @@ public class LocalTranscriptionProvider implements TranscriptionProvider {
     }
 
     public LocalTranscriptionProvider(Context context, String overrideModelId) throws IOException {
-        this.transcriptionManager = new LocalTranscriptionManager(context);
+        this.transcriptionManager = new VoskTranscriptionManager(context);
 
         String selectedLocalModel = overrideModelId;
         if (TextUtils.isEmpty(selectedLocalModel)) {
             selectedLocalModel = LocalAiPreferences.getLocalTranscriptionModel(context);
         }
         if (TextUtils.isEmpty(selectedLocalModel)) {
-            selectedLocalModel = LocalTranscriptionManager.DEFAULT_MODEL_ID;
+            selectedLocalModel = VoskTranscriptionManager.DEFAULT_MODEL_ID;
         }
         this.localModelName = selectedLocalModel;
 

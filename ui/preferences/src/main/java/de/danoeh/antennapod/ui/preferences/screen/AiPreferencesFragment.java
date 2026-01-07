@@ -27,7 +27,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import java.io.InputStream;
 import android.net.Uri;
 
-import de.danoeh.antennapod.net.download.service.ad.vosk.LocalTranscriptionManager;
+import de.danoeh.antennapod.net.download.service.ad.vosk.VoskTranscriptionManager;
 import de.danoeh.antennapod.net.download.service.ad.litert.LlmModel;
 import de.danoeh.antennapod.net.download.service.ad.vosk.VoskModel;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
@@ -60,7 +60,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private static final String PREF_DELETE_ALL_TRANSCRIPTION_MODELS = "prefDeleteAllTranscriptionModels";
     private static final String PREF_DELETE_ALL_LLM_MODELS = "prefDeleteAllLlmModels";
 
-    private LocalTranscriptionManager transcriptionManager;
+    private VoskTranscriptionManager transcriptionManager;
     private de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager llmManager;
     private ExecutorService downloadExecutor;
     private volatile boolean isDownloading = false;
@@ -70,7 +70,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         addPreferencesFromResource(R.xml.preferences_ai);
 
-        transcriptionManager = new LocalTranscriptionManager(requireContext());
+        transcriptionManager = new VoskTranscriptionManager(requireContext());
         llmManager = new de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager(requireContext());
 
         downloadExecutor = Executors.newSingleThreadExecutor();

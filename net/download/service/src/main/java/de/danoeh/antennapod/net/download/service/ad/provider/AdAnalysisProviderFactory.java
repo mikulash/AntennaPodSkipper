@@ -8,7 +8,7 @@ import androidx.annotation.RequiresApi;
 
 import java.io.IOException;
 
-import de.danoeh.antennapod.net.download.service.ad.vosk.LocalTranscriptionManager;
+import de.danoeh.antennapod.net.download.service.ad.vosk.VoskTranscriptionManager;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**
@@ -91,7 +91,7 @@ public final class AdAnalysisProviderFactory {
             return false;
         }
         String localModel = LocalAiPreferences.getLocalTranscriptionModel(context);
-        LocalTranscriptionManager manager = new LocalTranscriptionManager(context);
+        VoskTranscriptionManager manager = new VoskTranscriptionManager(context);
         return manager.isModelDownloaded(localModel);
     }
 }

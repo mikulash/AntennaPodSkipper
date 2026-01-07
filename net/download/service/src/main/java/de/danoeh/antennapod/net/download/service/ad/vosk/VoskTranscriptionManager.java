@@ -31,15 +31,16 @@ import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import de.danoeh.antennapod.net.download.service.ad.transcription.TranscriptionManager;
+
 /**
- * Manages local speech recognition model download and on-device transcription
- * using Vosk.
+ * Manages Vosk speech recognition model download and on-device transcription.
  * Vosk is a lightweight, offline speech recognition toolkit that works well on
  * Android.
  */
 @RequiresApi(api = Build.VERSION_CODES.O)
-public class LocalTranscriptionManager {
-    private static final String TAG = "LocalTranscriptionMgr";
+public class VoskTranscriptionManager implements TranscriptionManager {
+    private static final String TAG = "VoskTranscriptionMgr";
 
     // Models
     public static final String DEFAULT_MODEL_ID = "vosk-model-small-en-us-0.15";
@@ -65,7 +66,7 @@ public class LocalTranscriptionManager {
     private volatile String loadedModelName = null;
     private volatile Exception loadingException = null;
 
-    public LocalTranscriptionManager(Context context) {
+    public VoskTranscriptionManager(Context context) {
         this.context = context.getApplicationContext();
     }
 
@@ -115,6 +116,7 @@ public class LocalTranscriptionManager {
     /**
      * Checks if a model is downloaded and ready to use.
      */
+    @Override
     public boolean isModelDownloaded(String modelName) {
         File modelPath = getModelPath(modelName);
         // Check for key model files
@@ -145,6 +147,7 @@ public class LocalTranscriptionManager {
     /**
      * Gets the minimum memory required to load a model.
      */
+    @Override
     public long getMinMemoryRequired(String modelId) {
         VoskModel model = getModelById(modelId);
         long size = (model != null) ? model.getSize() : 0;
@@ -168,6 +171,7 @@ public class LocalTranscriptionManager {
      * Note: Native libraries like Vosk allocate memory outside the Java heap,
      * so we check system-wide available memory instead of just Java heap.
      */
+    @Override
     public boolean hasEnoughMemory(String modelName) {
         android.app.ActivityManager activityManager = (android.app.ActivityManager) context
                 .getSystemService(Context.ACTIVITY_SERVICE);
@@ -581,6 +585,7 @@ public class LocalTranscriptionManager {
      * This method blocks until the model is loaded or fails.
      * For large models, consider using loadModelAsync() instead.
      */
+    @Override
     public synchronized void loadModel(String modelName) throws IOException {
         if (isModelLoaded && modelName.equals(loadedModelName)) {
             return; // Already loaded
@@ -698,6 +703,7 @@ public class LocalTranscriptionManager {
     /**
      * Unloads the model from memory.
      */
+    @Override
     public synchronized void unloadModel() {
         if (model != null) {
             model.close();
@@ -774,6 +780,7 @@ public class LocalTranscriptionManager {
      * @param offsetSeconds Time offset to add to timestamps
      * @return WebVTT formatted transcription for this chunk
      */
+    @Override
     public String transcribeChunk(File audioFile, double offsetSeconds) throws IOException {
         if (!isModelLoaded || model == null) {
             throw new IllegalStateException("Model not loaded. Call loadModel() first.");

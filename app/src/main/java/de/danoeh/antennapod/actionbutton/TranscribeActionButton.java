@@ -19,7 +19,7 @@ import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.net.download.service.ad.TranscriptionWorkScheduler;
-import de.danoeh.antennapod.net.download.service.ad.vosk.LocalTranscriptionManager;
+import de.danoeh.antennapod.net.download.service.ad.vosk.VoskTranscriptionManager;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.ui.screen.preferences.PreferenceActivity;
@@ -75,7 +75,7 @@ public class TranscribeActionButton extends ItemActionButton {
         // Check local model availability (only if not using feed cloud override)
         if (!feedUsesCloudModel && LocalAiPreferences.isLocalTranscriptionEnabled(context)) {
             String model = LocalAiPreferences.getLocalTranscriptionModel(context);
-            if (!new LocalTranscriptionManager(context).isModelDownloaded(model)) {
+            if (!new VoskTranscriptionManager(context).isModelDownloaded(model)) {
                 new MaterialAlertDialogBuilder(context)
                         .setTitle(R.string.ad_analysis_model_missing_title)
                         .setMessage(R.string.ad_analysis_model_missing_message)

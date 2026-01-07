@@ -14,7 +14,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import de.danoeh.antennapod.net.download.service.ad.vosk.LocalTranscriptionManager.DownloadProgressListener;
+import de.danoeh.antennapod.net.download.service.ad.vosk.VoskTranscriptionManager.DownloadProgressListener;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**
@@ -249,7 +249,7 @@ public class LiteRtLLMManager {
     }
 
     // specific download logic (simplified version of what's in
-    // LocalTranscriptionManager)
+    // VoskTranscriptionManager)
     private boolean downloadFile(String urlString, File outputFile, DownloadProgressListener listener, String authToken)
             throws IOException {
         File tempFile = new File(outputFile.getAbsolutePath() + ".tmp");

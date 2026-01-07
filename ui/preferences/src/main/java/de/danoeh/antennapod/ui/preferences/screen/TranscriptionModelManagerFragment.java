@@ -38,14 +38,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import de.danoeh.antennapod.net.download.service.ad.vosk.LocalTranscriptionManager;
+import de.danoeh.antennapod.net.download.service.ad.vosk.VoskTranscriptionManager;
 import de.danoeh.antennapod.net.download.service.ad.vosk.VoskModel;
 import de.danoeh.antennapod.ui.preferences.R;
 
 public class TranscriptionModelManagerFragment extends Fragment {
     private static final String TAG = "TranscriptionModelMgr";
 
-    private LocalTranscriptionManager transcriptionManager;
+    private VoskTranscriptionManager transcriptionManager;
     private RecyclerView recyclerView;
     private ModelAdapter adapter;
     private ExecutorService executorService;
@@ -68,7 +68,7 @@ public class TranscriptionModelManagerFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        transcriptionManager = new LocalTranscriptionManager(requireContext());
+        transcriptionManager = new VoskTranscriptionManager(requireContext());
         executorService = Executors.newSingleThreadExecutor();
     }
 
