@@ -13,7 +13,7 @@ import java.security.GeneralSecurityException;
 
 /**
  * Local AI (on-device) preference storage.
- * Keeps LiteRT/OpenWhisper settings separate from cloud OpenAI configuration.
+ * Keeps LiteRT/Vosk settings separate from cloud OpenAI configuration.
  */
 public final class LocalAiPreferences {
     private static final String TAG = "LocalAiPreferences";

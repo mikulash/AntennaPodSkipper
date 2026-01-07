@@ -14,7 +14,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager.DownloadProgressListener;
+import de.danoeh.antennapod.net.download.service.ad.vosk.LocalTranscriptionManager.DownloadProgressListener;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**
@@ -68,11 +68,6 @@ public class LiteRtLLMManager {
 
     public boolean isModelDownloaded(String modelId) {
         File file = getModelPath(modelId);
-        return file.exists() && file.length() > 0;
-    }
-
-    public boolean isModelDownloaded(LlmModel model) {
-        File file = getModelPath(model);
         return file.exists() && file.length() > 0;
     }
 

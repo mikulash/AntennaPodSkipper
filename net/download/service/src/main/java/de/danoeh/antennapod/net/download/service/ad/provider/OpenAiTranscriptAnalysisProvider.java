@@ -20,8 +20,8 @@ import java.util.regex.Pattern;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
-public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
-    private static final String TAG = "OpenAiAdAnalysisProv";
+public class OpenAiTranscriptAnalysisProvider implements TranscriptAnalysisProvider {
+    private static final String TAG = "OpenAiTranscriptAnalysisProv";
     private static final String DEFAULT_MODEL_NAME = "gpt-5-nano";
 
     // Pricing (Estimated)
@@ -42,7 +42,7 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
     private final OpenAIClient client;
     private final String modelName;
 
-    public OpenAiAdAnalysisProvider(Context context) {
+    public OpenAiTranscriptAnalysisProvider(Context context) {
         this.context = context;
         String apiKey = OpenAiPreferences.getApiKey(context);
         if (TextUtils.isEmpty(apiKey)) {

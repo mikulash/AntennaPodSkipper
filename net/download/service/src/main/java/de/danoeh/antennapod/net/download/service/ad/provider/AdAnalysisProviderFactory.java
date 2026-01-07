@@ -8,12 +8,13 @@ import androidx.annotation.RequiresApi;
 
 import java.io.IOException;
 
-import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager;
+import de.danoeh.antennapod.net.download.service.ad.vosk.LocalTranscriptionManager;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**
- * Factory to construct the configured ad analysis provider.
- * Supports both cloud-based (OpenAI Whisper) and local (Vosk) transcription.
+ * Factory to construct providers for the ad analysis workflow.
+ * Creates both transcription providers (audio → text) and transcript analysis providers (text → ads).
+ * Supports cloud-based (OpenAI) and local (Vosk/LiteRT-LM) providers.
  */
 @RequiresApi(api = Build.VERSION_CODES.O)
 public final class AdAnalysisProviderFactory {
@@ -68,16 +69,16 @@ public final class AdAnalysisProviderFactory {
     }
 
     /**
-     * Creates the appropriate ad analysis provider based on user preferences.
+     * Creates the appropriate transcript analysis provider based on user preferences.
      * Uses LiteRT-LM 0.8.1+ with .litertlm format models.
      */
-    public static AdAnalysisProvider createAnalysisProvider(Context context) throws IOException {
+    public static TranscriptAnalysisProvider createAnalysisProvider(Context context) throws IOException {
         if (LocalAiPreferences.isLocalAdAnalysisEnabled(context)) {
-            Log.i(TAG, "Creating LocalAdAnalysisProvider with LiteRT-LM");
-            return new LocalAdAnalysisProvider(context);
+            Log.i(TAG, "Creating LocalTranscriptAnalysisProvider with LiteRT-LM");
+            return new LocalTranscriptAnalysisProvider(context);
         } else {
-            Log.i(TAG, "Creating OpenAiAdAnalysisProvider");
-            return new OpenAiAdAnalysisProvider(context);
+            Log.i(TAG, "Creating OpenAiTranscriptAnalysisProvider");
+            return new OpenAiTranscriptAnalysisProvider(context);
         }
     }
 

@@ -282,8 +282,8 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
         ListPreference languagePref = findPreference(PREF_FEED_TRANSCRIPTION_LANGUAGE);
 
         if (modelPref != null) {
-            de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager tm =
-                    new de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager(requireContext());
+            de.danoeh.antennapod.net.download.service.ad.vosk.LocalTranscriptionManager tm =
+                    new de.danoeh.antennapod.net.download.service.ad.vosk.LocalTranscriptionManager(requireContext());
 
             String currentModel = feedPreferences.getTranscriptionModel();
             if (currentModel == null) {
@@ -311,12 +311,12 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     }
 
     private void showTranscriptionModelDialog(Preference modelPref, ListPreference languagePref,
-            de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager tm,
+            de.danoeh.antennapod.net.download.service.ad.vosk.LocalTranscriptionManager tm,
             String initialModel) {
 
-        java.util.List<de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel> models = tm.getAvailableModels();
-        java.util.List<de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel> downloadedModels = new java.util.ArrayList<>();
-        for (de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel model : models) {
+        java.util.List<de.danoeh.antennapod.net.download.service.ad.vosk.VoskModel> models = tm.getAvailableModels();
+        java.util.List<de.danoeh.antennapod.net.download.service.ad.vosk.VoskModel> downloadedModels = new java.util.ArrayList<>();
+        for (de.danoeh.antennapod.net.download.service.ad.vosk.VoskModel model : models) {
             if (tm.isModelDownloaded(model.getId())) {
                 downloadedModels.add(model);
             }
@@ -361,7 +361,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
                     com.google.android.material.R.color.material_on_surface_emphasis_medium));
             radioGroup.addView(localHeader);
 
-            for (de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel m : downloadedModels) {
+            for (de.danoeh.antennapod.net.download.service.ad.vosk.VoskModel m : downloadedModels) {
                 android.widget.RadioButton rb = new android.widget.RadioButton(requireContext());
                 rb.setText(m.getName());
                 rb.setId(radioButtonId++);
@@ -440,13 +440,13 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     }
 
     private void updateTranscriptionModelSummary(Preference modelPref, String currentModel,
-            de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager tm) {
+            de.danoeh.antennapod.net.download.service.ad.vosk.LocalTranscriptionManager tm) {
         if ("global_default".equals(currentModel) || currentModel == null) {
             modelPref.setSummary(getString(R.string.global_default));
         } else if (CLOUD_MODEL_OPENAI_WHISPER.equals(currentModel)) {
             modelPref.setSummary(getString(R.string.transcription_cloud_openai_whisper));
         } else {
-            de.danoeh.antennapod.net.download.service.ad.whisper.VoskModel m = tm.getModelById(currentModel);
+            de.danoeh.antennapod.net.download.service.ad.vosk.VoskModel m = tm.getModelById(currentModel);
             String label = (m != null) ? m.getName() : currentModel;
             if (!tm.isModelDownloaded(currentModel)) {
                 label += " (" + getString(R.string.not_downloaded) + ")";

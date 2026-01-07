@@ -33,7 +33,7 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.storage.database.DBReader;
-import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProvider;
+import de.danoeh.antennapod.net.download.service.ad.provider.TranscriptAnalysisProvider;
 import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProviderFactory;
 
 import org.greenrobot.eventbus.EventBus;
@@ -80,7 +80,7 @@ public class AdAnalysisWorker extends Worker {
             return Result.failure();
         }
 
-        AdAnalysisProvider analysisProvider = null;
+        TranscriptAnalysisProvider analysisProvider = null;
 
         try {
             analysisProvider = AdAnalysisProviderFactory.createAnalysisProvider(getApplicationContext());
@@ -141,7 +141,7 @@ public class AdAnalysisWorker extends Worker {
         return null;
     }
 
-    private void closeProvider(AdAnalysisProvider ap) {
+    private void closeProvider(TranscriptAnalysisProvider ap) {
         if (ap != null) {
             try {
                 ap.close();

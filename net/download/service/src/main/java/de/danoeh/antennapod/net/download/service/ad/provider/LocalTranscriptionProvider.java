@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Locale;
 
-import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager;
+import de.danoeh.antennapod.net.download.service.ad.vosk.LocalTranscriptionManager;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 @RequiresApi(api = Build.VERSION_CODES.O)

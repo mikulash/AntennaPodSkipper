@@ -21,8 +21,8 @@ import java.util.Locale;
 
 /**
  * Splits an audio file into smaller, valid container chunks using {@link MediaExtractor} and
- * {@link MediaMuxer} so that very long podcast episodes can be transcribed in multiple Whisper
- * calls without exceeding request limits.
+ * {@link MediaMuxer} so that very long podcast episodes can be transcribed in multiple
+ * API calls without exceeding request limits.
  */
 public final class AudioChunkUtils {
     private static final String TAG = "AudioChunkUtils";

@@ -20,13 +20,13 @@ import de.danoeh.antennapod.net.download.service.ad.litert.LlmModel;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**
- * Ad analysis provider that uses on-device LLM inference via LiteRT-LM 0.8.0.
+ * Transcript analysis provider that uses on-device LLM inference via LiteRT-LM 0.8.0.
  * Uses the singleton InferenceModel with .litertlm format models.
  * The model is loaded once and reused across multiple analysis requests.
  */
 @RequiresApi(api = Build.VERSION_CODES.O)
-public class LocalAdAnalysisProvider implements AdAnalysisProvider {
-    private static final String TAG = "LocalAdAnalysisProv";
+public class LocalTranscriptAnalysisProvider implements TranscriptAnalysisProvider {
+    private static final String TAG = "LocalTranscriptAnalysisProv";
     private static final String MODEL_NAME_PREFIX = "local-litert+";
 
     // Characters per token - use conservative 1:1 ratio since LLM tokenization
@@ -59,7 +59,7 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
     private final String modelId;
     private InferenceModel inferenceModel;
 
-    public LocalAdAnalysisProvider(Context context) throws IOException {
+    public LocalTranscriptAnalysisProvider(Context context) throws IOException {
         this.context = context.getApplicationContext();
         this.modelId = LocalAiPreferences.getLocalAdAnalysisModel(context);
 
@@ -329,7 +329,7 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
     public void close() {
         // Don't close the singleton - it's shared across providers
         // The singleton is closed when the app exits or model changes
-        Log.d(TAG, "LocalAdAnalysisProvider closed (singleton kept alive)");
+        Log.d(TAG, "LocalTranscriptAnalysisProvider closed (singleton kept alive)");
     }
 
     private static class TranscriptChunk {

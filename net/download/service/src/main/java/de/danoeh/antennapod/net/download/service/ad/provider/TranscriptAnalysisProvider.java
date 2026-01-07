@@ -7,7 +7,7 @@ import androidx.annotation.RequiresApi;
  * Interface for a component that can analyze text transcripts to detect ads.
  */
 @RequiresApi(api = Build.VERSION_CODES.O)
-public interface AdAnalysisProvider extends AutoCloseable {
+public interface TranscriptAnalysisProvider extends AutoCloseable {
 
     /**
      * Callback for reporting analysis progress.

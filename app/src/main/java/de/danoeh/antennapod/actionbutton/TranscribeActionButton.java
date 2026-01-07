@@ -19,7 +19,7 @@ import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.net.download.service.ad.TranscriptionWorkScheduler;
-import de.danoeh.antennapod.net.download.service.ad.whisper.LocalTranscriptionManager;
+import de.danoeh.antennapod.net.download.service.ad.vosk.LocalTranscriptionManager;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.ui.screen.preferences.PreferenceActivity;
