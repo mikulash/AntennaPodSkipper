@@ -126,44 +126,118 @@ public class TranscriptionWorker extends Worker {
         Log.i(TAG, "Transcribing " + chunkPaths.size() + " chunk(s) " + "target=" + TRANSCRIPTION_CHUNK_SECONDS
                 + "s each");
         validateChunkSizes(provider, chunkPaths);
-        int doneCount = 0;
+
+        // Parallel execution setup
+        int availableProcessors = Runtime.getRuntime().availableProcessors();
+
+        // Calculate dynamic thread count based on memory
+        long maxMemory = Runtime.getRuntime().maxMemory();
+        long usedMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+        long availableMemory = maxMemory - usedMemory;
+
+        // Conservative estimate: 64MB per thread (30-40MB audio buffer + native
+        // overhead)
+        final long MEMORY_PER_THREAD = 64 * 1024 * 1024;
+        // Keep 200MB for the rest of the app/UI to prevent OOM
+        final long SAFE_BUFFER = 200 * 1024 * 1024;
+
+        int maxThreadsByMemory = (int) ((availableMemory - SAFE_BUFFER) / MEMORY_PER_THREAD);
+        // Ensure at least 1 thread, but don't exceed processors or memory limit
+        int threadCount = Math.max(1, Math.min(availableProcessors, maxThreadsByMemory));
+
+        Log.i(TAG, "Memory stats: Max=" + (maxMemory / 1024 / 1024) + "MB, Used=" + (usedMemory / 1024 / 1024)
+                + "MB, Avail=" + (availableMemory / 1024 / 1024) + "MB. Threads: ByCPU=" + availableProcessors
+                + ", ByMem=" + maxThreadsByMemory + " -> Using " + threadCount + " threads");
+
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(threadCount);
+        List<java.util.concurrent.Future<String>> futures = new java.util.ArrayList<>();
+
         final int totalChunks = chunkPaths.size();
         final double totalProgressParts = totalChunks * 2; // request + success per chunk
-        StringBuilder combined = new StringBuilder();
+        java.util.concurrent.atomic.AtomicInteger doneCount = new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger lastReportedPercent = new java.util.concurrent.atomic.AtomicInteger(0);
+
         try {
+            // Submit all chunks
             for (int i = 0; i < chunkPaths.size(); i++) {
+                final int chunkIndex = i;
                 final Path chunkPath = chunkPaths.get(i);
-                try {
-                    if (chunkPath == null || !Files.exists(chunkPath)) {
-                        Log.e(TAG, "Chunk " + (i + 1) + " missing on disk; skipping section");
-                        doneCount++;
-                        setProgressStage("transcribing", calculatePercent(doneCount, totalProgressParts));
-                        continue;
-                    }
-                    long sizeBytes = Files.size(chunkPath);
-                    Log.i(TAG, "Transcribing chunk " + (i + 1) + "/" + chunkPaths.size()
-                            + ": " + chunkPath.getFileName() + " (" + formatBytes(sizeBytes) + ")");
-                    doneCount++;
-                    setProgressStage("transcribing", calculatePercent(doneCount, totalProgressParts));
-                    String transcription = provider.transcribeChunk(chunkPath, i, chunkPaths.size(), 2);
-                    Log.d(TAG, "Chunk transcription " + (i + 1) + " done, length=" + transcription.length());
-                    double offsetSeconds = i * TRANSCRIPTION_CHUNK_SECONDS;
-                    String adjusted = applyOffset(transcription, offsetSeconds);
-                    Log.i(TAG, "Chunk " + (i + 1) + " done, adjusted length=" + adjusted.length());
-                    doneCount++;
-                    setProgressStage("transcribing", calculatePercent(doneCount, totalProgressParts));
-                    combined.append(adjusted);
-                } catch (Exception e) {
-                    if (isUnauthorized(e)) {
+
+                futures.add(executor.submit(() -> {
+                    try {
+                        if (chunkPath == null || !Files.exists(chunkPath)) {
+                            Log.e(TAG, "Chunk " + (chunkIndex + 1) + " missing on disk; skipping section");
+                            int currentDone = doneCount.incrementAndGet();
+                            updateProgressIfIncreased(lastReportedPercent, currentDone, totalProgressParts);
+                            return "";
+                        }
+
+                        long sizeBytes = Files.size(chunkPath);
+                        Log.i(TAG, "Transcribing chunk " + (chunkIndex + 1) + "/" + totalChunks
+                                + ": " + chunkPath.getFileName() + " (" + formatBytes(sizeBytes) + ")");
+
+                        // Update progress (started part)
+                        int currentDone = doneCount.incrementAndGet();
+                        updateProgressIfIncreased(lastReportedPercent, currentDone, totalProgressParts);
+
+                        // Transcribe
+                        String transcription = provider.transcribeChunk(chunkPath, chunkIndex, totalChunks, 2);
+                        Log.d(TAG,
+                                "Chunk transcription " + (chunkIndex + 1) + " done, length=" + transcription.length());
+
+                        double offsetSeconds = chunkIndex * TRANSCRIPTION_CHUNK_SECONDS;
+                        String adjusted = applyOffset(transcription, offsetSeconds);
+
+                        // Update progress (completed part)
+                        currentDone = doneCount.incrementAndGet();
+                        updateProgressIfIncreased(lastReportedPercent, currentDone, totalProgressParts);
+
+                        return adjusted;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Chunk " + (chunkIndex + 1) + " failed", e);
+                        // Forward exception to be caught in main thread
                         throw e;
                     }
-                    Log.e(TAG, "Chunk " + (i + 1) + " failed after retries; skipping section", e);
-                    doneCount++;
-                    setProgressStage("transcribing", calculatePercent(doneCount, totalProgressParts));
+                }));
+            }
+
+            // Collect results in order
+            StringBuilder combined = new StringBuilder();
+            Exception firstException = null;
+
+            for (int i = 0; i < futures.size(); i++) {
+                try {
+                    combined.append(futures.get(i).get());
+                } catch (java.util.concurrent.ExecutionException e) {
+                    // Unwrap the exception
+                    Throwable cause = e.getCause();
+                    if (isUnauthorized(cause)) {
+                        // Immediately stop and rethrow if unauthorized
+                        executor.shutdownNow();
+                        throw (Exception) cause;
+                    }
+                    if (firstException == null && cause instanceof Exception) {
+                        firstException = (Exception) cause;
+                    }
+                    Log.e(TAG, "Failed to get result for chunk " + (i + 1), e);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Transcription interrupted", e);
                 }
             }
+
+            if (firstException != null) {
+                // Determine if we should fail the whole process or just log
+                // For now, if a chunk fails we'll have a gap, but maybe better to fail?
+                // The original code swallowed errors mostly but threw if unauthorized.
+                // We'll throw if we encountered a significant error.
+                throw firstException;
+            }
+
             return combined.toString();
+
         } finally {
+            executor.shutdownNow(); // Ensure we stop all threads if we exit early
             for (Path chunkPath : chunkPaths) {
                 try {
                     Files.deleteIfExists(chunkPath);
@@ -253,6 +327,24 @@ public class TranscriptionWorker extends Worker {
                 .putInt(PROGRESS_KEY_PERCENT, percent)
                 .build();
         setProgressAsync(progress);
+    }
+
+    /**
+     * Updates progress only if the new percentage is higher than the last reported percentage.
+     * This prevents the progress bar from going backward when chunks complete out of order.
+     */
+    private void updateProgressIfIncreased(java.util.concurrent.atomic.AtomicInteger lastReportedPercent,
+            int currentDone, double totalProgressParts) {
+        int newPercent = calculatePercent(currentDone, totalProgressParts);
+        int oldPercent = lastReportedPercent.get();
+
+        // Only update if progress increased
+        if (newPercent > oldPercent) {
+            // Use compareAndSet to avoid race conditions
+            if (lastReportedPercent.compareAndSet(oldPercent, newPercent)) {
+                setProgressStage("transcribing", newPercent);
+            }
+        }
     }
 
     private boolean isUnauthorized(Throwable throwable) {

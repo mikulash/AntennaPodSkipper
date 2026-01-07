@@ -38,6 +38,7 @@
         android:usesCleartextTraffic="true"
         android:supportsRtl="true"
         android:logo="@mipmap/ic_launcher"
+        android:largeHeap="true"
         android:resizeableActivity="true"
         android:allowAudioPlaybackCapture="true"
         android:enableOnBackInvokedCallback="true"

@@ -118,14 +118,13 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         Log.i(TAG, "Running LiteRT-LM analysis...");
 
         // Extract transcript and duration from the prompt
-        String transcript = extractTranscript(prompt);
         int durationMs = extractDuration(prompt);
 
         int maxTranscriptChars = getMaxTranscriptChunkChars();
 
         // Check if the transcript is too long and needs chunking
-        if (transcript.length() > maxTranscriptChars) {
-            return analyzeInChunks(transcript, durationMs, listener);
+        if (prompt.length() > maxTranscriptChars) {
+            return analyzeInChunks(prompt, durationMs, listener);
         }
 
         if (listener != null) {
@@ -134,7 +133,7 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
 
         // Build system message and user message separately
         String systemMessage = buildSystemMessage(durationMs, 0);
-        String userMessage = buildUserMessage(transcript);
+        String userMessage = buildUserMessage(prompt);
 
         // Reset session with system message
         inferenceModel.resetSession(systemMessage);
@@ -220,19 +219,6 @@ public class LocalAdAnalysisProvider implements AdAnalysisProvider {
         }
 
         return result;
-    }
-
-    private String extractTranscript(String prompt) {
-        int transcriptStart = prompt.indexOf("Transcript (WebVTT):");
-        if (transcriptStart >= 0) {
-            int start = transcriptStart + "Transcript (WebVTT):".length();
-            int end = prompt.lastIndexOf("Again, output only");
-            if (end > start) {
-                return prompt.substring(start, end).trim();
-            }
-            return prompt.substring(start).trim();
-        }
-        return prompt;
     }
 
     private int extractDuration(String prompt) {

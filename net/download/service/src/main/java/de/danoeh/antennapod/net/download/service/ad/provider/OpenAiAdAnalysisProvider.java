@@ -72,12 +72,11 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
         }
 
         // Extract transcript and duration from the prompt
-        String transcript = extractTranscript(prompt);
         int durationMs = extractDuration(prompt);
 
         // Build system message and user message separately
         String systemMessage = buildSystemMessage(durationMs);
-        String userMessage = buildUserMessage(transcript);
+        String userMessage = buildUserMessage(prompt);
 
         ChatModel chatModel = resolveChatModel(modelName);
         ChatCompletionCreateParams chatParams = ChatCompletionCreateParams.builder()
@@ -120,18 +119,6 @@ public class OpenAiAdAnalysisProvider implements AdAnalysisProvider {
         return "Analyze this transcript for ads:\n\n" + transcript + "\n\nOutput only JSON.";
     }
 
-    private String extractTranscript(String prompt) {
-        int transcriptStart = prompt.indexOf("Transcript (WebVTT):");
-        if (transcriptStart >= 0) {
-            int start = transcriptStart + "Transcript (WebVTT):".length();
-            int end = prompt.lastIndexOf("Again, output only");
-            if (end > start) {
-                return prompt.substring(start, end).trim();
-            }
-            return prompt.substring(start).trim();
-        }
-        return prompt;
-    }
 
     private int extractDuration(String prompt) {
         Pattern pattern = Pattern.compile("Episode duration seconds: ([\\d.]+)");

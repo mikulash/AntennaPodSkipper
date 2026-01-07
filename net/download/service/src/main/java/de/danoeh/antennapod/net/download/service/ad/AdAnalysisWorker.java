@@ -98,9 +98,7 @@ public class AdAnalysisWorker extends Worker {
 
             // Analyze the transcript with progress reporting
             Log.i(TAG, "Requesting ad classification using model " + analysisProvider.getModelName());
-            String content = analysisProvider.analyzeTranscript(
-                    buildPrompt(transcript, media.getDuration()),
-                    percent -> setProgressStage("analyzing", percent));
+            String content = analysisProvider.analyzeTranscript(transcript,percent -> setProgressStage("analyzing", percent));
             Log.i(TAG, "Model response content: " + content);
             Log.i(TAG, "Model response received, raw length=" + content.length());
             List<AdSegment> segments = mergeSegments(parseSegments(content));

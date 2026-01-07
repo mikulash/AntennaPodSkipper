@@ -910,7 +910,28 @@ public class LocalTranscriptionManager {
             codec.configure(format, null, null, 0);
             codec.start();
 
-            ByteBuffer rawAudio = ByteBuffer.allocate(1024 * 1024 * 100); // 100MB max
+            long durationUs = 0;
+            if (format.containsKey(MediaFormat.KEY_DURATION)) {
+                durationUs = format.getLong(MediaFormat.KEY_DURATION);
+            }
+
+            // Estimate required size: duration (sec) * sampleRate * channels * 2 (bytes per
+            // short)
+            int requiredBytes;
+            if (durationUs > 0) {
+                // Add 1 second buffer just in case
+                double durationSec = (durationUs / 1000000.0) + 1.0;
+                requiredBytes = (int) (durationSec * sampleRate * channels * 2);
+                // Additional safety padding of 1MB
+                requiredBytes += 1024 * 1024;
+            } else {
+                // Fallback if duration unknown: 30MB (enough for ~5 mins of 44.1kHz stereo)
+                requiredBytes = 30 * 1024 * 1024;
+            }
+
+            Log.d(TAG, "Allocating audio buffer: " + (requiredBytes / 1_000_000.0) + " MB for duration "
+                    + (durationUs / 1000000.0) + "s");
+            ByteBuffer rawAudio = ByteBuffer.allocate(requiredBytes);
             rawAudio.order(ByteOrder.LITTLE_ENDIAN);
 
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
