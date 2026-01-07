@@ -91,9 +91,6 @@ public class OpenAiTranscriptAnalysisProvider implements TranscriptAnalysisProvi
         if (completion.choices().isEmpty()) {
             throw new IllegalStateException("AI provider returned no choices");
         }
-        Log.d(TAG, "analyzeTranscript usage: " + completion.usage());
-
-        completion.usage().ifPresent(this::trackTokenUsage);
 
         if (listener != null) {
             listener.onProgress(100);
@@ -131,18 +128,6 @@ public class OpenAiTranscriptAnalysisProvider implements TranscriptAnalysisProvi
             }
         }
         return 0;
-    }
-
-    private void trackTokenUsage(CompletionUsage usage) {
-        long input = usage.promptTokens();
-        long output = usage.completionTokens();
-        long total = usage.totalTokens();
-
-        OpenAiPreferences.addAnalysisTokens(context, total);
-
-        double cost = (input / 1_000_000.0 * PRICE_INPUT_PER_1M)
-                + (output / 1_000_000.0 * PRICE_OUTPUT_PER_1M);
-        OpenAiPreferences.addCost(context, cost);
     }
 
     private ChatModel resolveChatModel(String selectedModel) {

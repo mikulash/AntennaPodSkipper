@@ -1061,11 +1061,6 @@
     <string name="model_action_confirm">Confirm</string>
     <string name="model_action_cancel">Cancel</string>
 
-    <string name="pref_ai_stats_category">Statistics</string>
-    <string name="pref_ai_audio_transcribed">Audio Transcribed</string>
-    <string name="pref_ai_analysis_tokens">Analysis Tokens</string>
-    <string name="pref_ai_total_cost">Total Estimated Cost</string>
-
     <!-- Local transcription settings -->
     <string name="pref_local_transcription_category">On-Device Transcription</string>
     <string name="pref_local_transcription_title">Use local transcription</string>

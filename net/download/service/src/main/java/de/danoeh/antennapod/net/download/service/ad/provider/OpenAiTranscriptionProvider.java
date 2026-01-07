@@ -82,9 +82,6 @@ public class OpenAiTranscriptionProvider implements TranscriptionProvider {
                         .create(transcriptionParams);
                 Log.d(TAG, "Transcription " + chunkLabel + " response received OK");
 
-                // Track usage
-                trackAudioUsage(chunkPath);
-
                 return response.asTranscription().text();
             } catch (OpenAIIoException e) {
                 boolean last = attempt > maxRetries;
@@ -94,22 +91,6 @@ public class OpenAiTranscriptionProvider implements TranscriptionProvider {
                 }
                 Thread.sleep(500L * attempt);
             }
-        }
-    }
-
-    private void trackAudioUsage(Path chunkPath) {
-        try (MediaMetadataRetriever retriever = new MediaMetadataRetriever()) {
-            retriever.setDataSource(context, android.net.Uri.fromFile(chunkPath.toFile()));
-            String time = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
-            if (time != null) {
-                long durationMs = Long.parseLong(time);
-                OpenAiPreferences.addAudioDuration(context, durationMs);
-                double minutes = durationMs / 1000.0 / 60.0;
-                double cost = minutes * PRICE_WHISPER_PER_MIN;
-                OpenAiPreferences.addCost(context, cost);
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "Failed to track audio usage", e);
         }
     }
 
