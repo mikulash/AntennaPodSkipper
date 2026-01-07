@@ -160,11 +160,24 @@ public class TranscriptionWorker extends Worker {
         try {
             // Submit all chunks
             for (int i = 0; i < chunkPaths.size(); i++) {
+                // Check if work was cancelled before submitting next chunk
+                if (isStopped()) {
+                    Log.i(TAG, "Transcription cancelled, stopping chunk submission");
+                    executor.shutdownNow();
+                    throw new InterruptedException("Work cancelled");
+                }
+
                 final int chunkIndex = i;
                 final Path chunkPath = chunkPaths.get(i);
 
                 futures.add(executor.submit(() -> {
                     try {
+                        // Check cancellation at start of chunk processing
+                        if (Thread.currentThread().isInterrupted() || isStopped()) {
+                            Log.i(TAG, "Chunk " + (chunkIndex + 1) + " cancelled");
+                            throw new InterruptedException("Chunk processing cancelled");
+                        }
+
                         if (chunkPath == null || !Files.exists(chunkPath)) {
                             Log.e(TAG, "Chunk " + (chunkIndex + 1) + " missing on disk; skipping section");
                             int currentDone = doneCount.incrementAndGet();
@@ -206,6 +219,13 @@ public class TranscriptionWorker extends Worker {
             Exception firstException = null;
 
             for (int i = 0; i < futures.size(); i++) {
+                // Check if work was cancelled before processing next result
+                if (isStopped()) {
+                    Log.i(TAG, "Transcription cancelled while collecting results");
+                    executor.shutdownNow();
+                    throw new InterruptedException("Work cancelled");
+                }
+
                 try {
                     combined.append(futures.get(i).get());
                 } catch (java.util.concurrent.ExecutionException e) {
@@ -216,11 +236,17 @@ public class TranscriptionWorker extends Worker {
                         executor.shutdownNow();
                         throw (Exception) cause;
                     }
+                    if (cause instanceof InterruptedException) {
+                        // Chunk was cancelled
+                        executor.shutdownNow();
+                        throw new InterruptedException("Chunk cancelled");
+                    }
                     if (firstException == null && cause instanceof Exception) {
                         firstException = (Exception) cause;
                     }
                     Log.e(TAG, "Failed to get result for chunk " + (i + 1), e);
                 } catch (InterruptedException e) {
+                    executor.shutdownNow();
                     Thread.currentThread().interrupt();
                     throw new IOException("Transcription interrupted", e);
                 }
