@@ -85,6 +85,7 @@ public class SubscriptionFragment extends Fragment
     private ProgressBar progressBar;
     private CollapsingToolbarLayout collapsingContainer;
     private boolean displayUpArrow;
+    private boolean shouldShowTags = false;
 
     private Disposable disposable;
     private SharedPreferences prefs;
@@ -144,9 +145,10 @@ public class SubscriptionFragment extends Fragment
         subscriptionRecycler.addOnScrollListener(new LiftOnScrollListener(collapsingContainer));
         subscriptionAdapter = new SubscriptionsRecyclerAdapter((MainActivity) getActivity()) {
             @Override
-            public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
-                super.onCreateContextMenu(menu, v, menuInfo);
-                MenuItemUtils.setOnClickListeners(menu, SubscriptionFragment.this::onContextItemSelected);
+            protected void onSelectedItemsUpdated() {
+                super.onSelectedItemsUpdated();
+                FeedMenuHandler.onPrepareMenu(floatingSelectMenu.getMenu(), getSelectedItems());
+                floatingSelectMenu.updateItemVisibility();
             }
         };
         setColumnNumber(prefs.getInt(PREF_NUM_COLUMNS, getDefaultNumOfColumns()));
@@ -192,8 +194,12 @@ public class SubscriptionFragment extends Fragment
             subscriptionAddButton.setVisibility(View.GONE);
         }
         floatingSelectMenu.setOnMenuItemClickListener(menuItem -> {
-            new FeedMultiSelectActionHandler(getActivity(), subscriptionAdapter.getSelectedItems())
+            List<Feed> selection = subscriptionAdapter.getSelectedItems();
+            new FeedMultiSelectActionHandler(getActivity(), selection)
                     .handleAction(menuItem.getItemId());
+            if (selection.size() <= 1) {
+                subscriptionAdapter.endSelectMode();
+            }
             return true;
         });
 
@@ -405,9 +411,9 @@ public class SubscriptionFragment extends Fragment
                             restoreScrollPosition(scrollPosition);
                         }
                         emptyView.updateVisibility();
+                        shouldShowTags = false;
                         if (tagAdapter != null) {
                             tagAdapter.setTags(result.second);
-                            boolean shouldShowTags = false;
                             for (NavDrawerData.TagItem tag : result.second) {
                                 if (!FeedPreferences.TAG_ROOT.equals(tag.getTitle())
                                         && !FeedPreferences.TAG_UNTAGGED.equals(tag.getTitle())) {
@@ -416,6 +422,25 @@ public class SubscriptionFragment extends Fragment
                                 }
                             }
                             tagsRecycler.setVisibility(shouldShowTags ? View.VISIBLE : View.GONE);
+                            // Scroll to center the selected tag
+                            tagsRecycler.post(() -> {
+                                int selectedPosition = tagAdapter.getSelectedTagPosition();
+                                if (selectedPosition < 0) {
+                                    return;
+                                }
+                                LinearLayoutManager layoutManager =
+                                        (LinearLayoutManager) tagsRecycler.getLayoutManager();
+                                // Calculate offset to center the selected chip
+                                View selectedView = layoutManager.findViewByPosition(selectedPosition);
+                                if (selectedView != null) {
+                                    int recyclerWidth = tagsRecycler.getWidth();
+                                    int chipWidth = selectedView.getWidth();
+                                    int offset = (recyclerWidth - chipWidth) / 2;
+                                    layoutManager.scrollToPositionWithOffset(selectedPosition, offset);
+                                } else {
+                                    tagsRecycler.scrollToPosition(selectedPosition);
+                                }
+                            });
                         }
                     }, error -> {
                         Log.e(TAG, Log.getStackTraceString(error));
@@ -445,18 +470,6 @@ public class SubscriptionFragment extends Fragment
         return TagMenuHandler.onMenuItemClicked(this, selectedTag, item, tagAdapter);
     }
 
-    @Override
-    public boolean onContextItemSelected(@NonNull MenuItem item) {
-        Feed selectedFeed = subscriptionAdapter.getSelectedItem();
-        if (selectedFeed == null) {
-            return false;
-        }
-        if (item.getItemId() == R.id.multi_select) {
-            return subscriptionAdapter.onContextItemSelected(item);
-        }
-        return FeedMenuHandler.onMenuItemClicked(this, item.getItemId(), selectedFeed, this::loadSubscriptionsAndTags);
-    }
-
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onFeedListChanged(FeedListUpdateEvent event) {
         loadSubscriptionsAndTags();
@@ -477,7 +490,7 @@ public class SubscriptionFragment extends Fragment
     public void onEndSelectMode() {
         floatingSelectMenu.setVisibility(View.GONE);
         subscriptionAddButton.setVisibility(View.VISIBLE);
-        tagsRecycler.setVisibility(tagAdapter.getItemCount() > 1 ? View.VISIBLE : View.GONE);
+        tagsRecycler.setVisibility(shouldShowTags ? View.VISIBLE : View.GONE);
         updateFilterVisibility();
         setCollapsingToolbarFlags(AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL
                 | AppBarLayout.LayoutParams.SCROLL_FLAG_ENTER_ALWAYS
@@ -488,7 +501,7 @@ public class SubscriptionFragment extends Fragment
     public void onStartSelectMode() {
         floatingSelectMenu.setVisibility(View.VISIBLE);
         subscriptionAddButton.setVisibility(View.GONE);
-        tagsRecycler.setVisibility(tagAdapter.getItemCount() > 1 ? View.INVISIBLE : View.GONE);
+        tagsRecycler.setVisibility(shouldShowTags ? View.INVISIBLE : View.GONE);
         updateFilterVisibility();
         setCollapsingToolbarFlags(AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL
                 | AppBarLayout.LayoutParams.SCROLL_FLAG_EXIT_UNTIL_COLLAPSED);

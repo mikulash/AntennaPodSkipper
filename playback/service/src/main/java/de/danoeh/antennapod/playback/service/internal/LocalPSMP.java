@@ -14,6 +14,7 @@ import androidx.lifecycle.Observer;
 import androidx.media.AudioAttributesCompat;
 import androidx.media.AudioFocusRequestCompat;
 import androidx.media.AudioManagerCompat;
+import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.event.PlayerErrorEvent;
 import de.danoeh.antennapod.event.playback.BufferUpdateEvent;
 import de.danoeh.antennapod.event.playback.SpeedChangedEvent;
@@ -26,6 +27,7 @@ import de.danoeh.antennapod.playback.base.PlaybackServiceMediaPlayer;
 import de.danoeh.antennapod.playback.base.PlayerStatus;
 import de.danoeh.antennapod.playback.base.RewindAfterPauseUtils;
 import de.danoeh.antennapod.playback.service.PlaybackService;
+import de.danoeh.antennapod.playback.service.R;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.episodes.PlaybackSpeedUtils;
 import org.greenrobot.eventbus.EventBus;
@@ -683,7 +685,7 @@ public class LocalPSMP extends PlaybackServiceMediaPlayer {
 
         callback.episodeFinishedPlayback(); // notify that the current episode just finished
 
-        final boolean isPlaying = playerStatus == PlayerStatus.PLAYING;
+        boolean isPlaying = playerStatus == PlayerStatus.PLAYING;
 
         // we're relying on the position stored in the Playable object for post-playback processing
         if (media != null) {
@@ -700,44 +702,37 @@ public class LocalPSMP extends PlaybackServiceMediaPlayer {
         abandonAudioFocus();
 
         final Playable currentMedia = media;
-        final boolean finalShouldContinue = shouldContinue && callback.shouldContinueToNextEpisode();
+        Playable nextMedia = null;
 
-        // Run database operations in background thread to avoid I/O on main thread
-        new Thread(() -> {
-            Playable nextMedia = null;
+        // we should continue to next episode if we were told to continue and we're allowed to (by sleep timer)
+        shouldContinue &= callback.shouldContinueToNextEpisode();
 
-            if (finalShouldContinue) {
-                // Load next episode if previous episode was in the queue and if there
-                // is an episode in the queue left.
-                // Start playback immediately if continuous playback is enabled
-                nextMedia = callback.getNextInQueue(currentMedia);
+        if (shouldContinue) {
+            // Load next episode if previous episode was in the queue and if there
+            // is an episode in the queue left.
+            // Start playback immediately if continuous playback is enabled
+            nextMedia = callback.getNextInQueue(currentMedia);
+            if (nextMedia != null) {
+                callback.onPlaybackEnded(nextMedia.getMediaType(), false);
+                // setting media to null signals to playMediaObject() that
+                // we're taking care of post-playback processing
+                media = null;
+                playMediaObject(nextMedia, false, !nextMedia.localFileAvailable(), isPlaying, isPlaying);
+            } else if (wasSkipped) {
+                EventBus.getDefault().post(new MessageEvent(context.getString(R.string.no_following_in_queue)));
             }
+        }
+        if (shouldContinue || toStoppedState) {
+            if (nextMedia == null) {
+                callback.onPlaybackEnded(null, true);
+                stop();
+            }
+            final boolean hasNext = nextMedia != null;
 
-            final Playable finalNextMedia = nextMedia;
-
-            // Return to main thread to continue playback flow
-            new Handler(Looper.getMainLooper()).post(() -> {
-                if (finalShouldContinue && finalNextMedia != null) {
-                    callback.onPlaybackEnded(finalNextMedia.getMediaType(), false);
-                    // setting media to null signals to playMediaObject() that
-                    // we're taking care of post-playback processing
-                    media = null;
-                    playMediaObject(finalNextMedia, false, !finalNextMedia.localFileAvailable(), isPlaying, isPlaying);
-                }
-
-                if (finalShouldContinue || toStoppedState) {
-                    if (finalNextMedia == null) {
-                        callback.onPlaybackEnded(null, true);
-                        stop();
-                    }
-                    final boolean hasNext = finalNextMedia != null;
-
-                    callback.onPostPlayback(currentMedia, hasEnded, wasSkipped, hasNext);
-                } else if (isPlaying) {
-                    callback.onPlaybackPause(currentMedia, currentMedia.getPosition());
-                }
-            });
-        }).start();
+            callback.onPostPlayback(currentMedia, hasEnded, wasSkipped, hasNext);
+        } else if (isPlaying) {
+            callback.onPlaybackPause(currentMedia, currentMedia.getPosition());
+        }
     }
 
     /**

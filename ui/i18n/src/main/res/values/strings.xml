@@ -209,11 +209,15 @@
     <string name="archive_feed_label_noun">Archive</string>
     <string name="restore_archive_label">Restore</string>
     <string name="remove_archive_feed_label">Delete / archive</string>
+    <string name="remove_restore_feed_label">Delete / restore</string>
     <string name="remove_feed_label">Delete</string>
     <string name="share_label">Share</string>
     <string name="share_file_label">Share file</string>
-    <string name="feed_delete_explanation_delete">Deleting will remove ALL its episodes including downloads, playback history, and statistics.</string>
-    <string name="feed_delete_explanation_archive">Archiving will hide it from the subscription list and avoid it getting updates. Downloads, statistics and playback state are kept.</string>
+    <string name="feed_delete_explanation_delete">Deleting removes the subscription including all its episodes, downloads, playback history, and statistics.</string>
+    <string name="feed_delete_explanation_archive">Archiving hides the subscription from the list and stops looking for new episodes. Downloads, statistics and playback state are kept.</string>
+    <string name="archiving_podcast_progress">Archiving podcast %1$d of %2$d…</string>
+    <string name="restoring_podcast_progress">Restoring podcast %1$d of %2$d…</string>
+    <string name="deleting_podcast_progress">Deleting podcast %1$d of %2$d…</string>
     <string name="load_complete_feed">Refresh complete podcast</string>
     <string name="multi_select">Multi select</string>
     <string name="select_all_above">Select all above</string>
@@ -368,6 +372,7 @@
     <string name="unknown_media_key">AntennaPod - Unknown media key: %1$d</string>
     <string name="error_file_not_found">File not found</string>
     <string name="no_media_label">Item does not contain a media file</string>
+    <string name="no_following_in_queue">This was the last episode in the queue</string>
 
     <!-- Queue operations -->
     <string name="lock_queue">Lock queue</string>
@@ -588,6 +593,8 @@
     <string name="pref_new_episodes_action_title">New episodes action</string>
     <string name="pref_new_episodes_action_sum">Action to take for new episodes</string>
     <string name="episode_information">Episode information</string>
+    <string name="pref_global_default_episode_list_sort_order_title">Default sort order</string>
+    <string name="pref_global_default_episode_list_sort_order_sum">Choose the default order for episodes on the podcast screen</string>
 
     <!-- Report bug -->
     <string name="report_bug_title">Report bug</string>
@@ -600,6 +607,8 @@
     <string name="report_bug_crash_log_message">Created: %1$s.</string>
     <string name="report_bug_forum_title">Forum</string>
     <string name="report_bug_github_title">GitHub</string>
+    <string name="pref_advanced">Advanced</string>
+    <string name="pref_display">Display</string>
 
     <!-- About screen -->
     <string name="about_pref">About</string>
@@ -801,7 +810,6 @@
     <string name="tag_all">All</string>
     <string name="tag_untagged">Untagged</string>
     <string name="multi_feed_common_tags_info">Only common tags from all selected subscriptions are shown. Other tags stay unaffected.</string>
-    <string name="auto_download_inbox_category">Automatically download episodes from the inbox</string>
     <string name="episode_filters_label">Episode filter</string>
     <string name="episode_filters_description">List of terms used to decide if an episode should be included or excluded when auto downloading</string>
     <string name="add_term">Add term</string>

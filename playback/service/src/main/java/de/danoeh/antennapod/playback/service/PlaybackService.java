@@ -316,6 +316,7 @@ public class PlaybackService extends MediaBrowserServiceCompat {
     public void onDestroy() {
         super.onDestroy();
         Log.d(TAG, "Service is about to be destroyed");
+        disableSleepTimer();
 
         if (notificationBuilder.getPlayerStatus() == PlayerStatus.PLAYING) {
             notificationBuilder.setPlayerStatus(PlayerStatus.STOPPED);
@@ -1150,6 +1151,7 @@ public class PlaybackService extends MediaBrowserServiceCompat {
             }
         }
         if (mediaType == null) {
+            EventBus.getDefault().post(new PlayerStatusEvent());
             sendNotificationBroadcast(PlaybackServiceInterface.NOTIFICATION_TYPE_PLAYBACK_END, 0);
         } else {
             sendNotificationBroadcast(PlaybackServiceInterface.NOTIFICATION_TYPE_RELOAD,
@@ -1265,7 +1267,7 @@ public class PlaybackService extends MediaBrowserServiceCompat {
     }
 
     public void disableSleepTimer() {
-        if (sleepTimerActive()) {
+        if (sleepTimer != null) {
             Log.d(TAG, "Disabling sleep timer");
             sleepTimer.stop();
         }

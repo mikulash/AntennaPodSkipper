@@ -426,8 +426,6 @@
     <string name="pref_smart_mark_as_played_disabled">Deshabilitado</string>
     <string name="documentation_support">Documentación &amp; Asistencia</string>
     <string name="visit_user_forum">Foro de usuarios</string>
-    <string name="bug_report_title">Reportar error</string>
-    <string name="open_bug_tracker">Abrir bug tracker</string>
     <string name="copy_to_clipboard">Copiar al portapapeles</string>
     <string name="copied_to_clipboard">Copiado al portapapeles</string>
     <string name="pref_proxy_title">Proxy</string>
@@ -932,4 +930,6 @@
     <string name="feed_delete_explanation_delete">La eliminación borrara TODOS sus episodios, incluyendo las descargas, el historial de reproducción y las estadísticas.</string>
     <string name="feed_delete_explanation_archive">El archivado lo ocultará de la lista de suscripciones e impedirá que obtenga actualizaciones. Las descargas, las estadísticas y el estado de reproducción se conservan.</string>
     <string name="tag_untagged">Sin etiquetar</string>
+    <string name="no_archive_head_label">No se ha archivado nada</string>
+    <string name="no_archive_label">Puede archivar los podcasts desde la pantalla de suscripciones principal.</string>
 </resources>

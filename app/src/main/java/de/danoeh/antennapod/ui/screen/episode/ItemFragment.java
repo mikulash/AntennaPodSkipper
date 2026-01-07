@@ -14,7 +14,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
-
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.LiveData;
@@ -28,16 +27,13 @@ import com.skydoves.balloon.ArrowOrientationRules;
 import com.skydoves.balloon.Balloon;
 import com.skydoves.balloon.BalloonAnimation;
 import com.google.android.material.tabs.TabLayout;
-
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
-
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.StyleSpan;
 import android.text.style.ForegroundColorSpan;
 import android.graphics.Typeface;
-
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.actionbutton.CancelDownloadActionButton;
 import de.danoeh.antennapod.actionbutton.DeleteActionButton;
@@ -82,14 +78,12 @@ import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
-
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
 import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
-
 import java.io.File;
 import java.util.List;
 import java.util.Locale;
@@ -150,7 +144,7 @@ public class ItemFragment extends Fragment {
 
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
-            @Nullable Bundle savedInstanceState) {
+                             @Nullable Bundle savedInstanceState) {
         super.onCreateView(inflater, container, savedInstanceState);
         viewBinding = FeeditemFragmentBinding.inflate(inflater, container, false);
         viewBinding.header.setVisibility(View.INVISIBLE);
@@ -252,8 +246,8 @@ public class ItemFragment extends Fragment {
     }
 
     private void showOnDemandConfigBalloon(boolean offerStreaming) {
-        final boolean isLocaleRtl = TextUtils
-                .getLayoutDirectionFromLocale(Locale.getDefault()) == View.LAYOUT_DIRECTION_RTL;
+        final boolean isLocaleRtl = TextUtils.getLayoutDirectionFromLocale(Locale.getDefault())
+                == View.LAYOUT_DIRECTION_RTL;
         final Balloon balloon = new Balloon.Builder(getContext())
                 .setArrowOrientation(ArrowOrientation.TOP)
                 .setArrowOrientationRules(ArrowOrientationRules.ALIGN_FIXED)
@@ -271,8 +265,7 @@ public class ItemFragment extends Fragment {
         final Button negativeButton = balloon.getContentView().findViewById(R.id.balloon_button_negative);
         final TextView message = balloon.getContentView().findViewById(R.id.balloon_message);
         message.setText(offerStreaming
-                ? R.string.on_demand_config_stream_text
-                : R.string.on_demand_config_download_text);
+                ? R.string.on_demand_config_stream_text : R.string.on_demand_config_download_text);
         positiveButton.setOnClickListener(v1 -> {
             UserPreferences.setStreamOverDownload(offerStreaming);
             // Update all visible lists to reflect new streaming action button
@@ -387,11 +380,16 @@ public class ItemFragment extends Fragment {
             actionButtonTranscribe = null;
             actionButtonAd = null;
             viewBinding.noMediaLabel.setVisibility(View.VISIBLE);
+            viewBinding.txtvDuration.setVisibility(View.GONE);
+            viewBinding.separatorIcons.setVisibility(View.GONE);
             viewBinding.adSegmentsContainer.setVisibility(View.GONE);
             viewBinding.aiButtonsRow.setVisibility(View.GONE);
         } else {
             viewBinding.noMediaLabel.setVisibility(View.GONE);
-            if (media.getDuration() > 0) {
+            boolean hasDuration = media.getDuration() > 0;
+            viewBinding.txtvDuration.setVisibility(hasDuration ? View.VISIBLE : View.GONE);
+            viewBinding.separatorIcons.setVisibility(hasDuration ? View.VISIBLE : View.GONE);
+            if (hasDuration) {
                 viewBinding.txtvDuration.setText(Converter.getDurationStringLong(media.getDuration()));
                 viewBinding.txtvDuration.setContentDescription(
                         Converter.getDurationStringLocalized(getContext(), media.getDuration()));

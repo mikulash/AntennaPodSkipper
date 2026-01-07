@@ -34,6 +34,7 @@ import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.DBWriter;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.preferences.screen.synchronization.AuthenticationDialog;
+import de.danoeh.antennapod.ui.screen.feed.RenameFeedDialog;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.MaybeOnSubscribe;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
@@ -54,11 +55,11 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     private static final String PREF_SCREEN = "feedSettingsScreen";
     private static final String PREF_AUTHENTICATION = "authentication";
     private static final String PREF_AUTO_DELETE = "autoDelete";
-    private static final String PREF_CATEGORY_AUTO_DOWNLOAD = "autoDownloadCategory";
     private static final String PREF_NEW_EPISODES_ACTION = "feedNewEpisodesAction";
     private static final String PREF_FEED_PLAYBACK_SPEED = "feedPlaybackSpeed";
     private static final String PREF_AUTO_SKIP = "feedAutoSkip";
     private static final String PREF_NOTIFICATION = "episodeNotification";
+    private static final String PREF_RENAME = "rename";
     private static final String PREF_TAGS = "tags";
     private static final String PREF_AUTO_AD_ANALYSIS = "autoAdAnalysis";
     private static final String PREF_FEED_TRANSCRIPTION_MODEL = "feedTranscriptionModel";
@@ -78,8 +79,8 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     }
 
     boolean notificationPermissionDenied = false;
-    private final ActivityResultLauncher<String> enableNotificationsRequestPermissionLauncher = registerForActivityResult(
-            new ActivityResultContracts.RequestPermission(), isGranted -> {
+    private final ActivityResultLauncher<String> enableNotificationsRequestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
                 if (isGranted) {
                     SwitchPreferenceCompat pref = findPreference(PREF_NOTIFICATION);
                     pref.setChecked(true);
@@ -134,7 +135,8 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
 
                     if (feed.isLocalFeed()) {
                         findPreference(PREF_AUTHENTICATION).setVisible(false);
-                        findPreference(PREF_CATEGORY_AUTO_DOWNLOAD).setVisible(false);
+                        findPreference(PREF_AUTODOWNLOAD).setVisible(false);
+                        findPreference(PREF_EPISODE_FILTER).setVisible(false);
                     }
 
                     findPreference(PREF_SCREEN).setVisible(true);
@@ -266,6 +268,10 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
             DBWriter.setFeedPreferences(feedPreferences);
             notificationPreference.setChecked(checked);
             return false;
+        });
+        findPreference(PREF_RENAME).setOnPreferenceClickListener(preference -> {
+            new RenameFeedDialog(getActivity(), feed).show();
+            return true;
         });
 
         setupTranscriptionModelPreference();
@@ -506,11 +512,9 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     private void updateAutoDeleteSummary() {
         ListPreference autoDeletePreference = findPreference(PREF_AUTO_DELETE);
         boolean isEnabledGlobally = feed.isLocalFeed()
-                ? UserPreferences.isAutoDeleteLocal()
-                : UserPreferences.isAutoDelete();
+                ? UserPreferences.isAutoDeleteLocal() : UserPreferences.isAutoDelete();
         int globalStringResource = isEnabledGlobally
-                ? R.string.feed_auto_download_always
-                : R.string.feed_auto_download_never;
+                ? R.string.feed_auto_download_always : R.string.feed_auto_download_never;
         String summary = switch (feedPreferences.getAutoDeleteAction()) {
             case GLOBAL -> getString(R.string.global_default_with_value, getString(globalStringResource));
             case ALWAYS -> getString(R.string.feed_auto_download_always);
@@ -552,7 +556,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
             return;
         }
         boolean enabled = feed.getPreferences().isAutoDownload(UserPreferences.isEnableAutodownloadGlobal());
-        findPreference(PREF_EPISODE_FILTER).setEnabled(enabled);
+        findPreference(PREF_EPISODE_FILTER).setVisible(enabled);
         ListPreference autoDownloadPreference = findPreference(PREF_AUTODOWNLOAD);
         String summary = switch (feedPreferences.getAutoDownload()) {
             case GLOBAL -> getString(R.string.global_default_with_value,
@@ -565,10 +569,10 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     }
 
     private boolean showPlaybackSpeedDialog(Preference preference) {
-        PlaybackSpeedFeedSettingDialogBinding viewBinding = PlaybackSpeedFeedSettingDialogBinding
-                .inflate(getLayoutInflater());
-        viewBinding.seekBar.setProgressChangedListener(
-                speed -> viewBinding.currentSpeedLabel.setText(String.format(Locale.getDefault(), "%.2fx", speed)));
+        PlaybackSpeedFeedSettingDialogBinding viewBinding =
+                PlaybackSpeedFeedSettingDialogBinding.inflate(getLayoutInflater());
+        viewBinding.seekBar.setProgressChangedListener(speed ->
+                viewBinding.currentSpeedLabel.setText(String.format(Locale.getDefault(), "%.2fx", speed)));
         viewBinding.useGlobalCheckbox.setOnCheckedChangeListener((buttonView, isChecked) -> {
             viewBinding.seekBar.setEnabled(!isChecked);
             viewBinding.seekBar.setAlpha(isChecked ? 0.4f : 1f);
@@ -589,8 +593,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
                 .setView(viewBinding.getRoot())
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                     float newSpeed = viewBinding.useGlobalCheckbox.isChecked()
-                            ? FeedPreferences.SPEED_USE_GLOBAL
-                            : viewBinding.seekBar.getCurrentSpeed();
+                            ? FeedPreferences.SPEED_USE_GLOBAL : viewBinding.seekBar.getCurrentSpeed();
                     feedPreferences.setFeedPlaybackSpeed(newSpeed);
                     FeedPreferences.SkipSilence newSkipSilence;
                     if (viewBinding.useGlobalCheckbox.isChecked()) {
