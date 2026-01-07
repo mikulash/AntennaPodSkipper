@@ -122,10 +122,6 @@ public class MediaDownloadedHandler implements Runnable {
                         .currentTimestamp()
                         .build());
         }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            AdAnalysisWorkScheduler.enqueueIfNeeded(context, media);
-        }
     }
 
     @NonNull

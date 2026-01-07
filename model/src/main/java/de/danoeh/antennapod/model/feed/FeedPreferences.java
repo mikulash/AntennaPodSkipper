@@ -123,7 +123,6 @@ public class FeedPreferences implements Serializable {
     private SkipSilence feedSkipSilence;
     private boolean showEpisodeNotification;
 
-    private boolean autoAdAnalysis;
     private String transcriptionModel;
     private String transcriptionLanguage;
     private final Set<String> tags = new HashSet<>();
@@ -133,19 +132,18 @@ public class FeedPreferences implements Serializable {
             String username, String password) {
         this(feedID, autoDownload, true, autoDeleteAction, volumeAdaptionSetting, username, password,
                 new FeedFilter(), SPEED_USE_GLOBAL, 0, 0, SkipSilence.GLOBAL,
-                false, false, null, null, newEpisodesAction, new HashSet<>());
+                false, null, null, newEpisodesAction, new HashSet<>());
     }
 
     public FeedPreferences(long feedID, AutoDownloadSetting autoDownload, boolean keepUpdated,
             AutoDeleteAction autoDeleteAction, VolumeAdaptionSetting volumeAdaptionSetting,
             String username, String password, @NonNull FeedFilter filter,
             float feedPlaybackSpeed, int feedSkipIntro, int feedSkipEnding, SkipSilence feedSkipSilence,
-            boolean showEpisodeNotification, boolean autoAdAnalysis,
+            boolean showEpisodeNotification,
             NewEpisodesAction newEpisodesAction,
             Set<String> tags) {
         this(feedID, autoDownload, keepUpdated, autoDeleteAction, volumeAdaptionSetting, username, password, filter,
                 feedPlaybackSpeed, feedSkipIntro, feedSkipEnding, feedSkipSilence, showEpisodeNotification,
-                autoAdAnalysis,
                 null, null, newEpisodesAction, tags);
     }
 
@@ -153,7 +151,7 @@ public class FeedPreferences implements Serializable {
             AutoDeleteAction autoDeleteAction, VolumeAdaptionSetting volumeAdaptionSetting,
             String username, String password, @NonNull FeedFilter filter,
             float feedPlaybackSpeed, int feedSkipIntro, int feedSkipEnding, SkipSilence feedSkipSilence,
-            boolean showEpisodeNotification, boolean autoAdAnalysis, String transcriptionModel,
+            boolean showEpisodeNotification, String transcriptionModel,
             String transcriptionLanguage, NewEpisodesAction newEpisodesAction,
             Set<String> tags) {
         this.feedID = feedID;
@@ -169,8 +167,6 @@ public class FeedPreferences implements Serializable {
         this.feedSkipEnding = feedSkipEnding;
         this.feedSkipSilence = feedSkipSilence;
         this.showEpisodeNotification = showEpisodeNotification;
-        this.showEpisodeNotification = showEpisodeNotification;
-        this.autoAdAnalysis = autoAdAnalysis;
         this.transcriptionModel = transcriptionModel;
         this.transcriptionLanguage = transcriptionLanguage;
         this.newEpisodesAction = newEpisodesAction;
@@ -348,14 +344,6 @@ public class FeedPreferences implements Serializable {
 
     public void setShowEpisodeNotification(boolean showEpisodeNotification) {
         this.showEpisodeNotification = showEpisodeNotification;
-    }
-
-    public boolean isAutoAdAnalysisEnabled() {
-        return autoAdAnalysis;
-    }
-
-    public void setAutoAdAnalysisEnabled(boolean enabled) {
-        this.autoAdAnalysis = enabled;
     }
 
     public String getTranscriptionModel() {

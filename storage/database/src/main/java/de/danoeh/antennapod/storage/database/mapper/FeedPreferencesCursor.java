@@ -32,7 +32,6 @@ public class FeedPreferencesCursor extends CursorWrapper {
     private final int indexAutoSkipEnding;
     private final int indexEpisodeNotification;
     private final int indexNewEpisodesAction;
-    private final int indexAutoAdAnalysis;
     private final int indexTranscriptionModel;
     private final int indexTranscriptionLanguage;
     private final int indexTags;
@@ -55,7 +54,6 @@ public class FeedPreferencesCursor extends CursorWrapper {
         indexAutoSkipEnding = cursor.getColumnIndexOrThrow(PodDBAdapter.KEY_FEED_SKIP_ENDING);
         indexEpisodeNotification = cursor.getColumnIndexOrThrow(PodDBAdapter.KEY_EPISODE_NOTIFICATION);
         indexNewEpisodesAction = cursor.getColumnIndexOrThrow(PodDBAdapter.KEY_NEW_EPISODES_ACTION);
-        indexAutoAdAnalysis = cursor.getColumnIndexOrThrow(PodDBAdapter.KEY_AUTO_AD_ANALYSIS);
         indexTranscriptionModel = cursor.getColumnIndexOrThrow(PodDBAdapter.KEY_TRANSCRIPTION_MODEL);
         indexTranscriptionLanguage = cursor.getColumnIndexOrThrow(PodDBAdapter.KEY_TRANSCRIPTION_LANGUAGE);
         indexTags = cursor.getColumnIndexOrThrow(PodDBAdapter.KEY_FEED_TAGS);
@@ -85,7 +83,6 @@ public class FeedPreferencesCursor extends CursorWrapper {
                 getInt(indexAutoSkipEnding),
                 FeedPreferences.SkipSilence.fromCode(getInt(indexFeedSkipSilence)),
                 getInt(indexEpisodeNotification) > 0,
-                getInt(indexAutoAdAnalysis) > 0,
                 getString(indexTranscriptionModel),
                 getString(indexTranscriptionLanguage),
                 FeedPreferences.NewEpisodesAction.fromCode(getInt(indexNewEpisodesAction)),

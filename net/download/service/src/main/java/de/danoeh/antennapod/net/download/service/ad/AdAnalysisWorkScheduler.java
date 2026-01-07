@@ -12,10 +12,8 @@ import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 
-import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
-import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
@@ -25,25 +23,11 @@ public final class AdAnalysisWorkScheduler {
     private AdAnalysisWorkScheduler() {
     }
 
-    public static void enqueueIfNeeded(Context context, FeedMedia media) {
-        enqueue(context, media, true, ExistingWorkPolicy.KEEP);
-    }
-
     public static void enqueueManual(Context context, FeedMedia media) {
-        enqueue(context, media, false, ExistingWorkPolicy.REPLACE);
-    }
-
-    private static void enqueue(Context context, FeedMedia media, boolean respectPreference,
-                                ExistingWorkPolicy policy) {
         if (media == null || media.getItem() == null) {
             return;
         }
         FeedItem item = media.getItem();
-        Feed feed = item.getFeed();
-        FeedPreferences feedPreferences = feed != null ? feed.getPreferences() : null;
-        if (respectPreference && (feedPreferences == null || !feedPreferences.isAutoAdAnalysisEnabled())) {
-            return;
-        }
         if (OpenAiPreferences.isApiKeyRequired(context)
                 && TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))) {
             return;
@@ -64,14 +48,14 @@ public final class AdAnalysisWorkScheduler {
                 .build();
 
         OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(AdAnalysisWorker.class)
-                .addTag(UNIQUE_PREFIX + media.getItem().getId())
+                .addTag(UNIQUE_PREFIX + item.getId())
                 .setConstraints(constraints)
                 .setInputData(input)
                 .build();
 
         WorkManager.getInstance(context).enqueueUniqueWork(
-                UNIQUE_PREFIX + media.getItem().getId(),
-                policy,
+                UNIQUE_PREFIX + item.getId(),
+                ExistingWorkPolicy.REPLACE,
                 request);
     }
 }

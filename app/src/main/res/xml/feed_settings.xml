@@ -19,13 +19,6 @@
 
     </PreferenceCategory>
 
-    <SwitchPreferenceCompat
-        android:defaultValue="false"
-        android:icon="@drawable/ic_ad_analysis"
-        android:key="autoAdAnalysis"
-        android:summary="@string/feed_auto_ad_analysis_summary"
-        android:title="@string/feed_auto_ad_analysis_title" />
-
     <Preference
         android:key="feedTranscriptionModel"
         android:title="@string/pref_local_transcription_model_title"

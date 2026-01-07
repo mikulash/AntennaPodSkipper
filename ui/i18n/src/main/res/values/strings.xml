@@ -1035,8 +1035,6 @@
     <string name="ad_analysis_overwrite_message">This episode already has ad detection results. Running analysis again will overwrite the existing data.</string>
     <string name="ad_analysis_overwrite_confirm">Overwrite and analyze</string>
     <string name="ad_analysis_again">Analyze again</string>
-    <string name="feed_auto_ad_analysis_title">Auto analyze this podcast after download</string>
-    <string name="feed_auto_ad_analysis_summary">Run ad detection automatically for new downloads from this podcast.</string>
     <string name="ad_segments_title">AI analysis</string>
     <string name="ad_segments_total_length">Total ad length: %1$s</string>
     <string name="ad_segments_empty">No ads detected.</string>

@@ -521,7 +521,6 @@ public class PodDBAdapter {
         values.put(KEY_FEED_SKIP_INTRO, prefs.getFeedSkipIntro());
         values.put(KEY_FEED_SKIP_ENDING, prefs.getFeedSkipEnding());
         values.put(KEY_EPISODE_NOTIFICATION, prefs.getShowEpisodeNotification());
-        values.put(KEY_AUTO_AD_ANALYSIS, prefs.isAutoAdAnalysisEnabled());
         values.put(KEY_TRANSCRIPTION_MODEL, prefs.getTranscriptionModel());
         values.put(KEY_TRANSCRIPTION_LANGUAGE, prefs.getTranscriptionLanguage());
         values.put(KEY_NEW_EPISODES_ACTION, prefs.getNewEpisodesAction().code);

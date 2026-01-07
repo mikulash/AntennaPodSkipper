@@ -61,7 +61,6 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     private static final String PREF_NOTIFICATION = "episodeNotification";
     private static final String PREF_RENAME = "rename";
     private static final String PREF_TAGS = "tags";
-    private static final String PREF_AUTO_AD_ANALYSIS = "autoAdAnalysis";
     private static final String PREF_FEED_TRANSCRIPTION_MODEL = "feedTranscriptionModel";
     private static final String PREF_FEED_TRANSCRIPTION_LANGUAGE = "feedTranscriptionLanguage";
     private static final String CLOUD_MODEL_OPENAI_WHISPER = "cloud:openai_whisper";
@@ -245,15 +244,6 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
             TagSettingsDialog.newInstance(Collections.singletonList(feedPreferences))
                     .show(getChildFragmentManager(), TagSettingsDialog.TAG);
             return true;
-        });
-        SwitchPreferenceCompat autoAdPreference = findPreference(PREF_AUTO_AD_ANALYSIS);
-        autoAdPreference.setChecked(feedPreferences.isAutoAdAnalysisEnabled());
-        autoAdPreference.setOnPreferenceChangeListener((preference, newValue) -> {
-            boolean enabled = Boolean.TRUE.equals(newValue);
-            feedPreferences.setAutoAdAnalysisEnabled(enabled);
-            DBWriter.setFeedPreferences(feedPreferences);
-            autoAdPreference.setChecked(enabled);
-            return false;
         });
         SwitchPreferenceCompat notificationPreference = findPreference(PREF_NOTIFICATION);
         notificationPreference.setChecked(feedPreferences.getShowEpisodeNotification());
