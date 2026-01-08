@@ -221,7 +221,7 @@ public class ItemFragment extends Fragment {
             copyToClipboard(requireContext(), viewBinding.txtvTitle.getText().toString());
             return true;
         });
-        if (isAdAnalysisSupported()) {
+        if (isAdAnalysisSupported() && UserPreferences.isAdSkipEnabled()) {
             setupAdTabs();
             if (item != null) {
                 observeTranscriptionWork(item.getId());
@@ -410,8 +410,8 @@ public class ItemFragment extends Fragment {
             } else {
                 actionButton2 = new DeleteActionButton(item);
             }
-            // Transcribe button: enabled only if episode is downloaded
-            if (media.isDownloaded() && isAdAnalysisSupported()) {
+            // Transcribe button: enabled only if episode is downloaded and AI analysis is enabled
+            if (media.isDownloaded() && isAdAnalysisSupported() && UserPreferences.isAdSkipEnabled()) {
                 actionButtonTranscribe = new TranscribeActionButton(item);
                 // Ad analysis button: enabled if downloaded AND has transcript
                 if (hasExistingTranscript(media)) {
@@ -509,7 +509,7 @@ public class ItemFragment extends Fragment {
     }
 
     private void updateAdSegmentsSummary() {
-        if (!isAdAnalysisSupported()) {
+        if (!isAdAnalysisSupported() || !UserPreferences.isAdSkipEnabled()) {
             viewBinding.adSegmentsContainer.setVisibility(View.GONE);
             return;
         }
@@ -664,7 +664,7 @@ public class ItemFragment extends Fragment {
     }
 
     private void updateTranscriptionProgress(List<WorkInfo> workInfos) {
-        if (!isAdAnalysisSupported()) {
+        if (!isAdAnalysisSupported() || !UserPreferences.isAdSkipEnabled()) {
             isTranscriptionRunning = false;
             transcriptionStageLabel = null;
             transcriptionPercent = -1;
@@ -743,7 +743,7 @@ public class ItemFragment extends Fragment {
     }
 
     private void updateAdAnalysisProgress(List<WorkInfo> workInfos) {
-        if (!isAdAnalysisSupported()) {
+        if (!isAdAnalysisSupported() || !UserPreferences.isAdSkipEnabled()) {
             isAdAnalysisRunning = false;
             adAnalysisStageLabel = null;
             adAnalysisPercent = -1;
@@ -874,7 +874,7 @@ public class ItemFragment extends Fragment {
                     viewBinding.header.setVisibility(View.VISIBLE);
                     item = result;
                     onFragmentLoaded();
-                    if (isAdAnalysisSupported()) {
+                    if (isAdAnalysisSupported() && UserPreferences.isAdSkipEnabled()) {
                         observeTranscriptionWork(item.getId());
                         observeAdAnalysisWork(item.getId());
                     }
