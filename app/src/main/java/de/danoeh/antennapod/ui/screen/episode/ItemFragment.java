@@ -189,7 +189,11 @@ public class ItemFragment extends Fragment {
             actionButtonTranscribe.onClick(getContext());
         });
         viewBinding.butActionAd.setOnClickListener(v -> {
-            if (actionButtonAd == null || item == null) {
+            if (actionButtonAd == null || item == null || item.getMedia() == null) {
+                return;
+            }
+            // Don't allow clicking if no transcript exists
+            if (!isAdAnalysisRunning && !hasExistingTranscript(item.getMedia())) {
                 return;
             }
             if (isAdAnalysisRunning) {
@@ -441,12 +445,8 @@ public class ItemFragment extends Fragment {
             // Transcribe button: enabled only if episode is downloaded and AI analysis is enabled
             if (media.isDownloaded() && isAdAnalysisSupported() && UserPreferences.isAdSkipEnabled()) {
                 actionButtonTranscribe = new TranscribeActionButton(item);
-                // Ad analysis button: enabled if downloaded AND has transcript
-                if (hasExistingTranscript(media)) {
-                    actionButtonAd = new AnalyzeAdsActionButton(item);
-                } else {
-                    actionButtonAd = null;
-                }
+                // Ad analysis button: always show but enable/disable based on transcript
+                actionButtonAd = new AnalyzeAdsActionButton(item);
                 viewBinding.aiButtonsRow.setVisibility(View.VISIBLE);
                 viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
             } else {
@@ -492,6 +492,8 @@ public class ItemFragment extends Fragment {
 
         // Ad analysis button
         if (actionButtonAd != null) {
+            boolean hasTranscript = hasExistingTranscript(item.getMedia());
+
             if (isAdAnalysisRunning) {
                 viewBinding.butActionAdText.setText(
                         TextUtils.isEmpty(adAnalysisStageLabel)
@@ -503,17 +505,23 @@ public class ItemFragment extends Fragment {
                     viewBinding.circularProgressAd.setPercentage(
                             Math.max(0.01f, adAnalysisPercent / 100f), item);
                 }
+                viewBinding.butActionAd.setEnabled(true);
+                viewBinding.butActionAd.setAlpha(1.0f);
             } else if (AdSegmentStore.hasAnalysis(requireContext(), item.getId())) {
                 viewBinding.butActionAdText.setText(R.string.ad_analysis_again);
                 viewBinding.circularProgressAd.setVisibility(View.GONE);
+                viewBinding.butActionAd.setEnabled(hasTranscript);
+                viewBinding.butActionAd.setAlpha(hasTranscript ? 1.0f : 0.4f);
             } else {
                 viewBinding.butActionAdText.setText(actionButtonAd.getLabel());
                 viewBinding.circularProgressAd.setVisibility(View.GONE);
+                viewBinding.butActionAd.setEnabled(hasTranscript);
+                viewBinding.butActionAd.setAlpha(hasTranscript ? 1.0f : 0.4f);
             }
             viewBinding.butActionAdText.setTransformationMethod(null);
             viewBinding.butActionAdIcon.setImageResource(actionButtonAd.getDrawable());
             viewBinding.butActionAdIcon.setVisibility(isAdAnalysisRunning ? View.INVISIBLE : View.VISIBLE);
-            viewBinding.butActionAd.setVisibility(actionButtonAd.getVisibility());
+            viewBinding.butActionAd.setVisibility(View.VISIBLE);
         } else {
             viewBinding.butActionAd.setVisibility(View.GONE);
         }
