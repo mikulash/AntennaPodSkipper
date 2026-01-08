@@ -46,6 +46,7 @@ import de.danoeh.antennapod.actionbutton.PlayLocalActionButton;
 import de.danoeh.antennapod.actionbutton.StreamActionButton;
 import de.danoeh.antennapod.actionbutton.VisitWebsiteActionButton;
 import de.danoeh.antennapod.actionbutton.AnalyzeAdsActionButton;
+import de.danoeh.antennapod.actionbutton.CompleteAnalysisActionButton;
 import de.danoeh.antennapod.actionbutton.TranscribeActionButton;
 import de.danoeh.antennapod.activity.MainActivity;
 import de.danoeh.antennapod.databinding.FeeditemFragmentBinding;
@@ -120,17 +121,22 @@ public class ItemFragment extends Fragment {
     private ItemActionButton actionButton2;
     private ItemActionButton actionButtonTranscribe;
     private ItemActionButton actionButtonAd;
+    private ItemActionButton actionButtonComplete;
     private Disposable disposable;
     private PlaybackController controller;
     private FeeditemFragmentBinding viewBinding;
     private LiveData<List<WorkInfo>> transcriptionWorkLiveData;
     private LiveData<List<WorkInfo>> adWorkLiveData;
+    private LiveData<List<WorkInfo>> completeWorkLiveData;
     private boolean isTranscriptionRunning = false;
     private String transcriptionStageLabel = null;
     private int transcriptionPercent = -1;
     private boolean isAdAnalysisRunning = false;
     private String adAnalysisStageLabel = null;
     private int adAnalysisPercent = -1;
+    private boolean isCompleteAnalysisRunning = false;
+    private String completeAnalysisStageLabel = null;
+    private int completeAnalysisPercent = -1;
 
     private boolean isAdAnalysisSupported() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
@@ -207,6 +213,21 @@ public class ItemFragment extends Fragment {
             }
             actionButtonAd.onClick(getContext());
         });
+        viewBinding.butActionComplete.setOnClickListener(v -> {
+            if (actionButtonComplete == null || item == null) {
+                return;
+            }
+            if (isCompleteAnalysisRunning) {
+                cancelCompleteAnalysisWork(item.getId());
+                isCompleteAnalysisRunning = false;
+                completeAnalysisStageLabel = null;
+                completeAnalysisPercent = -1;
+                viewBinding.circularProgressComplete.setVisibility(View.GONE);
+                updateButtons();
+                return;
+            }
+            actionButtonComplete.onClick(getContext());
+        });
         viewBinding.butAction2.setOnClickListener(v -> {
             if (actionButton2 instanceof DownloadActionButton && UserPreferences.isStreamOverDownload()
                     && UsageStatistics.hasSignificantBiasTo(UsageStatistics.ACTION_DOWNLOAD)) {
@@ -230,6 +251,7 @@ public class ItemFragment extends Fragment {
             if (item != null) {
                 observeTranscriptionWork(item.getId());
                 observeAdAnalysisWork(item.getId());
+                observeCompleteAnalysisWork(item.getId());
             }
             // Development: Long-press transcript to share
             viewBinding.adTranscriptContent.setOnLongClickListener(v -> {
@@ -447,11 +469,14 @@ public class ItemFragment extends Fragment {
                 actionButtonTranscribe = new TranscribeActionButton(item);
                 // Ad analysis button: always show but enable/disable based on transcript
                 actionButtonAd = new AnalyzeAdsActionButton(item);
+                // Complete analysis button: only show if no transcript exists
+                actionButtonComplete = new CompleteAnalysisActionButton(item);
                 viewBinding.aiButtonsRow.setVisibility(View.VISIBLE);
                 viewBinding.adSegmentsContainer.setVisibility(View.VISIBLE);
             } else {
                 actionButtonTranscribe = null;
                 actionButtonAd = null;
+                actionButtonComplete = null;
                 viewBinding.adSegmentsContainer.setVisibility(View.GONE);
                 viewBinding.aiButtonsRow.setVisibility(View.GONE);
             }
@@ -524,6 +549,38 @@ public class ItemFragment extends Fragment {
             viewBinding.butActionAd.setVisibility(View.VISIBLE);
         } else {
             viewBinding.butActionAd.setVisibility(View.GONE);
+        }
+
+        // Complete analysis button: visible only if no transcript exists
+        if (actionButtonComplete != null) {
+            boolean hasTranscript = hasExistingTranscript(item.getMedia());
+
+            if (isCompleteAnalysisRunning) {
+                viewBinding.butActionCompleteText.setText(
+                        TextUtils.isEmpty(completeAnalysisStageLabel)
+                                ? getString(R.string.ad_analysis_transcribing)
+                                : completeAnalysisStageLabel);
+                viewBinding.circularProgressComplete.setVisibility(View.VISIBLE);
+                viewBinding.circularProgressComplete.setIndeterminate(completeAnalysisPercent < 0);
+                if (completeAnalysisPercent >= 0) {
+                    viewBinding.circularProgressComplete.setPercentage(
+                            Math.max(0.01f, completeAnalysisPercent / 100f), item);
+                }
+                viewBinding.aiCompleteButtonRow.setVisibility(View.VISIBLE);
+            } else if (hasTranscript) {
+                // Hide button if transcript already exists
+                viewBinding.aiCompleteButtonRow.setVisibility(View.GONE);
+            } else {
+                // Show button if no transcript exists
+                viewBinding.butActionCompleteText.setText(actionButtonComplete.getLabel());
+                viewBinding.circularProgressComplete.setVisibility(View.GONE);
+                viewBinding.aiCompleteButtonRow.setVisibility(View.VISIBLE);
+            }
+            viewBinding.butActionCompleteText.setTransformationMethod(null);
+            viewBinding.butActionCompleteIcon.setImageResource(actionButtonComplete.getDrawable());
+            viewBinding.butActionCompleteIcon.setVisibility(isCompleteAnalysisRunning ? View.INVISIBLE : View.VISIBLE);
+        } else {
+            viewBinding.aiCompleteButtonRow.setVisibility(View.GONE);
         }
 
         viewBinding.butAction2Text.setText(actionButton2.getLabel());
@@ -836,6 +893,81 @@ public class ItemFragment extends Fragment {
         viewBinding.butActionAdIcon.setVisibility(View.INVISIBLE);
     }
 
+    private void observeCompleteAnalysisWork(long feedItemId) {
+        if (!isAdAnalysisSupported()) {
+            return;
+        }
+        String tag = "complete-analysis-" + feedItemId;
+        if (completeWorkLiveData != null) {
+            completeWorkLiveData.removeObservers(getViewLifecycleOwner());
+        }
+        completeWorkLiveData = WorkManager.getInstance(requireContext()).getWorkInfosByTagLiveData(tag);
+        completeWorkLiveData.observe(getViewLifecycleOwner(), this::updateCompleteAnalysisProgress);
+    }
+
+    private void cancelCompleteAnalysisWork(long feedItemId) {
+        String tag = "complete-analysis-" + feedItemId;
+        WorkManager.getInstance(requireContext()).cancelAllWorkByTag(tag);
+    }
+
+    private void updateCompleteAnalysisProgress(List<WorkInfo> workInfos) {
+        if (!isAdAnalysisSupported() || !UserPreferences.isAdSkipEnabled()) {
+            isCompleteAnalysisRunning = false;
+            completeAnalysisStageLabel = null;
+            completeAnalysisPercent = -1;
+            viewBinding.circularProgressComplete.setVisibility(View.GONE);
+            viewBinding.aiCompleteButtonRow.setVisibility(View.GONE);
+            return;
+        }
+        if (workInfos == null || workInfos.isEmpty()) {
+            isCompleteAnalysisRunning = false;
+            completeAnalysisStageLabel = null;
+            completeAnalysisPercent = -1;
+            updateButtons();
+            return;
+        }
+        for (WorkInfo info : workInfos) {
+            if (info.getState() == WorkInfo.State.RUNNING) {
+                String stage = info.getProgress().getString("ad_analysis_progress_stage");
+                int percent = info.getProgress().getInt("ad_analysis_progress_percent", -1);
+                showCompleteAnalysisProgress(stage, percent);
+                return;
+            }
+            if (info.getState() == WorkInfo.State.ENQUEUED) {
+                showCompleteAnalysisProgress("transcribing", -1);
+                return;
+            }
+            if (info.getState().isFinished()) {
+                isCompleteAnalysisRunning = false;
+                completeAnalysisStageLabel = null;
+                completeAnalysisPercent = -1;
+                updateButtons();
+                updateAdSegmentsSummary();
+                return;
+            }
+        }
+        // No running/enqueued work -> reset
+        isCompleteAnalysisRunning = false;
+        completeAnalysisStageLabel = null;
+        completeAnalysisPercent = -1;
+        updateButtons();
+        updateAdSegmentsSummary();
+    }
+
+    private void showCompleteAnalysisProgress(String stage, int percent) {
+        isCompleteAnalysisRunning = true;
+        completeAnalysisStageLabel = mapStageLabel(stage);
+        completeAnalysisPercent = percent;
+        viewBinding.circularProgressComplete.setVisibility(View.VISIBLE);
+        viewBinding.circularProgressComplete.setIndeterminate(percent < 0);
+        if (percent >= 0) {
+            viewBinding.circularProgressComplete.setPercentage(Math.max(0.01f, percent / 100f), item);
+        }
+        viewBinding.butActionCompleteText.setText(completeAnalysisStageLabel);
+        viewBinding.butActionCompleteText.setTransformationMethod(null);
+        viewBinding.butActionCompleteIcon.setVisibility(View.INVISIBLE);
+    }
+
     private String mapStageLabel(String stage) {
         if ("analyzing".equalsIgnoreCase(stage)) {
             return getString(R.string.ad_analysis_analyzing);
@@ -913,6 +1045,7 @@ public class ItemFragment extends Fragment {
                     if (isAdAnalysisSupported() && UserPreferences.isAdSkipEnabled()) {
                         observeTranscriptionWork(item.getId());
                         observeAdAnalysisWork(item.getId());
+                        observeCompleteAnalysisWork(item.getId());
                     }
                     itemsLoaded = true;
                 }, error -> Log.e(TAG, Log.getStackTraceString(error)));

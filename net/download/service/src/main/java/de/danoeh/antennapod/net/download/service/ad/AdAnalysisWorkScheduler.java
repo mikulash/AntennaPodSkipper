@@ -36,7 +36,7 @@ public final class AdAnalysisWorkScheduler {
             return;
         }
         Data input = new Data.Builder()
-                .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, item.getId())
+                .putLong(TranscriptAnalysisWorker.DATA_FEED_ITEM_ID, item.getId())
                 .build();
 
         // Only require network if not running in fully local mode
@@ -47,7 +47,7 @@ public final class AdAnalysisWorkScheduler {
                 .setRequiresBatteryNotLow(true)
                 .build();
 
-        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(AdAnalysisWorker.class)
+        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(TranscriptAnalysisWorker.class)
                 .addTag(UNIQUE_PREFIX + item.getId())
                 .setConstraints(constraints)
                 .setInputData(input)

@@ -277,6 +277,61 @@
 
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/aiCompleteButtonRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:baselineAligned="false"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/butActionComplete"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="?android:attr/selectableItemBackground"
+                android:gravity="center"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp">
+
+                <FrameLayout
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="4dp"
+                    android:layout_gravity="bottom|end">
+
+                    <de.danoeh.antennapod.ui.common.CircularProgressBar
+                        android:id="@+id/circularProgressComplete"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        app:foregroundColor="?android:attr/textColorPrimary" />
+
+                    <ImageView
+                        android:id="@+id/butActionCompleteIcon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        tools:src="@drawable/ic_ad_analysis" />
+
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/butActionCompleteText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Button"
+                    android:textColor="?android:attr/textColorPrimary"
+                    tools:text="Do both" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
         <TextView
             android:id="@+id/nonSubscribedWarningLabel"
             android:layout_width="wrap_content"
