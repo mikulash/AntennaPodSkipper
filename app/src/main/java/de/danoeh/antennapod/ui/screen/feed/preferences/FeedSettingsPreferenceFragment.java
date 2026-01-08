@@ -61,6 +61,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     private static final String PREF_NOTIFICATION = "episodeNotification";
     private static final String PREF_RENAME = "rename";
     private static final String PREF_TAGS = "tags";
+    private static final String PREF_FEED_AI_CATEGORY = "feedAiCategory";
     private static final String PREF_FEED_TRANSCRIPTION_MODEL = "feedTranscriptionModel";
     private static final String PREF_FEED_TRANSCRIPTION_LANGUAGE = "feedTranscriptionLanguage";
     private static final String CLOUD_MODEL_OPENAI_WHISPER = "cloud:openai_whisper";
@@ -137,6 +138,10 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
                         findPreference(PREF_AUTODOWNLOAD).setVisible(false);
                         findPreference(PREF_EPISODE_FILTER).setVisible(false);
                     }
+
+                    // Show AI category only if AI analysis is enabled in settings
+                    boolean isAiEnabled = UserPreferences.isAdSkipEnabled();
+                    findPreference(PREF_FEED_AI_CATEGORY).setVisible(isAiEnabled);
 
                     findPreference(PREF_SCREEN).setVisible(true);
                 }, error -> Log.d(TAG, Log.getStackTraceString(error)), () -> { });

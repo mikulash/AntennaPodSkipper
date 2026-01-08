@@ -19,16 +19,22 @@
 
     </PreferenceCategory>
 
-    <Preference
-        android:key="feedTranscriptionModel"
-        android:title="@string/pref_local_transcription_model_title"
-        android:icon="@drawable/ic_transcribe_24dp" />
+    <PreferenceCategory
+        android:key="feedAiCategory"
+        android:title="@string/pref_ai_label">
 
-    <de.danoeh.antennapod.ui.preferences.preference.MaterialListPreference
-        android:key="feedTranscriptionLanguage"
-        android:title="@string/pref_transcription_language_title"
-        android:summary="%s"
-        android:icon="@drawable/ic_chat" />
+        <Preference
+            android:key="feedTranscriptionModel"
+            android:title="@string/pref_local_transcription_model_title"
+            android:icon="@drawable/ic_transcribe_24dp" />
+
+        <de.danoeh.antennapod.ui.preferences.preference.MaterialListPreference
+            android:key="feedTranscriptionLanguage"
+            android:title="@string/pref_transcription_language_title"
+            android:summary="%s"
+            android:icon="@drawable/ic_chat" />
+
+    </PreferenceCategory>
 
     <PreferenceCategory
         android:title="@string/playback_pref">
