@@ -227,6 +227,15 @@ public class ItemFragment extends Fragment {
                 observeTranscriptionWork(item.getId());
                 observeAdAnalysisWork(item.getId());
             }
+            // Development: Long-press transcript to share
+            viewBinding.adTranscriptContent.setOnLongClickListener(v -> {
+                CharSequence transcriptText = viewBinding.adTranscriptContent.getText();
+                if (transcriptText != null && transcriptText.length() > 0) {
+                    shareTranscript(transcriptText.toString());
+                    return true;
+                }
+                return false;
+            });
         } else {
             viewBinding.adSegmentsContainer.setVisibility(View.GONE);
             viewBinding.aiButtonsRow.setVisibility(View.GONE);
@@ -242,6 +251,25 @@ public class ItemFragment extends Fragment {
             if (Build.VERSION.SDK_INT <= 32) {
                 EventBus.getDefault().post(new MessageEvent(getString(R.string.copied_to_clipboard)));
             }
+        }
+    }
+
+    private void shareTranscript(String transcript) {
+        try {
+            android.content.Intent shareIntent = new android.content.Intent(android.content.Intent.ACTION_SEND);
+            shareIntent.setType("text/plain");
+            shareIntent.putExtra(android.content.Intent.EXTRA_TEXT, transcript);
+            if (item != null) {
+                shareIntent.putExtra(android.content.Intent.EXTRA_SUBJECT,
+                        "Transcript: " + item.getTitle());
+            }
+            startActivity(android.content.Intent.createChooser(shareIntent, "Share Transcript"));
+        } catch (OutOfMemoryError e) {
+            Log.e(TAG, "Not enough memory to share transcript", e);
+            EventBus.getDefault().post(new MessageEvent("Transcript too large to share"));
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to share transcript", e);
+            EventBus.getDefault().post(new MessageEvent("Failed to share transcript"));
         }
     }
 
