@@ -1,0 +1,43 @@
+plugins {
+    id("com.android.library")
+    id("java-test-fixtures")
+}
+apply from: "../../../common.gradle"
+apply from: "../../../playFlavor.gradle"
+
+android {
+    namespace "de.danoeh.antennapod.net.ai.service"
+}
+
+dependencies {
+    implementation project(':event')
+    implementation project(':model')
+    implementation project(':net:common')
+    implementation project(':storage:database')
+    implementation project(':storage:preferences')
+    implementation project(':ui:i18n')
+    implementation project(':ui:transcript')
+    implementation project(':parser:media')
+
+    annotationProcessor "androidx.annotation:annotation:$annotationVersion"
+    implementation "androidx.core:core:$coreVersion"
+    implementation "androidx.work:work-runtime:$workManagerVersion"
+
+    implementation "com.squareup.okhttp3:okhttp:$okhttpVersion"
+    implementation "commons-io:commons-io:$commonsioVersion"
+    implementation "org.apache.commons:commons-lang3:$commonslangVersion"
+    implementation "org.greenrobot:eventbus:$eventbusVersion"
+    implementation "io.reactivex.rxjava3:rxandroid:$rxAndroidVersion"
+    implementation "io.reactivex.rxjava3:rxjava:$rxJavaVersion"
+    implementation "com.google.guava:guava:31.0.1-android"
+
+    implementation 'com.openai:openai-java:4.11.0'
+    // Vosk for local on-device speech recognition
+    implementation "com.alphacephei:vosk-android:0.3.75"
+
+    testImplementation "junit:junit:$junitVersion"
+    testImplementation "org.robolectric:robolectric:$robolectricVersion"
+    testImplementation "org.awaitility:awaitility:$awaitilityVersion"
+    testImplementation "org.mockito:mockito-core:$mockitoVersion"
+    testImplementation "androidx.preference:preference:$preferenceVersion"
+}

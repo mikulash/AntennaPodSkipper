@@ -8,10 +8,12 @@ import android.util.Log;
 import android.view.MenuItem;
 import androidx.appcompat.app.ActionBar;
 import androidx.preference.PreferenceFragmentCompat;
+
 import com.bytehamster.lib.preferencesearch.SearchPreferenceResult;
 import com.bytehamster.lib.preferencesearch.SearchPreferenceResultListener;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.snackbar.Snackbar;
+
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.ui.common.Keyboard;
@@ -19,19 +21,26 @@ import de.danoeh.antennapod.ui.common.ToolbarActivity;
 import de.danoeh.antennapod.ui.preferences.databinding.SettingsActivityBinding;
 import de.danoeh.antennapod.ui.preferences.screen.AutoDownloadPreferencesFragment;
 import de.danoeh.antennapod.ui.preferences.screen.NotificationPreferencesFragment;
+import de.danoeh.antennapod.ui.preferences.screen.AiPreferencesFragment;
 import de.danoeh.antennapod.ui.preferences.screen.synchronization.SynchronizationPreferencesFragment;
+
+import de.danoeh.antennapod.ui.preferences.PreferenceController;
+import androidx.fragment.app.Fragment;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
 /**
- * PreferenceActivity for API 11+. In order to change the behavior of the preference UI, see
+ * PreferenceActivity for API 11+. In order to change the behavior of the
+ * preference UI, see
  * PreferenceController.
  */
-public class PreferenceActivity extends ToolbarActivity implements SearchPreferenceResultListener {
+public class PreferenceActivity extends ToolbarActivity
+        implements SearchPreferenceResultListener, PreferenceController {
     private static final String FRAGMENT_TAG = "tag_preferences";
     public static final String OPEN_AUTO_DOWNLOAD_SETTINGS = "OpenAutoDownloadSettings";
     public static final String OPEN_PLAYBACK_SETTINGS = "OpenPlaybackSettings";
+    public static final String OPEN_AI_SETTINGS = "OpenAiSettings";
     private SettingsActivityBinding binding;
 
     @Override
@@ -58,6 +67,9 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
         if (intent.getBooleanExtra(OPEN_PLAYBACK_SETTINGS, false)) {
             openScreen(R.xml.preferences_playback);
         }
+        if (intent.getBooleanExtra(OPEN_AI_SETTINGS, false)) {
+            openScreen(R.xml.preferences_ai);
+        }
     }
 
     private PreferenceFragmentCompat getPreferenceScreen(int screen) {
@@ -77,6 +89,8 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
             prefFragment = new PlaybackPreferencesFragment();
         } else if (screen == R.xml.preferences_notifications) {
             prefFragment = new NotificationPreferencesFragment();
+        } else if (screen == R.xml.preferences_ai) {
+            prefFragment = new AiPreferencesFragment();
         } else if (screen == R.xml.preferences_swipe) {
             prefFragment = new SwipePreferencesFragment();
         } else if (screen == R.xml.preferences_auto_deletion) {
@@ -100,6 +114,8 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
             return R.string.synchronization_pref;
         } else if (preferences == R.xml.preferences_notifications) {
             return R.string.notification_pref_fragment;
+        } else if (preferences == R.xml.preferences_ai) {
+            return R.string.pref_ai_label;
         } else if (preferences == R.xml.feed_settings) {
             return R.string.feed_settings_label;
         } else if (preferences == R.xml.preferences_swipe) {
@@ -112,7 +128,7 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
 
     public PreferenceFragmentCompat openScreen(int screen) {
         PreferenceFragmentCompat fragment = getPreferenceScreen(screen);
-        if (screen == R.xml.preferences_notifications && Build.VERSION.SDK_INT >= 26) {
+        if (screen == R.xml.preferences_notifications) {
             Intent intent = new Intent();
             intent.setAction(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
             intent.putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
@@ -123,8 +139,15 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
                     .addToBackStack(getString(getTitleOfPage(screen))).commit();
         }
 
-
         return fragment;
+    }
+
+    @Override
+    public void openScreen(Fragment fragment) {
+        getSupportFragmentManager().beginTransaction()
+                .replace(binding.settingsContainer.getId(), fragment)
+                .addToBackStack(null)
+                .commit();
     }
 
     @Override

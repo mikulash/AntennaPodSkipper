@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <SwitchPreferenceCompat
+            android:key="prefAdSkipEnabled"
+            android:defaultValue="true"
+            android:title="@string/pref_ad_skip_enabled_title"
+            android:summary="@string/pref_ad_skip_enabled_summary" />
+
+    <EditTextPreference
+            android:key="prefOpenAiApiKey"
+            android:persistent="false"
+            android:title="@string/pref_openai_api_key_title"
+            android:summary="@string/pref_openai_api_key_summary" />
+
+    <ListPreference
+            android:key="prefOpenAiModel"
+            android:defaultValue="@string/pref_openai_model_default"
+            android:title="@string/pref_openai_model_title"
+            android:entries="@array/pref_openai_model_entries"
+            android:entryValues="@array/pref_openai_model_values"
+            android:summary="%s" />
+
+
+
+    <PreferenceCategory
+            android:key="prefLocalTranscriptionCategory"
+            android:title="@string/pref_local_transcription_category">
+
+        <Preference
+                android:key="prefLocalTranscriptionInfo"
+                android:summary="@string/pref_local_transcription_info"
+                android:selectable="false" />
+
+        <SwitchPreferenceCompat
+                android:key="prefLocalTranscriptionEnabled"
+                android:defaultValue="false"
+                android:title="@string/pref_local_transcription_title"
+                android:summary="@string/pref_local_transcription_summary" />
+
+        <ListPreference
+                android:key="prefLocalTranscriptionModel"
+                android:defaultValue="small"
+                android:title="@string/pref_local_transcription_model_title"
+                android:entries="@array/pref_local_transcription_model_entries"
+                android:entryValues="@array/pref_local_transcription_model_values"
+                android:summary="%s" />
+
+        <Preference
+                android:key="prefManageTranscriptionModels"
+                android:title="@string/pref_manage_transcription_models_title"
+                android:summary="@string/pref_manage_transcription_models_summary" />
+
+        <Preference
+                android:key="prefDeleteAllTranscriptionModels"
+                android:title="@string/pref_delete_all_models_title"
+                android:summary="@string/pref_delete_all_transcription_models_summary" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

@@ -24,8 +24,10 @@ android {
 
 dependencies {
     implementation project(":event")
+    implementation project(":net:ai:service")
     implementation project(":net:common")
     implementation project(":net:sync:gpoddernet")
+    implementation project(":net:download:service")
     implementation project(":storage:preferences")
     implementation project(":storage:importexport")
     implementation project(':system')

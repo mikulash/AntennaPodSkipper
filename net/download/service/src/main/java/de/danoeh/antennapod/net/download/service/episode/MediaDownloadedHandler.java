@@ -2,6 +2,7 @@ package de.danoeh.antennapod.net.download.service.episode;
 
 import android.content.Context;
 import android.media.MediaMetadataRetriever;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -27,6 +28,7 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.net.sync.serviceinterface.EpisodeAction;
 import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
+import de.danoeh.antennapod.net.ai.service.ad.AdAnalysisWorkScheduler;
 
 /**
  * Handles a completed media download.
