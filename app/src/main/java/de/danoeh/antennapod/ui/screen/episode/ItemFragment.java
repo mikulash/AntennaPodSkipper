@@ -776,11 +776,13 @@ public class ItemFragment extends Fragment {
             if (info.getState() == WorkInfo.State.RUNNING) {
                 String stage = info.getProgress().getString("transcription_progress_stage");
                 int percent = info.getProgress().getInt("transcription_progress_percent", -1);
-                showTranscriptionProgress(stage, percent);
+                int chunksDone = info.getProgress().getInt("transcription_chunks_done", 0);
+                int chunksTotal = info.getProgress().getInt("transcription_chunks_total", 0);
+                showTranscriptionProgress(stage, percent, chunksDone, chunksTotal);
                 return;
             }
             if (info.getState() == WorkInfo.State.ENQUEUED) {
-                showTranscriptionProgress("transcribing", -1);
+                showTranscriptionProgress("transcribing", -1, 0, 0);
                 return;
             }
             if (info.getState().isFinished()) {
@@ -804,9 +806,14 @@ public class ItemFragment extends Fragment {
         updateAdSegmentsSummary();
     }
 
-    private void showTranscriptionProgress(String stage, int percent) {
+    private void showTranscriptionProgress(String stage, int percent, int chunksDone, int chunksTotal) {
         isTranscriptionRunning = true;
-        transcriptionStageLabel = getString(R.string.ad_analysis_transcribing);
+        // Format message with chunk information if available
+        if (chunksTotal > 0) {
+            transcriptionStageLabel = getString(R.string.ad_analysis_transcribing) + " (" + chunksDone + "/" + chunksTotal + ")";
+        } else {
+            transcriptionStageLabel = getString(R.string.ad_analysis_transcribing);
+        }
         transcriptionPercent = percent;
         viewBinding.circularProgressTranscribe.setVisibility(View.VISIBLE);
         viewBinding.circularProgressTranscribe.setIndeterminate(percent < 0);
@@ -855,11 +862,13 @@ public class ItemFragment extends Fragment {
             if (info.getState() == WorkInfo.State.RUNNING) {
                 String stage = info.getProgress().getString("analysis_progress_stage");
                 int percent = info.getProgress().getInt("analysis_progress_percent", -1);
-                showAdAnalysisProgress(stage, percent);
+                int chunksDone = info.getProgress().getInt("analysis_chunks_done", 0);
+                int chunksTotal = info.getProgress().getInt("analysis_chunks_total", 0);
+                showAdAnalysisProgress(stage, percent, chunksDone, chunksTotal);
                 return;
             }
             if (info.getState() == WorkInfo.State.ENQUEUED) {
-                showAdAnalysisProgress("analyzing", -1);
+                showAdAnalysisProgress("analyzing", -1, 0, 0);
                 return;
             }
             if (info.getState().isFinished()) {
@@ -879,9 +888,15 @@ public class ItemFragment extends Fragment {
         updateAdSegmentsSummary();
     }
 
-    private void showAdAnalysisProgress(String stage, int percent) {
+    private void showAdAnalysisProgress(String stage, int percent, int chunksDone, int chunksTotal) {
         isAdAnalysisRunning = true;
-        adAnalysisStageLabel = mapStageLabel(stage);
+        String baseLabel = mapStageLabel(stage);
+        // Add chunk information if analyzing and chunks are available
+        if ("analyzing".equalsIgnoreCase(stage) && chunksTotal > 1) {
+            adAnalysisStageLabel = baseLabel + " (" + chunksDone + "/" + chunksTotal + ")";
+        } else {
+            adAnalysisStageLabel = baseLabel;
+        }
         adAnalysisPercent = percent;
         viewBinding.circularProgressAd.setVisibility(View.VISIBLE);
         viewBinding.circularProgressAd.setIndeterminate(percent < 0);
@@ -930,11 +945,13 @@ public class ItemFragment extends Fragment {
             if (info.getState() == WorkInfo.State.RUNNING) {
                 String stage = info.getProgress().getString("ad_analysis_progress_stage");
                 int percent = info.getProgress().getInt("ad_analysis_progress_percent", -1);
-                showCompleteAnalysisProgress(stage, percent);
+                int chunksDone = info.getProgress().getInt("ad_analysis_chunks_done", 0);
+                int chunksTotal = info.getProgress().getInt("ad_analysis_chunks_total", 0);
+                showCompleteAnalysisProgress(stage, percent, chunksDone, chunksTotal);
                 return;
             }
             if (info.getState() == WorkInfo.State.ENQUEUED) {
-                showCompleteAnalysisProgress("transcribing", -1);
+                showCompleteAnalysisProgress("transcribing", -1, 0, 0);
                 return;
             }
             if (info.getState().isFinished()) {
@@ -954,9 +971,18 @@ public class ItemFragment extends Fragment {
         updateAdSegmentsSummary();
     }
 
-    private void showCompleteAnalysisProgress(String stage, int percent) {
+    private void showCompleteAnalysisProgress(String stage, int percent, int chunksDone, int chunksTotal) {
         isCompleteAnalysisRunning = true;
-        completeAnalysisStageLabel = mapStageLabel(stage);
+        String baseLabel = mapStageLabel(stage);
+        // Add chunk information if chunks are available (either transcribing or analyzing)
+        if (chunksTotal > 1 && ("transcribing".equalsIgnoreCase(stage) || "analyzing".equalsIgnoreCase(stage))) {
+            completeAnalysisStageLabel = baseLabel + " (" + chunksDone + "/" + chunksTotal + ")";
+        } else if (chunksTotal > 0 && "transcribing".equalsIgnoreCase(stage)) {
+            // For transcribing, show even if only 1 chunk
+            completeAnalysisStageLabel = baseLabel + " (" + chunksDone + "/" + chunksTotal + ")";
+        } else {
+            completeAnalysisStageLabel = baseLabel;
+        }
         completeAnalysisPercent = percent;
         viewBinding.circularProgressComplete.setVisibility(View.VISIBLE);
         viewBinding.circularProgressComplete.setIndeterminate(percent < 0);

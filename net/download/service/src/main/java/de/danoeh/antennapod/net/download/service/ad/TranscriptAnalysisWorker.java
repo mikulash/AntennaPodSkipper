@@ -47,7 +47,10 @@ public class TranscriptAnalysisWorker extends Worker {
     public static final String DATA_FEED_ITEM_ID = "feedItemId";
     private static final String PROGRESS_KEY_PERCENT = "analysis_progress_percent";
     private static final String PROGRESS_KEY_STAGE = "analysis_progress_stage";
+    private static final String PROGRESS_KEY_CHUNKS_DONE = "analysis_chunks_done";
+    private static final String PROGRESS_KEY_CHUNKS_TOTAL = "analysis_chunks_total";
     private static final String TAG = "TranscriptAnalysisWorker";
+    private static final int MAX_TRANSCRIPT_CHARS_PER_CHUNK = 100000; // ~25k tokens
 
     public TranscriptAnalysisWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
@@ -96,15 +99,33 @@ public class TranscriptAnalysisWorker extends Worker {
                     + ", title=" + item.getTitle());
             setProgressStage("analyzing", 0);
 
-            // Analyze the transcript with progress reporting
-            Log.i(TAG, "Requesting ad classification using model " + analysisProvider.getModelName());
-            String content = analysisProvider.analyzeTranscript(transcript,percent -> setProgressStage("analyzing", percent));
-            Log.i(TAG, "Model response content: " + content);
-            Log.i(TAG, "Model response received, raw length=" + content.length());
-            List<AdSegment> segments = mergeSegments(parseSegments(content));
-            Log.i(TAG, "Ad analysis finished: " + segments.size() + " segment(s) detected");
+            // Check if transcript needs to be split
+            List<String> transcriptChunks = splitTranscriptIfNeeded(transcript);
+            int totalChunks = transcriptChunks.size();
+            Log.i(TAG, "Analyzing transcript in " + totalChunks + " chunk(s)");
+
+            List<AdSegment> allSegments = new ArrayList<>();
+
+            for (int i = 0; i < totalChunks; i++) {
+                final int chunkIndex = i;
+                String chunk = transcriptChunks.get(i);
+
+                Log.i(TAG, "Analyzing chunk " + (chunkIndex + 1) + "/" + totalChunks);
+                String content = analysisProvider.analyzeTranscript(chunk, percent -> {
+                    // Map chunk progress to overall progress
+                    int overallPercent = (chunkIndex * 100 + percent) / totalChunks;
+                    setProgressStageWithChunks("analyzing", overallPercent, chunkIndex + 1, totalChunks);
+                });
+
+                Log.i(TAG, "Chunk " + (chunkIndex + 1) + " response length=" + content.length());
+                List<AdSegment> segments = parseSegments(content);
+                allSegments.addAll(segments);
+            }
+
+            List<AdSegment> mergedSegments = mergeSegments(allSegments);
+            Log.i(TAG, "Ad analysis finished: " + mergedSegments.size() + " segment(s) detected");
             AdSegmentStore.save(getApplicationContext(), feedItemId,
-                    new AdAnalysisResult(segments, System.currentTimeMillis(), analysisProvider.getModelName(), "",
+                    new AdAnalysisResult(mergedSegments, System.currentTimeMillis(), analysisProvider.getModelName(), "",
                             transcript));
             setProgressStage("done", 100);
             return Result.success();
@@ -247,6 +268,44 @@ public class TranscriptAnalysisWorker extends Worker {
                 .putInt(PROGRESS_KEY_PERCENT, percent)
                 .build();
         setProgressAsync(progress);
+    }
+
+    private void setProgressStageWithChunks(String stage, int percent, int chunksDone, int chunksTotal) {
+        Data progress = new Data.Builder()
+                .putString(PROGRESS_KEY_STAGE, stage)
+                .putInt(PROGRESS_KEY_PERCENT, percent)
+                .putInt(PROGRESS_KEY_CHUNKS_DONE, chunksDone)
+                .putInt(PROGRESS_KEY_CHUNKS_TOTAL, chunksTotal)
+                .build();
+        setProgressAsync(progress);
+    }
+
+    private List<String> splitTranscriptIfNeeded(String transcript) {
+        List<String> chunks = new ArrayList<>();
+        if (transcript.length() <= MAX_TRANSCRIPT_CHARS_PER_CHUNK) {
+            chunks.add(transcript);
+            return chunks;
+        }
+
+        // Split into roughly equal chunks
+        int numChunks = (int) Math.ceil((double) transcript.length() / MAX_TRANSCRIPT_CHARS_PER_CHUNK);
+        int chunkSize = transcript.length() / numChunks;
+
+        int start = 0;
+        while (start < transcript.length()) {
+            int end = Math.min(start + chunkSize, transcript.length());
+            // Try to break at a newline to avoid splitting sentences
+            if (end < transcript.length()) {
+                int newlineIndex = transcript.lastIndexOf('\n', end);
+                if (newlineIndex > start) {
+                    end = newlineIndex;
+                }
+            }
+            chunks.add(transcript.substring(start, end));
+            start = end;
+        }
+
+        return chunks;
     }
 
     private boolean isUnauthorized(Throwable throwable) {

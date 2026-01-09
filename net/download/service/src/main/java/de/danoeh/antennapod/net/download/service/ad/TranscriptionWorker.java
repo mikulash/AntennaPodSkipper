@@ -35,6 +35,8 @@ public class TranscriptionWorker extends Worker {
     public static final String DATA_FEED_ITEM_ID = "feedItemId";
     private static final String PROGRESS_KEY_PERCENT = "transcription_progress_percent";
     private static final String PROGRESS_KEY_STAGE = "transcription_progress_stage";
+    private static final String PROGRESS_KEY_CHUNKS_DONE = "transcription_chunks_done";
+    private static final String PROGRESS_KEY_CHUNKS_TOTAL = "transcription_chunks_total";
     private static final String TAG = "TranscriptionWorker";
     private static final long TRANSCRIPTION_CHUNK_SECONDS = 150; // 2.5 minutes
 
@@ -181,7 +183,7 @@ public class TranscriptionWorker extends Worker {
                         if (chunkPath == null || !Files.exists(chunkPath)) {
                             Log.e(TAG, "Chunk " + (chunkIndex + 1) + " missing on disk; skipping section");
                             int currentDone = doneCount.incrementAndGet();
-                            updateProgressIfIncreased(lastReportedPercent, currentDone, totalProgressParts);
+                            updateProgressIfIncreased(lastReportedPercent, currentDone, totalProgressParts, totalChunks);
                             return "";
                         }
 
@@ -191,7 +193,7 @@ public class TranscriptionWorker extends Worker {
 
                         // Update progress (started part)
                         int currentDone = doneCount.incrementAndGet();
-                        updateProgressIfIncreased(lastReportedPercent, currentDone, totalProgressParts);
+                        updateProgressIfIncreased(lastReportedPercent, currentDone, totalProgressParts, totalChunks);
 
                         // Transcribe
                         String transcription = provider.transcribeChunk(chunkPath, chunkIndex, totalChunks, 2);
@@ -203,7 +205,7 @@ public class TranscriptionWorker extends Worker {
 
                         // Update progress (completed part)
                         currentDone = doneCount.incrementAndGet();
-                        updateProgressIfIncreased(lastReportedPercent, currentDone, totalProgressParts);
+                        updateProgressIfIncreased(lastReportedPercent, currentDone, totalProgressParts, totalChunks);
 
                         return adjusted;
                     } catch (Exception e) {
@@ -355,12 +357,22 @@ public class TranscriptionWorker extends Worker {
         setProgressAsync(progress);
     }
 
+    private void setProgressStageWithChunks(String stage, int percent, int chunksDone, int chunksTotal) {
+        Data progress = new Data.Builder()
+                .putString(PROGRESS_KEY_STAGE, stage)
+                .putInt(PROGRESS_KEY_PERCENT, percent)
+                .putInt(PROGRESS_KEY_CHUNKS_DONE, chunksDone)
+                .putInt(PROGRESS_KEY_CHUNKS_TOTAL, chunksTotal)
+                .build();
+        setProgressAsync(progress);
+    }
+
     /**
      * Updates progress only if the new percentage is higher than the last reported percentage.
      * This prevents the progress bar from going backward when chunks complete out of order.
      */
     private void updateProgressIfIncreased(java.util.concurrent.atomic.AtomicInteger lastReportedPercent,
-            int currentDone, double totalProgressParts) {
+            int currentDone, double totalProgressParts, int totalChunks) {
         int newPercent = calculatePercent(currentDone, totalProgressParts);
         int oldPercent = lastReportedPercent.get();
 
@@ -368,7 +380,9 @@ public class TranscriptionWorker extends Worker {
         if (newPercent > oldPercent) {
             // Use compareAndSet to avoid race conditions
             if (lastReportedPercent.compareAndSet(oldPercent, newPercent)) {
-                setProgressStage("transcribing", newPercent);
+                // Calculate completed chunks (each chunk contributes 2 to doneCount)
+                int completedChunks = currentDone / 2;
+                setProgressStageWithChunks("transcribing", newPercent, completedChunks, totalChunks);
             }
         }
     }
