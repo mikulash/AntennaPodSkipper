@@ -1,4 +1,4 @@
-package de.danoeh.antennapod.net.download.service.ad.vosk;
+package de.danoeh.antennapod.net.ai.service.ad.vosk;
 
 import android.content.Context;
 import android.media.MediaCodec;
@@ -31,7 +31,7 @@ import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import de.danoeh.antennapod.net.download.service.ad.transcription.TranscriptionManager;
+import de.danoeh.antennapod.net.ai.service.ad.transcription.TranscriptionManager;
 
 /**
  * Manages Vosk speech recognition model download and on-device transcription.

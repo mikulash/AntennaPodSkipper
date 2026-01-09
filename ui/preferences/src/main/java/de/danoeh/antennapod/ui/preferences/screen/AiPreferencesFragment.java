@@ -27,9 +27,9 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import java.io.InputStream;
 import android.net.Uri;
 
-import de.danoeh.antennapod.net.download.service.ad.vosk.VoskTranscriptionManager;
-import de.danoeh.antennapod.net.download.service.ad.litert.LlmModel;
-import de.danoeh.antennapod.net.download.service.ad.vosk.VoskModel;
+import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager;
+import de.danoeh.antennapod.net.ai.service.ad.litert.LlmModel;
+import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.ui.preferences.R;
@@ -61,7 +61,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private static final String PREF_DELETE_ALL_LLM_MODELS = "prefDeleteAllLlmModels";
 
     private VoskTranscriptionManager transcriptionManager;
-    private de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager llmManager;
+    private de.danoeh.antennapod.net.ai.service.ad.litert.LiteRtLLMManager llmManager;
     private ExecutorService downloadExecutor;
     private volatile boolean isDownloading = false;
     private ActivityResultLauncher<String> importLauncher;
@@ -71,7 +71,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         addPreferencesFromResource(R.xml.preferences_ai);
 
         transcriptionManager = new VoskTranscriptionManager(requireContext());
-        llmManager = new de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager(requireContext());
+        llmManager = new de.danoeh.antennapod.net.ai.service.ad.litert.LiteRtLLMManager(requireContext());
 
         downloadExecutor = Executors.newSingleThreadExecutor();
 
@@ -316,7 +316,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         ListPreference modelPref = findPreference(PREF_LOCAL_TRANSCRIPTION_MODEL);
         if (modelPref != null) {
             // Update summary
-            de.danoeh.antennapod.net.download.service.ad.vosk.VoskModel model = transcriptionManager
+            de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel model = transcriptionManager
                     .getModelById(selectedModel);
             String label = (model != null) ? model.getName() : selectedModel;
             modelPref.setSummary(label);
@@ -342,7 +342,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
             CharSequence[] entries = new CharSequence[downloadedModels.size()];
             CharSequence[] entryValues = new CharSequence[downloadedModels.size()];
             for (int i = 0; i < downloadedModels.size(); i++) {
-                de.danoeh.antennapod.net.download.service.ad.vosk.VoskModel m = downloadedModels.get(i);
+                de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel m = downloadedModels.get(i);
                 entries[i] = m.getName();
                 entryValues[i] = m.getId();
             }

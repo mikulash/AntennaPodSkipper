@@ -1,4 +1,4 @@
-package de.danoeh.antennapod.net.download.service.ad.litert;
+package de.danoeh.antennapod.net.ai.service.ad.litert;
 
 import android.content.Context;
 import android.os.Build;
@@ -14,7 +14,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import de.danoeh.antennapod.net.download.service.ad.vosk.VoskTranscriptionManager.DownloadProgressListener;
+import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager.DownloadProgressListener;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**

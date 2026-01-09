@@ -1,4 +1,4 @@
-package de.danoeh.antennapod.net.download.service.ad.vosk;
+package de.danoeh.antennapod.net.ai.service.ad.vosk;
 
 import java.util.Objects;
 

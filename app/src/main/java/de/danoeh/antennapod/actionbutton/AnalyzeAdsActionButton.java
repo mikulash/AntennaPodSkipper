@@ -18,7 +18,7 @@ import java.io.File;
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
-import de.danoeh.antennapod.net.download.service.ad.AdAnalysisWorkScheduler;
+import de.danoeh.antennapod.net.ai.service.ad.AdAnalysisWorkScheduler;
 import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
@@ -70,7 +70,7 @@ public class AnalyzeAdsActionButton extends ItemActionButton {
         // Check for local analysis model if enabled
         if (LocalAiPreferences.isLocalAdAnalysisEnabled(context)) {
             String model = LocalAiPreferences.getLocalAdAnalysisModel(context);
-            if (!new de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager(context).isModelDownloaded(model)) {
+            if (!new de.danoeh.antennapod.net.ai.service.ad.litert.LiteRtLLMManager(context).isModelDownloaded(model)) {
                 new MaterialAlertDialogBuilder(context)
                         .setTitle(R.string.ad_analysis_model_missing_title)
                         .setMessage(R.string.ad_analysis_llm_missing_message)

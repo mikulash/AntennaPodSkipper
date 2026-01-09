@@ -1,4 +1,4 @@
-package de.danoeh.antennapod.net.download.service.ad.provider;
+package de.danoeh.antennapod.net.ai.service.ad.provider;
 
 import android.content.Context;
 import android.os.Build;
@@ -15,8 +15,8 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import de.danoeh.antennapod.net.download.service.ad.litert.InferenceModel;
-import de.danoeh.antennapod.net.download.service.ad.litert.LlmModel;
+import de.danoeh.antennapod.net.ai.service.ad.litert.InferenceModel;
+import de.danoeh.antennapod.net.ai.service.ad.litert.LlmModel;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**

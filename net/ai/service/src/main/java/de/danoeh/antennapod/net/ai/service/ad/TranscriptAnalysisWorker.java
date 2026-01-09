@@ -1,4 +1,4 @@
-package de.danoeh.antennapod.net.download.service.ad;
+package de.danoeh.antennapod.net.ai.service.ad;
 
 import android.content.Context;
 import android.os.Build;
@@ -33,8 +33,8 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.storage.database.DBReader;
-import de.danoeh.antennapod.net.download.service.ad.provider.TranscriptAnalysisProvider;
-import de.danoeh.antennapod.net.download.service.ad.provider.AdAnalysisProviderFactory;
+import de.danoeh.antennapod.net.ai.service.ad.provider.TranscriptAnalysisProvider;
+import de.danoeh.antennapod.net.ai.service.ad.provider.AdAnalysisProviderFactory;
 
 import org.greenrobot.eventbus.EventBus;
 

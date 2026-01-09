@@ -30,8 +30,8 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import de.danoeh.antennapod.net.download.service.ad.litert.LiteRtLLMManager;
-import de.danoeh.antennapod.net.download.service.ad.litert.LlmModel;
+import de.danoeh.antennapod.net.ai.service.ad.litert.LiteRtLLMManager;
+import de.danoeh.antennapod.net.ai.service.ad.litert.LlmModel;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.ui.preferences.R;
 

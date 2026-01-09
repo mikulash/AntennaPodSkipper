@@ -1,4 +1,4 @@
-package de.danoeh.antennapod.net.download.service.ad;
+package de.danoeh.antennapod.net.ai.service.ad;
 
 import android.content.Context;
 import android.os.Build;

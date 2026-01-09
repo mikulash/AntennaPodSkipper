@@ -6,42 +6,38 @@ apply from: "../../../common.gradle"
 apply from: "../../../playFlavor.gradle"
 
 android {
-    namespace "de.danoeh.antennapod.net.download.service"
+    namespace "de.danoeh.antennapod.net.ai.service"
 }
 
 dependencies {
     implementation project(':event')
     implementation project(':model')
-    implementation project(':net:ai:service')
     implementation project(':net:common')
-    implementation project(':net:download:service-interface')
-    implementation project(':net:sync:service-interface')
-    implementation project(':parser:media')
-    implementation project(':parser:feed')
     implementation project(':storage:database')
-    implementation project(':ui:notifications')
     implementation project(':storage:preferences')
-    implementation project(':ui:app-start-intent')
-    implementation project(':ui:chapters')
     implementation project(':ui:i18n')
     implementation project(':ui:transcript')
-    implementation 'androidx.room:room-external-antlr:2.8.4'
+    implementation project(':parser:media')
 
     annotationProcessor "androidx.annotation:annotation:$annotationVersion"
     implementation "androidx.core:core:$coreVersion"
-    implementation 'androidx.documentfile:documentfile:1.0.1'
     implementation "androidx.work:work-runtime:$workManagerVersion"
-    implementation "com.google.android.material:material:$googleMaterialVersion"
 
     implementation "com.squareup.okhttp3:okhttp:$okhttpVersion"
-    implementation "com.squareup.okhttp3:okhttp-urlconnection:$okhttpVersion"
     implementation "commons-io:commons-io:$commonsioVersion"
     implementation "org.apache.commons:commons-lang3:$commonslangVersion"
     implementation "org.greenrobot:eventbus:$eventbusVersion"
-    implementation "com.github.bumptech.glide:glide:$glideVersion"
     implementation "io.reactivex.rxjava3:rxandroid:$rxAndroidVersion"
     implementation "io.reactivex.rxjava3:rxjava:$rxJavaVersion"
     implementation "com.google.guava:guava:31.0.1-android"
+
+    implementation 'com.openai:openai-java:4.11.0'
+    // Vosk for local on-device speech recognition
+    implementation "com.alphacephei:vosk-android:0.3.75"
+    // LiteRT 2.1.0 for model runtime (bundled in litertlm-android but explicit for other uses)
+    implementation 'com.google.ai.edge.litert:litert:2.1.0'
+    // LiteRT-LM for on-device LLM inference with .litertlm models
+    implementation 'com.google.ai.edge.litertlm:litertlm-android:0.8.0'
 
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.robolectric:robolectric:$robolectricVersion"

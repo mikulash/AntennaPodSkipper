@@ -1,4 +1,4 @@
-package de.danoeh.antennapod.net.download.service.ad.provider;
+package de.danoeh.antennapod.net.ai.service.ad.provider;
 
 import android.content.Context;
 import android.os.Build;
@@ -8,7 +8,7 @@ import androidx.annotation.RequiresApi;
 
 import java.io.IOException;
 
-import de.danoeh.antennapod.net.download.service.ad.vosk.VoskTranscriptionManager;
+import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**

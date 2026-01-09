@@ -38,8 +38,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import de.danoeh.antennapod.net.download.service.ad.vosk.VoskTranscriptionManager;
-import de.danoeh.antennapod.net.download.service.ad.vosk.VoskModel;
+import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager;
+import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel;
 import de.danoeh.antennapod.ui.preferences.R;
 
 public class TranscriptionModelManagerFragment extends Fragment {

@@ -1,4 +1,4 @@
-package de.danoeh.antennapod.net.download.service.ad.transcription;
+package de.danoeh.antennapod.net.ai.service.ad.transcription;
 
 import java.io.File;
 import java.io.IOException;
