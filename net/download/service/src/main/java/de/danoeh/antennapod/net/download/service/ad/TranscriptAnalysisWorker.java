@@ -104,22 +104,15 @@ public class TranscriptAnalysisWorker extends Worker {
             int totalChunks = transcriptChunks.size();
             Log.i(TAG, "Analyzing transcript in " + totalChunks + " chunk(s)");
 
-            List<AdSegment> allSegments = new ArrayList<>();
-
-            for (int i = 0; i < totalChunks; i++) {
-                final int chunkIndex = i;
-                String chunk = transcriptChunks.get(i);
-
-                Log.i(TAG, "Analyzing chunk " + (chunkIndex + 1) + "/" + totalChunks);
-                String content = analysisProvider.analyzeTranscript(chunk, percent -> {
-                    // Map chunk progress to overall progress
-                    int overallPercent = (chunkIndex * 100 + percent) / totalChunks;
-                    setProgressStageWithChunks("analyzing", overallPercent, chunkIndex + 1, totalChunks);
-                });
-
-                Log.i(TAG, "Chunk " + (chunkIndex + 1) + " response length=" + content.length());
-                List<AdSegment> segments = parseSegments(content);
-                allSegments.addAll(segments);
+            List<AdSegment> allSegments;
+            if (totalChunks == 1) {
+                // Single chunk - no need for parallel execution
+                String content = analysisProvider.analyzeTranscript(transcriptChunks.get(0), percent ->
+                    setProgressStage("analyzing", percent));
+                allSegments = parseSegments(content);
+            } else {
+                // Multiple chunks - analyze in parallel
+                allSegments = analyzeChunksInParallel(analysisProvider, transcriptChunks);
             }
 
             List<AdSegment> mergedSegments = mergeSegments(allSegments);
@@ -190,6 +183,54 @@ public class TranscriptAnalysisWorker extends Worker {
                 + "Episode duration seconds: " + durationMs / 1000f + "\n"
                 + "Transcript (WebVTT):\n\n"
                 + transcript + "\n\nAgain, output only the JSON structure.";
+    }
+
+    private List<AdSegment> analyzeChunksInParallel(TranscriptAnalysisProvider provider, List<String> chunks) throws Exception {
+        final int totalChunks = chunks.size();
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(
+                Math.min(totalChunks, 3)); // Max 3 parallel requests to avoid overwhelming API
+        List<java.util.concurrent.Future<List<AdSegment>>> futures = new java.util.ArrayList<>();
+        java.util.concurrent.atomic.AtomicInteger completedChunks = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        try {
+            // Submit all chunks for analysis
+            for (int i = 0; i < totalChunks; i++) {
+                final int chunkIndex = i;
+                final String chunk = chunks.get(i);
+
+                futures.add(executor.submit(() -> {
+                    Log.i(TAG, "Analyzing chunk " + (chunkIndex + 1) + "/" + totalChunks);
+                    String content = provider.analyzeTranscript(chunk, null); // No per-chunk progress for parallel
+                    List<AdSegment> segments = parseSegments(content);
+
+                    // Update progress when chunk completes
+                    int completed = completedChunks.incrementAndGet();
+                    int overallPercent = (completed * 100) / totalChunks;
+                    setProgressStageWithChunks("analyzing", overallPercent, completed, totalChunks);
+
+                    Log.i(TAG, "Chunk " + (chunkIndex + 1) + " complete, found " + segments.size() + " segment(s)");
+                    return segments;
+                }));
+            }
+
+            // Collect results
+            List<AdSegment> allSegments = new ArrayList<>();
+            for (java.util.concurrent.Future<List<AdSegment>> future : futures) {
+                try {
+                    allSegments.addAll(future.get());
+                } catch (java.util.concurrent.ExecutionException e) {
+                    Throwable cause = e.getCause();
+                    if (cause instanceof Exception) {
+                        throw (Exception) cause;
+                    }
+                    throw new Exception("Analysis failed", e);
+                }
+            }
+
+            return allSegments;
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     private List<AdSegment> parseSegments(String rawJson) throws JSONException {

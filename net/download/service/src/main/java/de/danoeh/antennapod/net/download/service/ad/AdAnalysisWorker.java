@@ -167,23 +167,18 @@ public class AdAnalysisWorker extends Worker {
             int totalChunks = transcriptChunks.size();
             Log.i(TAG, "Analyzing transcript in " + totalChunks + " chunk(s)");
 
-            List<AdSegment> allSegments = new ArrayList<>();
-
-            for (int i = 0; i < totalChunks; i++) {
-                final int chunkIndex = i;
-                String chunk = transcriptChunks.get(i);
-
-                Log.i(TAG, "Analyzing chunk " + (chunkIndex + 1) + "/" + totalChunks);
-                String content = analysisProvider.analyzeTranscript(chunk, percent -> {
-                    // Map chunk progress to 50-100% overall progress
-                    int chunkProgress = (chunkIndex * 100 + percent) / totalChunks;
-                    int overallPercent = 50 + (chunkProgress / 2);
-                    setProgressStageWithChunks("analyzing", overallPercent, chunkIndex + 1, totalChunks);
+            List<AdSegment> allSegments;
+            if (totalChunks == 1) {
+                // Single chunk - no need for parallel execution
+                String content = analysisProvider.analyzeTranscript(transcriptChunks.get(0), percent -> {
+                    // Map 0-100% analysis progress to 50-100% overall progress
+                    int overallPercent = 50 + (percent / 2);
+                    setProgressStage("analyzing", overallPercent);
                 });
-
-                Log.i(TAG, "Chunk " + (chunkIndex + 1) + " response length=" + content.length());
-                List<AdSegment> segments = parseSegments(content);
-                allSegments.addAll(segments);
+                allSegments = parseSegments(content);
+            } else {
+                // Multiple chunks - analyze in parallel
+                allSegments = analyzeChunksInParallel(analysisProvider, transcriptChunks);
             }
 
             List<AdSegment> mergedSegments = mergeSegments(allSegments);
@@ -451,6 +446,55 @@ public class AdAnalysisWorker extends Worker {
                 int completedChunks = currentDone / 2;
                 setProgressStageWithChunks("transcribing", overallPercent, completedChunks, totalChunks);
             }
+        }
+    }
+
+    private List<AdSegment> analyzeChunksInParallel(TranscriptAnalysisProvider provider, List<String> chunks) throws Exception {
+        final int totalChunks = chunks.size();
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(
+                Math.min(totalChunks, 3)); // Max 3 parallel requests to avoid overwhelming API
+        List<java.util.concurrent.Future<List<AdSegment>>> futures = new java.util.ArrayList<>();
+        java.util.concurrent.atomic.AtomicInteger completedChunks = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        try {
+            // Submit all chunks for analysis
+            for (int i = 0; i < totalChunks; i++) {
+                final int chunkIndex = i;
+                final String chunk = chunks.get(i);
+
+                futures.add(executor.submit(() -> {
+                    Log.i(TAG, "Analyzing chunk " + (chunkIndex + 1) + "/" + totalChunks);
+                    String content = provider.analyzeTranscript(chunk, null); // No per-chunk progress for parallel
+                    List<AdSegment> segments = parseSegments(content);
+
+                    // Update progress when chunk completes (map to 50-100% overall)
+                    int completed = completedChunks.incrementAndGet();
+                    int analysisPercent = (completed * 100) / totalChunks;
+                    int overallPercent = 50 + (analysisPercent / 2);
+                    setProgressStageWithChunks("analyzing", overallPercent, completed, totalChunks);
+
+                    Log.i(TAG, "Chunk " + (chunkIndex + 1) + " complete, found " + segments.size() + " segment(s)");
+                    return segments;
+                }));
+            }
+
+            // Collect results
+            List<AdSegment> allSegments = new ArrayList<>();
+            for (java.util.concurrent.Future<List<AdSegment>> future : futures) {
+                try {
+                    allSegments.addAll(future.get());
+                } catch (java.util.concurrent.ExecutionException e) {
+                    Throwable cause = e.getCause();
+                    if (cause instanceof Exception) {
+                        throw (Exception) cause;
+                    }
+                    throw new Exception("Analysis failed", e);
+                }
+            }
+
+            return allSegments;
+        } finally {
+            executor.shutdownNow();
         }
     }
 
