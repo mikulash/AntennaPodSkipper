@@ -13,9 +13,11 @@ import android.view.ViewGroup;
 import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.SwitchPreferenceCompat;
 import androidx.recyclerview.widget.RecyclerView;
@@ -273,6 +275,13 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     }
 
     private void setupTranscriptionModelPreference() {
+        // Hide AI features on devices below API 26
+        PreferenceCategory aiCategory = findPreference(PREF_FEED_AI_CATEGORY);
+        if (aiCategory != null && Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            aiCategory.setVisible(false);
+            return;
+        }
+
         Preference modelPref = findPreference(PREF_FEED_TRANSCRIPTION_MODEL);
         ListPreference languagePref = findPreference(PREF_FEED_TRANSCRIPTION_LANGUAGE);
 
@@ -305,6 +314,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private void showTranscriptionModelDialog(Preference modelPref, ListPreference languagePref,
             de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager tm,
             String initialModel) {
@@ -434,6 +444,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
                 .show();
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private void updateTranscriptionModelSummary(Preference modelPref, String currentModel,
             de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager tm) {
         if ("global_default".equals(currentModel) || currentModel == null) {

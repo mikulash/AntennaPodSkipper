@@ -1,9 +1,7 @@
 package de.danoeh.antennapod.ui.preferences.screen;
 
-import android.app.ActivityManager;
 import android.content.Context;
-import android.content.Intent;
-import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.format.Formatter;
 import android.util.Log;
@@ -15,33 +13,27 @@ import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
-import java.io.File;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-
 import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager;
 import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel;
 import de.danoeh.antennapod.ui.preferences.R;
 
+@RequiresApi(api = Build.VERSION_CODES.O)
 public class TranscriptionModelManagerFragment extends Fragment {
     private static final String TAG = "TranscriptionModelMgr";
 

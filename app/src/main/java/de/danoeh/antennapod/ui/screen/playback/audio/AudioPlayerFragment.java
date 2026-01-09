@@ -1,5 +1,6 @@
 package de.danoeh.antennapod.ui.screen.playback.audio;
 
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -509,6 +510,12 @@ public class AudioPlayerFragment extends Fragment implements
 
         toolbar.getMenu().findItem(R.id.set_sleeptimer_item).setVisible(!controller.sleepTimerActive());
         toolbar.getMenu().findItem(R.id.disable_sleeptimer_item).setVisible(controller.sleepTimerActive());
+
+        // Hide transcript feature on devices below API 26
+        MenuItem transcriptItem = toolbar.getMenu().findItem(R.id.transcript_item);
+        if (transcriptItem != null) {
+            transcriptItem.setVisible(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O);
+        }
 
         ((CastEnabledActivity) getActivity()).requestCastButton(toolbar.getMenu());
     }
