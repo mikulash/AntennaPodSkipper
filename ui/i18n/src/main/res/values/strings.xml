@@ -1052,9 +1052,6 @@
 
     <string name="transcription_again">Transcribe again</string>
 
-    <string name="model_title_label">Title</string>
-    <string name="model_name_label">Name</string>
-    <string name="model_size_label">Size</string>
     <string name="action_download_model_file">Download</string>
     <string name="action_delete_model_file">Delete</string>
     <string name="model_action_confirm">Confirm</string>
@@ -1071,7 +1068,7 @@
     <string name="download_type_extraction">Extracting...</string>
     <string name="pref_local_transcription_download_complete">Model download complete</string>
     <string name="pref_local_transcription_download_failed">Model download failed: %s</string>
-    <string name="pref_local_transcription_delete_confirm">Delete the downloaded transcription model?</string>
+    <string name="pref_local_transcription_delete_confirm">Delete the downloaded transcription model \"%s\"?</string>
     <string name="pref_local_transcription_info">On-device transcription uses the Vosk speech recognition engine. Transcription happens entirely on your phone - no audio is sent to the cloud. The OpenAI API is still used for ad segment analysis.</string>
     <string name="pref_local_transcription_memory_error_title">Insufficient Memory</string>
     <string name="pref_local_transcription_insufficient_memory">Not enough system RAM to download %1$s. Available: %2$d MB, Required: %3$d MB.</string>

@@ -90,7 +90,9 @@ public class PreferenceActivity extends ToolbarActivity
         } else if (screen == R.xml.preferences_notifications) {
             prefFragment = new NotificationPreferencesFragment();
         } else if (screen == R.xml.preferences_ai) {
-            prefFragment = new AiPreferencesFragment();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                prefFragment = new AiPreferencesFragment();
+            }
         } else if (screen == R.xml.preferences_swipe) {
             prefFragment = new SwipePreferencesFragment();
         } else if (screen == R.xml.preferences_auto_deletion) {
