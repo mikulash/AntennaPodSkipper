@@ -118,6 +118,7 @@ public class TranscriptionWorker extends Worker {
             try {
                 tp.close();
             } catch (Exception ignored) {
+                Log.w(TAG, "Failed to close transcription provider", ignored);
             }
         }
     }
@@ -139,11 +140,11 @@ public class TranscriptionWorker extends Worker {
 
         // Conservative estimate: 64MB per thread (30-40MB audio buffer + native
         // overhead)
-        final long MEMORY_PER_THREAD = 64 * 1024 * 1024;
+        final long memoryPerThread = 64 * 1024 * 1024;
         // Keep 200MB for the rest of the app/UI to prevent OOM
-        final long SAFE_BUFFER = 200 * 1024 * 1024;
+        final long safeBuffer = 200 * 1024 * 1024;
 
-        int maxThreadsByMemory = (int) ((availableMemory - SAFE_BUFFER) / MEMORY_PER_THREAD);
+        int maxThreadsByMemory = (int) ((availableMemory - safeBuffer) / memoryPerThread);
         // Ensure at least 1 thread, but don't exceed processors or memory limit
         int threadCount = Math.max(1, Math.min(availableProcessors, maxThreadsByMemory));
 
@@ -156,9 +157,10 @@ public class TranscriptionWorker extends Worker {
 
         final int totalChunks = chunkPaths.size();
         final double totalProgressParts = totalChunks * 2; // request + success per chunk
-        java.util.concurrent.atomic.AtomicInteger doneCount = new java.util.concurrent.atomic.AtomicInteger(0);
-        java.util.concurrent.atomic.AtomicInteger lastReportedPercent = new java.util.concurrent.atomic.AtomicInteger(0);
-
+        java.util.concurrent.atomic.AtomicInteger doneCount =
+                new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger lastReportedPercent =
+                new java.util.concurrent.atomic.AtomicInteger(0);
         try {
             // Submit all chunks
             for (int i = 0; i < chunkPaths.size(); i++) {
@@ -183,7 +185,8 @@ public class TranscriptionWorker extends Worker {
                         if (chunkPath == null || !Files.exists(chunkPath)) {
                             Log.e(TAG, "Chunk " + (chunkIndex + 1) + " missing on disk; skipping section");
                             int currentDone = doneCount.incrementAndGet();
-                            updateProgressIfIncreased(lastReportedPercent, currentDone, totalProgressParts, totalChunks);
+                            updateProgressIfIncreased(lastReportedPercent, currentDone,
+                                    totalProgressParts, totalChunks);
                             return "";
                         }
 
@@ -372,7 +375,7 @@ public class TranscriptionWorker extends Worker {
      * This prevents the progress bar from going backward when chunks complete out of order.
      */
     private void updateProgressIfIncreased(java.util.concurrent.atomic.AtomicInteger lastReportedPercent,
-            int currentDone, double totalProgressParts, int totalChunks) {
+                                           int currentDone, double totalProgressParts, int totalChunks) {
         int newPercent = calculatePercent(currentDone, totalProgressParts);
         int oldPercent = lastReportedPercent.get();
 

@@ -12,7 +12,6 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
-import com.openai.models.completions.CompletionUsage;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

@@ -302,9 +302,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         }
 
         String keepTranscription = LocalAiPreferences.getLocalTranscriptionModel(requireContext());
-        int totalCount = transcriptionManager.deleteAllModelsExcept(keepTranscription); // Keep selected model
-                                                                                        // consistent with previous
-                                                                                        // behavior
+        int totalCount = transcriptionManager.deleteAllModelsExcept(keepTranscription);
 
         // Update UI
         updateLocalTranscriptionUI();

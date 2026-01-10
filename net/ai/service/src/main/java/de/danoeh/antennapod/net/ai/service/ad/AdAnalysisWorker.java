@@ -4,21 +4,15 @@ import android.content.Context;
 import android.os.Build;
 import android.text.TextUtils;
 import android.util.Log;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.work.Data;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
-
 import com.openai.errors.UnauthorizedException;
-
-import org.apache.commons.io.FileUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -26,7 +20,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-
 import de.danoeh.antennapod.ui.i18n.R;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.ad.AdAnalysisResult;
@@ -39,7 +32,6 @@ import de.danoeh.antennapod.net.ai.service.ad.provider.TranscriptionProvider;
 import de.danoeh.antennapod.net.ai.service.ad.provider.TranscriptAnalysisProvider;
 import de.danoeh.antennapod.net.ai.service.ad.provider.AdAnalysisProviderFactory;
 import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
-
 import org.greenrobot.eventbus.EventBus;
 
 /**
@@ -184,8 +176,8 @@ public class AdAnalysisWorker extends Worker {
             List<AdSegment> mergedSegments = mergeSegments(allSegments);
             Log.i(TAG, "Ad analysis finished: " + mergedSegments.size() + " segment(s) detected");
             AdSegmentStore.save(getApplicationContext(), feedItemId,
-                    new AdAnalysisResult(mergedSegments, System.currentTimeMillis(), analysisProvider.getModelName(), "",
-                            transcript));
+                    new AdAnalysisResult(mergedSegments, System.currentTimeMillis(),
+                            analysisProvider.getModelName(), "", transcript));
             setProgressStage("done", 100);
             return Result.success();
         } catch (Exception e) {
@@ -221,11 +213,11 @@ public class AdAnalysisWorker extends Worker {
         long availableMemory = maxMemory - usedMemory;
 
         // Conservative estimate: 64MB per thread (30-40MB audio buffer + native overhead)
-        final long MEMORY_PER_THREAD = 64 * 1024 * 1024;
+        final long memoryPerThread = 64 * 1024 * 1024;
         // Keep 200MB for the rest of the app/UI to prevent OOM
-        final long SAFE_BUFFER = 200 * 1024 * 1024;
+        final long safeBuffer = 200 * 1024 * 1024;
 
-        int maxThreadsByMemory = (int) ((availableMemory - SAFE_BUFFER) / MEMORY_PER_THREAD);
+        int maxThreadsByMemory = (int) ((availableMemory - safeBuffer) / memoryPerThread);
         // Ensure at least 1 thread, but don't exceed processors or memory limit
         int threadCount = Math.max(1, Math.min(availableProcessors, maxThreadsByMemory));
 
@@ -238,8 +230,10 @@ public class AdAnalysisWorker extends Worker {
 
         final int totalChunks = chunkPaths.size();
         final double totalProgressParts = totalChunks * 2; // request + success per chunk
-        java.util.concurrent.atomic.AtomicInteger doneCount = new java.util.concurrent.atomic.AtomicInteger(0);
-        java.util.concurrent.atomic.AtomicInteger lastReportedPercent = new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger doneCount =
+                new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger lastReportedPercent =
+                new java.util.concurrent.atomic.AtomicInteger(0);
 
         try {
             // Submit all chunks
@@ -265,7 +259,8 @@ public class AdAnalysisWorker extends Worker {
                         if (chunkPath == null || !Files.exists(chunkPath)) {
                             Log.e(TAG, "Chunk " + (chunkIndex + 1) + " missing on disk; skipping section");
                             int currentDone = doneCount.incrementAndGet();
-                            updateProgressIfIncreased(lastReportedPercent, currentDone, totalProgressParts, totalChunks);
+                            updateProgressIfIncreased(lastReportedPercent, currentDone,
+                                    totalProgressParts, totalChunks);
                             return "";
                         }
 
@@ -449,7 +444,8 @@ public class AdAnalysisWorker extends Worker {
         }
     }
 
-    private List<AdSegment> analyzeChunksInParallel(TranscriptAnalysisProvider provider, List<String> chunks) throws Exception {
+    private List<AdSegment> analyzeChunksInParallel(TranscriptAnalysisProvider provider, List<String> chunks)
+            throws Exception {
         final int totalChunks = chunks.size();
         java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(
                 Math.min(totalChunks, 3)); // Max 3 parallel requests to avoid overwhelming API
@@ -628,6 +624,7 @@ public class AdAnalysisWorker extends Worker {
             try {
                 tp.close();
             } catch (Exception ignored) {
+                Log.w(TAG, "Failed to close transcription provider", ignored);
             }
         }
     }
@@ -637,6 +634,7 @@ public class AdAnalysisWorker extends Worker {
             try {
                 ap.close();
             } catch (Exception ignored) {
+                Log.w(TAG, "Failed to close analysis provider", ignored);
             }
         }
     }

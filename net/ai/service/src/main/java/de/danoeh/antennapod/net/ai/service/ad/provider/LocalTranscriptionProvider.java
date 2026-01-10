@@ -103,16 +103,21 @@ public class LocalTranscriptionProvider implements TranscriptionProvider {
         String message = throwable.getMessage();
         String normalized = message == null ? "" : message.toLowerCase(Locale.US);
 
-        if (normalized.contains("model not loaded"))
+        if (normalized.contains("model not loaded")) {
             return true;
-        if (normalized.contains("no audio track"))
+        }
+        if (normalized.contains("no audio track")) {
             return true;
-        if (normalized.contains("out of memory"))
+        }
+        if (normalized.contains("out of memory")) {
             return true;
-        if (normalized.contains("not enough memory"))
+        }
+        if (normalized.contains("not enough memory")) {
             return true;
-        if (throwable instanceof OutOfMemoryError)
+        }
+        if (throwable instanceof OutOfMemoryError) {
             return true;
+        }
 
         Throwable cause = throwable.getCause();
         return cause != null && shouldNotRetry(cause);

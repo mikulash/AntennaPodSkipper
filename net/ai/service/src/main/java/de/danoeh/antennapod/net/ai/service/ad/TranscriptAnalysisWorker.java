@@ -108,7 +108,7 @@ public class TranscriptAnalysisWorker extends Worker {
             if (totalChunks == 1) {
                 // Single chunk - no need for parallel execution
                 String content = analysisProvider.analyzeTranscript(transcriptChunks.get(0), percent ->
-                    setProgressStage("analyzing", percent));
+                        setProgressStage("analyzing", percent));
                 allSegments = parseSegments(content);
             } else {
                 // Multiple chunks - analyze in parallel
@@ -118,8 +118,8 @@ public class TranscriptAnalysisWorker extends Worker {
             List<AdSegment> mergedSegments = mergeSegments(allSegments);
             Log.i(TAG, "Ad analysis finished: " + mergedSegments.size() + " segment(s) detected");
             AdSegmentStore.save(getApplicationContext(), feedItemId,
-                    new AdAnalysisResult(mergedSegments, System.currentTimeMillis(), analysisProvider.getModelName(), "",
-                            transcript));
+                    new AdAnalysisResult(mergedSegments, System.currentTimeMillis(),
+                            analysisProvider.getModelName(), "", transcript));
             setProgressStage("done", 100);
             return Result.success();
         } catch (Exception e) {
@@ -159,7 +159,9 @@ public class TranscriptAnalysisWorker extends Worker {
         if (ap != null) {
             try {
                 ap.close();
-            } catch (Exception ignored) { }
+            } catch (Exception ignored) {
+                Log.w(TAG, "Failed to close analysis provider", ignored);
+            }
         }
     }
 
@@ -185,7 +187,8 @@ public class TranscriptAnalysisWorker extends Worker {
                 + transcript + "\n\nAgain, output only the JSON structure.";
     }
 
-    private List<AdSegment> analyzeChunksInParallel(TranscriptAnalysisProvider provider, List<String> chunks) throws Exception {
+    private List<AdSegment> analyzeChunksInParallel(TranscriptAnalysisProvider provider, List<String> chunks)
+            throws Exception {
         final int totalChunks = chunks.size();
         java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(
                 Math.min(totalChunks, 3)); // Max 3 parallel requests to avoid overwhelming API

@@ -1,7 +1,6 @@
 package de.danoeh.antennapod.net.ai.service.ad.provider;
 
 import android.content.Context;
-import android.media.MediaMetadataRetriever;
 import android.os.Build;
 import android.text.TextUtils;
 import android.util.Log;

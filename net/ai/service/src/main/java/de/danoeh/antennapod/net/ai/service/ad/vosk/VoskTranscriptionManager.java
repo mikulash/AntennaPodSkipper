@@ -90,12 +90,15 @@ public class VoskTranscriptionManager implements TranscriptionManager {
     }
 
     private String resolveModelId(String modelId) {
-        if ("small".equals(modelId))
+        if ("small".equals(modelId)) {
             return "vosk-model-small-en-us-0.15";
-        if ("medium".equals(modelId))
+        }
+        if ("medium".equals(modelId)) {
             return "vosk-model-en-us-0.22-lgraph";
-        if ("large".equals(modelId))
+        }
+        if ("large".equals(modelId)) {
             return "vosk-model-en-us-0.22";
+        }
         return modelId;
     }
 
@@ -624,6 +627,7 @@ public class VoskTranscriptionManager implements TranscriptionManager {
                 try {
                     Thread.sleep(100); // Give GC a moment
                 } catch (InterruptedException ignored) {
+                    Log.w(TAG, "Interrupted during GC wait");
                 }
             }
 
@@ -909,14 +913,14 @@ public class VoskTranscriptionManager implements TranscriptionManager {
 
             extractor.selectTrack(audioTrack);
             MediaFormat format = extractor.getTrackFormat(audioTrack);
-            int sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
-            int channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
 
             String mime = format.getString(MediaFormat.KEY_MIME);
             MediaCodec codec = MediaCodec.createDecoderByType(mime);
             codec.configure(format, null, null, 0);
             codec.start();
 
+            int sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+            int channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
             long durationUs = 0;
             if (format.containsKey(MediaFormat.KEY_DURATION)) {
                 durationUs = format.getLong(MediaFormat.KEY_DURATION);
@@ -942,11 +946,11 @@ public class VoskTranscriptionManager implements TranscriptionManager {
             rawAudio.order(ByteOrder.LITTLE_ENDIAN);
 
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
-            boolean sawInputEOS = false;
-            boolean sawOutputEOS = false;
+            boolean sawInputEos = false;
+            boolean sawOutputEos = false;
 
-            while (!sawOutputEOS) {
-                if (!sawInputEOS) {
+            while (!sawOutputEos) {
+                if (!sawInputEos) {
                     int inputBufIndex = codec.dequeueInputBuffer(10000);
                     if (inputBufIndex >= 0) {
                         ByteBuffer inputBuffer = codec.getInputBuffer(inputBufIndex);
@@ -954,7 +958,7 @@ public class VoskTranscriptionManager implements TranscriptionManager {
                         if (sampleSize < 0) {
                             codec.queueInputBuffer(inputBufIndex, 0, 0, 0,
                                     MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                            sawInputEOS = true;
+                            sawInputEos = true;
                         } else {
                             codec.queueInputBuffer(inputBufIndex, 0, sampleSize,
                                     extractor.getSampleTime(), 0);
@@ -977,7 +981,7 @@ public class VoskTranscriptionManager implements TranscriptionManager {
                     codec.releaseOutputBuffer(outputBufIndex, false);
 
                     if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                        sawOutputEOS = true;
+                        sawOutputEos = true;
                     }
                 }
             }
