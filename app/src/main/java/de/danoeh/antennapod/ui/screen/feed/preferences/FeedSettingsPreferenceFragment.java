@@ -320,7 +320,8 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
             String initialModel) {
 
         java.util.List<de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel> models = tm.getAvailableModels();
-        java.util.List<de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel> downloadedModels = new java.util.ArrayList<>();
+        java.util.List<de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel> downloadedModels =
+                new java.util.ArrayList<>();
         for (de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel model : models) {
             if (tm.isModelDownloaded(model.getId())) {
                 downloadedModels.add(model);
@@ -337,14 +338,13 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
         android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
         layout.setOrientation(android.widget.LinearLayout.VERTICAL);
         float density = getResources().getDisplayMetrics().density;
-        int horizontalPadding = (int) (24 * density); // Dialog content padding
-        int verticalPadding = (int) (12 * density);
-        int sectionTopPadding = (int) (16 * density);
-        int sectionBottomPadding = (int) (4 * density);
+
         layout.setPadding(0, (int) (8 * density), 0, 0);
 
         android.widget.RadioGroup radioGroup = new android.widget.RadioGroup(requireContext());
         radioGroup.setOrientation(android.widget.RadioGroup.VERTICAL);
+        int horizontalPadding = (int) (24 * density); // Dialog content padding
+
         radioGroup.setPadding(horizontalPadding, 0, horizontalPadding, 0);
 
         int radioButtonId = 0;
@@ -353,6 +353,10 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
         android.widget.RadioButton globalDefault = new android.widget.RadioButton(requireContext());
         globalDefault.setText(getString(R.string.global_default));
         globalDefault.setId(radioButtonId++);
+
+        int verticalPadding = (int) (12 * density);
+        int sectionTopPadding = (int) (16 * density);
+        int sectionBottomPadding = (int) (4 * density);
         globalDefault.setPadding(0, verticalPadding, 0, verticalPadding);
         radioGroup.addView(globalDefault);
 
@@ -462,7 +466,9 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     }
 
     private void updateLanguagePreferenceVisibility(ListPreference languagePref, String currentModel) {
-        if (languagePref == null) return;
+        if (languagePref == null) {
+            return;
+        }
 
         boolean isCloudModel = currentModel != null && currentModel.startsWith("cloud:");
         languagePref.setVisible(isCloudModel);

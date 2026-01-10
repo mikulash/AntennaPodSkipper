@@ -1,28 +1,21 @@
 package de.danoeh.antennapod.actionbutton;
 
 import android.content.Context;
-import android.content.Intent;
 import android.os.Build;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.Toast;
-
 import androidx.annotation.DrawableRes;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
-
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-
 import java.io.File;
-
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.net.ai.service.ad.AdAnalysisWorkScheduler;
 import de.danoeh.antennapod.storage.database.AdSegmentStore;
-import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
-import de.danoeh.antennapod.ui.screen.preferences.PreferenceActivity;
 
 /**
  * Action button to run ad analysis on an existing transcript.

@@ -1,7 +1,6 @@
 package de.danoeh.antennapod.ui.screen.preferences;
 
 import android.content.Intent;
-import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;

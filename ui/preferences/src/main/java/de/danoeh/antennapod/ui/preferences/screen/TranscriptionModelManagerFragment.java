@@ -13,6 +13,7 @@ import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -21,6 +22,7 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,6 +31,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
 import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager;
 import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel;
 import de.danoeh.antennapod.ui.preferences.R;
@@ -46,7 +49,7 @@ public class TranscriptionModelManagerFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
-            @Nullable Bundle savedInstanceState) {
+                             @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_transcription_model_manager, container, false);
         recyclerView = view.findViewById(R.id.recyclerView);
         emptyView = view.findViewById(R.id.emptyView);
@@ -84,8 +87,9 @@ public class TranscriptionModelManagerFragment extends Fragment {
         // Let's sort by Language then Name
         Collections.sort(models, (m1, m2) -> {
             int langCompare = m1.getLanguage().compareTo(m2.getLanguage());
-            if (langCompare != 0)
+            if (langCompare != 0) {
                 return langCompare;
+            }
             return m1.getName().compareTo(m2.getName());
         });
 
@@ -221,27 +225,28 @@ public class TranscriptionModelManagerFragment extends Fragment {
 
                 Future<?> downloadTask = executorService.submit(() -> {
                     try {
-                        boolean success = transcriptionManager.downloadModel(modelId, (progress, currentBytes, totalBytes) -> {
-                            if (getActivity() == null || Thread.currentThread().isInterrupted()) {
-                                return;
-                            }
-                            requireActivity().runOnUiThread(() -> {
-                                if (progress < 0) {
-                                    status.progress = 0; // or indeterminate
-                                    status.statusMessage = getString(R.string.download_type_extraction);
-                                    // If we want indeterminate, we'd need to update the view holder binding too
-                                    // For now, let's just update the text
-                                } else {
-                                    status.progress = progress;
-                                    status.statusMessage = Math.round(currentBytes / 1024f / 1024f) + "MB / "
-                                            + Math.round(totalBytes / 1024f / 1024f) + "MB";
-                                }
-                                int currentPos = findPositionByModelId(modelId);
-                                if (currentPos >= 0) {
-                                    notifyItemChanged(currentPos);
-                                }
-                            });
-                        });
+                        boolean success = transcriptionManager.downloadModel(modelId,
+                                (progress, currentBytes, totalBytes) -> {
+                                    if (getActivity() == null || Thread.currentThread().isInterrupted()) {
+                                        return;
+                                    }
+                                    requireActivity().runOnUiThread(() -> {
+                                        if (progress < 0) {
+                                            status.progress = 0; // or indeterminate
+                                            status.statusMessage = getString(R.string.download_type_extraction);
+                                            // If we want indeterminate, we'd need to update the view holder binding too
+                                            // For now, let's just update the text
+                                        } else {
+                                            status.progress = progress;
+                                            status.statusMessage = Math.round(currentBytes / 1024f / 1024f) + "MB / "
+                                                    + Math.round(totalBytes / 1024f / 1024f) + "MB";
+                                        }
+                                        int currentPos = findPositionByModelId(modelId);
+                                        if (currentPos >= 0) {
+                                            notifyItemChanged(currentPos);
+                                        }
+                                    });
+                                });
 
                         if (getActivity() == null || Thread.currentThread().isInterrupted()) {
                             return;
@@ -325,8 +330,8 @@ public class TranscriptionModelManagerFragment extends Fragment {
                 // Find smaller models
                 List<VoskModel> smallerModels = new ArrayList<>();
                 for (VoskModel m : transcriptionManager.getAvailableModels()) {
-                    if (transcriptionManager.getMinMemoryRequired(m.getId()) <
-                            transcriptionManager.getMinMemoryRequired(model.getId())) {
+                    if (transcriptionManager.getMinMemoryRequired(m.getId())
+                            < transcriptionManager.getMinMemoryRequired(model.getId())) {
                         smallerModels.add(m);
                     }
                 }
@@ -376,7 +381,7 @@ public class TranscriptionModelManagerFragment extends Fragment {
         }
     }
 
-    static abstract class ModelViewHolder extends RecyclerView.ViewHolder {
+    abstract static class ModelViewHolder extends RecyclerView.ViewHolder {
         public ModelViewHolder(@NonNull View itemView) {
             super(itemView);
         }

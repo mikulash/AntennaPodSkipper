@@ -786,12 +786,12 @@ public class ItemFragment extends Fragment {
                 return;
             }
             if (info.getState().isFinished()) {
-                boolean wasRunning = isTranscriptionRunning;
-                isTranscriptionRunning = false;
                 transcriptionStageLabel = null;
                 transcriptionPercent = -1;
                 updateButtons();
                 updateAdSegmentsSummary();
+                boolean wasRunning = isTranscriptionRunning;
+                isTranscriptionRunning = false;
                 if (wasRunning) {
                     load();
                 }
@@ -810,7 +810,8 @@ public class ItemFragment extends Fragment {
         isTranscriptionRunning = true;
         // Format message with chunk information if available
         if (chunksTotal > 0) {
-            transcriptionStageLabel = getString(R.string.ad_analysis_transcribing) + " (" + chunksDone + "/" + chunksTotal + ")";
+            transcriptionStageLabel = getString(R.string.ad_analysis_transcribing) + " ("
+                    + chunksDone + "/" + chunksTotal + ")";
         } else {
             transcriptionStageLabel = getString(R.string.ad_analysis_transcribing);
         }

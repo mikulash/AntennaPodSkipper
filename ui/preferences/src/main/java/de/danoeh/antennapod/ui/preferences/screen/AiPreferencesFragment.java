@@ -167,7 +167,8 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                     new AlertDialog.Builder(requireContext())
                             .setTitle("Model not downloaded")
                             .setMessage(
-                                    "The selected model is not downloaded. Please download it in 'Manage Models' first.")
+                                    "The selected model is not downloaded. "
+                                            + "Please download it in 'Manage Models' first.")
                             .setPositiveButton("Go to Manage Models", (d, w) -> {
                                 ((de.danoeh.antennapod.ui.preferences.PreferenceController) requireActivity())
                                         .openScreen(new TranscriptionModelManagerFragment());

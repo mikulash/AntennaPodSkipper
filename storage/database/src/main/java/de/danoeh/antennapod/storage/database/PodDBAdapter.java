@@ -424,10 +424,8 @@ public class PodDBAdapter {
     }
 
     /**
-     * <p>
      * Resets all database connections to ensure new database connections for
      * the next test case. Call method only for unit tests.
-     * </p>
      *
      * <p>
      * That's a workaround for a Robolectric issue in ShadowSQLiteConnection
