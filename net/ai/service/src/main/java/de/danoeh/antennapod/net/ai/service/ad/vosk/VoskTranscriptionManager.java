@@ -1010,7 +1010,9 @@ public class VoskTranscriptionManager implements TranscriptionManager {
         if (channels == 2) {
             monoSamples = new short[numSamples / 2];
             for (int i = 0; i < monoSamples.length; i++) {
-                monoSamples[i] = (short) (((int) samples[i * 2] + (int) samples[i * 2 + 1]) / 2);
+                int left = samples[i * 2];
+                int right = samples[i * 2 + 1];
+                monoSamples[i] = (short) ((left + right) / 2);
             }
         } else {
             monoSamples = samples;
