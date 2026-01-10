@@ -18,7 +18,7 @@ import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
  */
 @RequiresApi(api = Build.VERSION_CODES.O)
 public final class AdAnalysisProviderFactory {
-    private static final String TAG = "AdAnalysisProviderFactory";
+    private static final String TAG = "AdAnalysisProvFactory";
 
     private AdAnalysisProviderFactory() {
     }

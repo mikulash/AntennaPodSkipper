@@ -723,7 +723,12 @@ public class ItemFragment extends Fragment {
             Log.d(TAG, "Loading transcript from " + transcriptFile.getAbsolutePath() + ", exists="
                     + transcriptFile.exists() + ", length=" + transcriptFile.length());
             if (transcriptFile.exists()) {
-                String content = new String(Files.readAllBytes(transcriptFile.toPath()), StandardCharsets.UTF_8);
+                String content;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    content = new String(Files.readAllBytes(transcriptFile.toPath()), StandardCharsets.UTF_8);
+                } else {
+                    content = org.apache.commons.io.FileUtils.readFileToString(transcriptFile, StandardCharsets.UTF_8);
+                }
                 Log.d(TAG, "Read transcript content length=" + content.length());
                 if (content.length() > 0) {
                     Log.d(TAG, "First 100 chars: " + content.substring(0, Math.min(content.length(), 100)));

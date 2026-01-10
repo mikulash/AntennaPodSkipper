@@ -49,7 +49,7 @@ public class TranscriptAnalysisWorker extends Worker {
     private static final String PROGRESS_KEY_STAGE = "analysis_progress_stage";
     private static final String PROGRESS_KEY_CHUNKS_DONE = "analysis_chunks_done";
     private static final String PROGRESS_KEY_CHUNKS_TOTAL = "analysis_chunks_total";
-    private static final String TAG = "TranscriptAnalysisWorker";
+    private static final String TAG = "TranscriptAnalysisWkr";
     private static final int MAX_TRANSCRIPT_CHARS_PER_CHUNK = 100000; // ~25k tokens
 
     public TranscriptAnalysisWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {

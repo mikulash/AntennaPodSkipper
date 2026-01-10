@@ -40,7 +40,6 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
 
     private VoskTranscriptionManager transcriptionManager;
     private ExecutorService downloadExecutor;
-    private volatile boolean isDownloading = false;
 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {

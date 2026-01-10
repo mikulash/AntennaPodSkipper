@@ -234,8 +234,6 @@ public class TranscriptionModelManagerFragment extends Fragment {
                                         if (progress < 0) {
                                             status.progress = 0; // or indeterminate
                                             status.statusMessage = getString(R.string.download_type_extraction);
-                                            // If we want indeterminate, we'd need to update the view holder binding too
-                                            // For now, let's just update the text
                                         } else {
                                             status.progress = progress;
                                             status.statusMessage = Math.round(currentBytes / 1024f / 1024f) + "MB / "

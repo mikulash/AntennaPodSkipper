@@ -1068,23 +1068,11 @@
     <string name="pref_local_transcription_model_small">Small</string>
     <string name="pref_local_transcription_model_medium">Medium</string>
     <string name="pref_local_transcription_model_large">Large</string>
-    <string name="pref_local_transcription_model_loading">Loading model...</string>
     <string name="download_type_extraction">Extracting...</string>
-    <string name="pref_local_transcription_memory_error">Not enough memory for this model. Try a smaller model or close other apps.</string>
-    <string name="pref_local_transcription_download_title">Download model</string>
-    <string name="pref_local_transcription_download_summary">Download the speech recognition model for on-device transcription</string>
-    <string name="pref_local_transcription_download_summary_downloaded">Model downloaded and ready</string>
-    <string name="pref_local_transcription_downloading">Downloading model: %d%%</string>
-    <string name="pref_local_transcription_extracting">Extracting model...</string>
     <string name="pref_local_transcription_download_complete">Model download complete</string>
     <string name="pref_local_transcription_download_failed">Model download failed: %s</string>
-    <string name="pref_local_transcription_delete_title">Delete model</string>
-    <string name="pref_local_transcription_delete_summary">Remove the downloaded model to free up space</string>
     <string name="pref_local_transcription_delete_confirm">Delete the downloaded transcription model?</string>
-    <string name="pref_local_transcription_model_deleted">Model deleted</string>
     <string name="pref_local_transcription_info">On-device transcription uses the Vosk speech recognition engine. Transcription happens entirely on your phone - no audio is sent to the cloud. The OpenAI API is still used for ad segment analysis.</string>
-    <string name="pref_local_transcription_memory_warning_title">Model may be too large</string>
-    <string name="pref_local_transcription_memory_warning">This model requires approximately %1$d MB of RAM, but your device\'s per-app limit is around %2$d MB. The app may crash when loading this model. Consider using a smaller model instead.</string>
     <string name="pref_local_transcription_memory_error_title">Insufficient Memory</string>
     <string name="pref_local_transcription_insufficient_memory">Not enough system RAM to download %1$s. Available: %2$d MB, Required: %3$d MB.</string>
     <string name="pref_local_transcription_try_smaller_model">Try one of these smaller models instead:</string>
@@ -1094,7 +1082,6 @@
     <string name="pref_manage_transcription_models_summary">Download, delete, and view available transcription models</string>
 
     <string name="download_starting">Starting…</string>
-    <string name="download_complete">Download complete</string>
 
     <!-- Transcription engine selection -->
     <string name="transcription_section_local">Local Models</string>
@@ -1105,8 +1092,6 @@
     <string name="not_downloaded">Not downloaded</string>
     <string name="transcription_api_key_missing_title">API Key Required</string>
     <string name="transcription_api_key_missing_message">Cloud transcription requires an OpenAI API key. Please configure your API key in settings.</string>
-
-    <string name="download_anyway_label">Download anyway</string>
 
     <!-- Ad Analysis -->
     <string name="ad_analysis_model_missing_title">Model missing</string>

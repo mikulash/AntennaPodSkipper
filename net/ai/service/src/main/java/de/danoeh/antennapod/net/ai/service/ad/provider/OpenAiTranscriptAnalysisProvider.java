@@ -20,7 +20,7 @@ import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class OpenAiTranscriptAnalysisProvider implements TranscriptAnalysisProvider {
-    private static final String TAG = "OpenAiTranscriptAnalysisProv";
+    private static final String TAG = "OpenAiTranscriptAnlysis";
     private static final String DEFAULT_MODEL_NAME = "gpt-5-nano";
 
     // Pricing (Estimated)
