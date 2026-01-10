@@ -1005,14 +1005,14 @@ public class VoskTranscriptionManager implements TranscriptionManager {
         short[] samples = new short[numSamples];
         rawAudio.asShortBuffer().get(samples);
 
-        // Convert to mono if stereo
+        // Convert to mono if stereo (using overflow-safe average: a + (b-a)/2)
         short[] monoSamples;
         if (channels == 2) {
             monoSamples = new short[numSamples / 2];
             for (int i = 0; i < monoSamples.length; i++) {
                 int left = samples[i * 2];
                 int right = samples[i * 2 + 1];
-                monoSamples[i] = (short) ((left + right) / 2);
+                monoSamples[i] = (short) (left + (right - left) / 2);
             }
         } else {
             monoSamples = samples;
