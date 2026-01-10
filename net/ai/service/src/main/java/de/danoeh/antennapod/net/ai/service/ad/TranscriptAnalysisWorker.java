@@ -130,7 +130,7 @@ public class TranscriptAnalysisWorker extends Worker {
             }
             if (!isUnauthorized(e)) {
                 saveError(feedItemId, e.getMessage(),
-                        analysisProvider != null ? analysisProvider.getModelName() : "unknown",
+                        analysisProvider.getModelName(),
                         transcript);
             }
             return Result.failure();

@@ -64,7 +64,6 @@ public class VoskTranscriptionManager implements TranscriptionManager {
     private volatile boolean isModelLoaded = false;
     private volatile boolean isModelLoading = false;
     private volatile String loadedModelName = null;
-    private volatile Exception loadingException = null;
 
     public VoskTranscriptionManager(Context context) {
         this.context = context.getApplicationContext();
@@ -76,7 +75,9 @@ public class VoskTranscriptionManager implements TranscriptionManager {
     public File getModelDirectory() {
         File modelDir = new File(context.getFilesDir(), "vosk_models");
         if (!modelDir.exists()) {
-            modelDir.mkdirs();
+            if (!modelDir.mkdirs()) {
+                Log.w(TAG, "Failed to create model directory: " + modelDir.getAbsolutePath());
+            }
         }
         return modelDir;
     }
@@ -124,13 +125,9 @@ public class VoskTranscriptionManager implements TranscriptionManager {
         File modelPath = getModelPath(modelName);
         // Check for key model files
         File amFile = new File(modelPath, "am/final.mdl");
-        File confFile = new File(modelPath, "conf/model.conf");
         // Some models have different structure
         if (!amFile.exists()) {
             amFile = new File(modelPath, "model/am/final.mdl");
-        }
-        if (!confFile.exists()) {
-            confFile = new File(modelPath, "model/conf/model.conf");
         }
         return modelPath.exists() && modelPath.isDirectory()
                 && (amFile.exists() || new File(modelPath, "graph").exists());
@@ -283,7 +280,10 @@ public class VoskTranscriptionManager implements TranscriptionManager {
             if (tempExtractDir.exists()) {
                 deleteRecursively(tempExtractDir);
             }
-            tempExtractDir.mkdirs();
+            if (!tempExtractDir.mkdirs()) {
+                throw new IOException("Failed to create temporary extraction directory: "
+                        + tempExtractDir.getAbsolutePath());
+            }
 
             extractZip(zipFile, tempExtractDir);
 
@@ -316,7 +316,10 @@ public class VoskTranscriptionManager implements TranscriptionManager {
 
             // cleanup temp dir shell if we moved the inner folder
             if (tempExtractDir.exists() && (tempExtractDir.list() == null || tempExtractDir.list().length == 0)) {
-                tempExtractDir.delete();
+                if (!tempExtractDir.delete()) {
+                    Log.w(TAG, "Failed to delete temporary extraction directory: "
+                            + tempExtractDir.getAbsolutePath());
+                }
             }
 
             Log.i(TAG, "Model download and extraction complete: " + modelName);
@@ -325,7 +328,9 @@ public class VoskTranscriptionManager implements TranscriptionManager {
         } finally {
             // Clean up zip file
             if (zipFile.exists()) {
-                zipFile.delete();
+                if (!zipFile.delete()) {
+                    Log.w(TAG, "Failed to delete zip file: " + zipFile.getAbsolutePath());
+                }
             }
         }
     }
@@ -395,7 +400,9 @@ public class VoskTranscriptionManager implements TranscriptionManager {
             // Rename temp file to final file
             if (tempFile.exists()) {
                 if (outputFile.exists()) {
-                    outputFile.delete();
+                    if (!outputFile.delete()) {
+                        throw new IOException("Failed to delete existing file: " + outputFile.getAbsolutePath());
+                    }
                 }
                 if (!tempFile.renameTo(outputFile)) {
                     throw new IOException("Failed to rename temp file to: " + outputFile);
@@ -408,7 +415,9 @@ public class VoskTranscriptionManager implements TranscriptionManager {
                 connection.disconnect();
             }
             if (tempFile.exists()) {
-                tempFile.delete();
+                if (!tempFile.delete()) {
+                    Log.w(TAG, "Failed to delete temporary file: " + tempFile.getAbsolutePath());
+                }
             }
         }
     }
@@ -429,10 +438,15 @@ public class VoskTranscriptionManager implements TranscriptionManager {
                 }
 
                 if (entry.isDirectory()) {
-                    newFile.mkdirs();
+                    if (!newFile.mkdirs() && !newFile.exists()) {
+                        throw new IOException("Failed to create directory: " + newFile.getAbsolutePath());
+                    }
                 } else {
                     // Create parent directories
-                    newFile.getParentFile().mkdirs();
+                    File parentDir = newFile.getParentFile();
+                    if (parentDir != null && !parentDir.mkdirs() && !parentDir.exists()) {
+                        throw new IOException("Failed to create parent directory: " + parentDir.getAbsolutePath());
+                    }
 
                     try (FileOutputStream fos = new FileOutputStream(newFile)) {
                         int len;
@@ -580,7 +594,9 @@ public class VoskTranscriptionManager implements TranscriptionManager {
                 }
             }
         }
-        file.delete();
+        if (!file.delete()) {
+            Log.w(TAG, "Failed to delete file: " + file.getAbsolutePath());
+        }
     }
 
     /**
@@ -616,21 +632,8 @@ public class VoskTranscriptionManager implements TranscriptionManager {
 
         Log.i(TAG, "Loading Vosk model: " + modelName);
         isModelLoading = true;
-        loadingException = null;
 
         try {
-            // Request garbage collection before loading large models
-            // Assuming > 100MB is "large" enough to warrant GC
-            long requiredMemory = getMinMemoryRequired(modelName);
-            if (requiredMemory > 200_000_000L) {
-                System.gc();
-                try {
-                    Thread.sleep(100); // Give GC a moment
-                } catch (InterruptedException ignored) {
-                    Log.w(TAG, "Interrupted during GC wait");
-                }
-            }
-
             model = new Model(modelPath.getAbsolutePath());
             isModelLoaded = true;
             loadedModelName = modelName;
@@ -742,7 +745,6 @@ public class VoskTranscriptionManager implements TranscriptionManager {
 
             // Process audio in chunks
             int chunkSize = SAMPLE_RATE * 4; // 4 seconds of audio at a time
-            byte[] buffer = new byte[chunkSize * 2]; // 2 bytes per sample
 
             int position = 0;
             while (position < audioData.length) {
@@ -1008,7 +1010,7 @@ public class VoskTranscriptionManager implements TranscriptionManager {
         if (channels == 2) {
             monoSamples = new short[numSamples / 2];
             for (int i = 0; i < monoSamples.length; i++) {
-                monoSamples[i] = (short) ((samples[i * 2] + samples[i * 2 + 1]) / 2);
+                monoSamples[i] = (short) (((int) samples[i * 2] + (int) samples[i * 2 + 1]) / 2);
             }
         } else {
             monoSamples = samples;
