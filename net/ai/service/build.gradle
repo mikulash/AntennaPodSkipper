@@ -40,4 +40,5 @@ dependencies {
     testImplementation "org.awaitility:awaitility:$awaitilityVersion"
     testImplementation "org.mockito:mockito-core:$mockitoVersion"
     testImplementation "androidx.preference:preference:$preferenceVersion"
+    testImplementation "org.json:json:20231013"
 }
