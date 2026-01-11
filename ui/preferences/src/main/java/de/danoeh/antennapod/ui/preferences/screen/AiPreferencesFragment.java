@@ -215,8 +215,6 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                     LocalAiPreferences.setLocalTranscriptionEnabled(requireContext(), false);
                 }
                 enabledPref.setSummary("Model not downloaded");
-            } else if (enabledPref.isChecked()) {
-                enabledPref.setSummary(R.string.pref_local_transcription_summary);
             } else {
                 enabledPref.setSummary(R.string.pref_local_transcription_summary);
             }
