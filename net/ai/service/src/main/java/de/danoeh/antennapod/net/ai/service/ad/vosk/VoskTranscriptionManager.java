@@ -113,7 +113,7 @@ public class VoskTranscriptionManager implements TranscriptionManager {
                 return model;
             }
         }
-        return null; // Or return a dummy unknown model
+        return null;
     }
 
     /**
@@ -130,17 +130,6 @@ public class VoskTranscriptionManager implements TranscriptionManager {
         }
         return modelPath.exists() && modelPath.isDirectory()
                 && (amFile.exists() || new File(modelPath, "graph").exists());
-    }
-
-    /**
-     * Gets the expected model size for download progress.
-     */
-    public long getModelSize(String modelId) {
-        VoskModel model = getModelById(modelId);
-        if (model != null) {
-            return model.getSize();
-        }
-        return 0;
     }
 
     /**
@@ -217,32 +206,6 @@ public class VoskTranscriptionManager implements TranscriptionManager {
     }
 
     /**
-     * Gets the estimated per-app memory limit for this device.
-     */
-    public long getPerAppMemoryLimit() {
-        android.app.ActivityManager activityManager = (android.app.ActivityManager) context
-                .getSystemService(Context.ACTIVITY_SERVICE);
-        android.app.ActivityManager.MemoryInfo memInfo = new android.app.ActivityManager.MemoryInfo();
-        activityManager.getMemoryInfo(memInfo);
-        long totalRam = memInfo.totalMem;
-        // High-end devices allow more memory per app
-        double memoryFraction = totalRam > 6_000_000_000L ? 0.40 : 0.33;
-        return (long) (totalRam * memoryFraction);
-    }
-
-    /**
-     * Gets the human-readable model size.
-     */
-    public String getModelSizeString(String modelName) {
-        long size = getModelSize(modelName);
-        if (size >= 1_000_000_000L) {
-            return String.format(Locale.US, "%.1f GB", size / 1_000_000_000.0);
-        } else {
-            return String.format(Locale.US, "%.0f MB", size / 1_000_000.0);
-        }
-    }
-
-    /**
      * Downloads and extracts the Vosk model.
      *
      * @param modelId  The modelId of model to download (small or large)
@@ -298,9 +261,6 @@ public class VoskTranscriptionManager implements TranscriptionManager {
                 // Rename that folder to the expected model ID
                 if (!extractedFiles[0].renameTo(finalModelPath)) {
                     // Fallback if atomic rename fails (e.g. crossing volumes, unlikely here)
-                    // But renaming directories can be flaky.
-                    // If rename fails, we might leave it or try manual move.
-                    // For now assume rename works on same fs.
                     Log.e(TAG, "Failed to rename extracted directory");
                     // Try moving content out?
                     throw new IOException("Failed to finalize model directory");
@@ -368,7 +328,7 @@ public class VoskTranscriptionManager implements TranscriptionManager {
             long contentLength = connection.getContentLengthLong();
             if (contentLength <= 0) {
                 // Fallback size? We don't have it easily here without passing it down.
-                // Just use a default small size or 0.
+                // Just use a default small size.
                 contentLength = 40_000_000L;
             }
 
@@ -476,33 +436,6 @@ public class VoskTranscriptionManager implements TranscriptionManager {
     }
 
     /**
-     * Deletes all downloaded transcription model files.
-     * 
-     * @return The number of deleted models.
-     */
-    public int deleteAllModels() {
-        // Unload any loaded model first
-        if (isModelLoaded) {
-            unloadModel();
-        }
-
-        File modelDir = getModelDirectory();
-        int deletedCount = 0;
-        File[] files = modelDir.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    deleteRecursively(file);
-                    deletedCount++;
-                    Log.i(TAG, "Deleted model directory: " + file.getName());
-                }
-            }
-        }
-        Log.i(TAG, "Deleted " + deletedCount + " transcription model(s)");
-        return deletedCount;
-    }
-
-    /**
      * Deletes all downloaded transcription models except the given model.
      *
      * @param keepModelId model id to keep (may be null)
@@ -533,7 +466,7 @@ public class VoskTranscriptionManager implements TranscriptionManager {
 
     /**
      * Gets the number of downloaded transcription models.
-     * 
+     *
      * @return Count of downloaded models.
      */
     public int getDownloadedModelsCount() {
@@ -552,7 +485,7 @@ public class VoskTranscriptionManager implements TranscriptionManager {
 
     /**
      * Gets the total size of all downloaded transcription models in bytes.
-     * 
+     *
      * @return Total size in bytes.
      */
     public long getDownloadedModelsSize() {
@@ -652,58 +585,6 @@ public class VoskTranscriptionManager implements TranscriptionManager {
         } finally {
             isModelLoading = false;
         }
-    }
-
-    /**
-     * Loads the model asynchronously to avoid blocking the UI thread.
-     * Use this for medium and large models.
-     *
-     * @param modelName The model to load
-     * @param callback  Callback for completion or error
-     */
-    public void loadModelAsync(String modelName, ModelLoadCallback callback) {
-        if (isModelLoaded && modelName.equals(loadedModelName)) {
-            if (callback != null) {
-                callback.onModelLoaded();
-            }
-            return;
-        }
-
-        if (isModelLoading) {
-            if (callback != null) {
-                callback.onModelLoadFailed(new IOException("Another model is currently being loaded"));
-            }
-            return;
-        }
-
-        new Thread(() -> {
-            try {
-                loadModel(modelName);
-                if (callback != null) {
-                    callback.onModelLoaded();
-                }
-            } catch (IOException e) {
-                if (callback != null) {
-                    callback.onModelLoadFailed(e);
-                }
-            }
-        }, "VoskModelLoader").start();
-    }
-
-    /**
-     * Callback interface for async model loading.
-     */
-    public interface ModelLoadCallback {
-        void onModelLoaded();
-
-        void onModelLoadFailed(Exception e);
-    }
-
-    /**
-     * Checks if a model is currently being loaded.
-     */
-    public boolean isModelLoading() {
-        return isModelLoading;
     }
 
     /**
