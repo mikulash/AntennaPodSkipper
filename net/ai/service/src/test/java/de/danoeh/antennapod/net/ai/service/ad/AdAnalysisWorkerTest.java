@@ -189,7 +189,8 @@ public class AdAnalysisWorkerTest {
 
     @Test
     public void testParseSegments_floatValues() {
-        String json = "{\"ads\":[{\"startSeconds\":10.5,\"endSeconds\":40.75,\"reason\":\"test\",\"confidence\":0.987}]}";
+        String json = "{\"ads\":[{\"startSeconds\":10.5,\"endSeconds\":40.75,"
+                + "\"reason\":\"test\",\"confidence\":0.987}]}";
         List<AdSegment> segments = parseSegments(json);
 
         assertEquals(1, segments.size());
