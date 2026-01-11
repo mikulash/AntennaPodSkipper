@@ -1,10 +1,10 @@
 package de.danoeh.antennapod.model.ad;
 
-import org.junit.Test;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+
+import org.junit.Test;
 
 /**
  * Unit tests for {@link AdSegment}.
@@ -189,12 +189,12 @@ public class AdSegmentTest {
     @Test
     public void testMultipleSegmentsAreIndependent() {
         AdSegment segment1 = new AdSegment(0.0, 10.0, "first", 0.5);
-        AdSegment segment2 = new AdSegment(10.0, 20.0, "second", 0.8);
 
         assertEquals(0.0, segment1.getStartSeconds(), 0.001);
         assertEquals(10.0, segment1.getEndSeconds(), 0.001);
         assertEquals("first", segment1.getReason());
 
+        AdSegment segment2 = new AdSegment(10.0, 20.0, "second", 0.8);
         assertEquals(10.0, segment2.getStartSeconds(), 0.001);
         assertEquals(20.0, segment2.getEndSeconds(), 0.001);
         assertEquals("second", segment2.getReason());

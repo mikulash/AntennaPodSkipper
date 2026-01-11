@@ -97,7 +97,8 @@ public class TranscriptAnalysisWorkerTest {
 
     @Test
     public void testParseSegments_singleAd() throws JSONException {
-        String json = "{\"ads\": [{\"startSeconds\": 10.5, \"endSeconds\": 45.0, \"reason\": \"sponsor\", \"confidence\": 0.95}]}";
+        String json = "{\"ads\": [{\"startSeconds\": 10.5, "
+                + "\"endSeconds\": 45.0, \"reason\": \"sponsor\", \"confidence\": 0.95}]}";
         List<AdSegmentData> segments = parseSegments(json);
 
         assertEquals(1, segments.size());

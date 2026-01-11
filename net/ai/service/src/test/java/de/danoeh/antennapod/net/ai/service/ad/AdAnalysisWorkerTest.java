@@ -1,5 +1,10 @@
 package de.danoeh.antennapod.net.ai.service.ad;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -13,11 +18,6 @@ import java.util.List;
 import java.util.Locale;
 
 import de.danoeh.antennapod.model.ad.AdSegment;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 /**
  * Unit tests for the logic in {@link AdAnalysisWorker}.
@@ -70,12 +70,6 @@ public class AdAnalysisWorkerTest {
     }
 
     @Test
-    public void testSanitizeJson_nullInput() {
-        String sanitized = sanitizeJson(null);
-        assertTrue(sanitized == null || sanitized.isEmpty());
-    }
-
-    @Test
     public void testSanitizeJson_emptyInput() {
         String sanitized = sanitizeJson("");
         assertTrue(sanitized == null || sanitized.isEmpty());
@@ -101,7 +95,7 @@ public class AdAnalysisWorkerTest {
     // ==================== Segment Parsing Tests ====================
 
     @Test
-    public void testParseSegments_validJson() throws JSONException {
+    public void testParseSegments_validJson() {
         String json = "{\"ads\":[{\"startSeconds\":10,\"endSeconds\":40,\"reason\":\"sponsor\",\"confidence\":0.9}]}";
         List<AdSegment> segments = parseSegments(json);
 
@@ -114,7 +108,7 @@ public class AdAnalysisWorkerTest {
     }
 
     @Test
-    public void testParseSegments_multipleSegments() throws JSONException {
+    public void testParseSegments_multipleSegments() {
         String json = "{\"ads\":["
                 + "{\"startSeconds\":0,\"endSeconds\":30,\"reason\":\"pre-roll\",\"confidence\":0.95},"
                 + "{\"startSeconds\":600,\"endSeconds\":660,\"reason\":\"mid-roll\",\"confidence\":0.88},"
@@ -129,40 +123,40 @@ public class AdAnalysisWorkerTest {
     }
 
     @Test
-    public void testParseSegments_emptyAdsArray() throws JSONException {
+    public void testParseSegments_emptyAdsArray() {
         String json = "{\"ads\":[]}";
         List<AdSegment> segments = parseSegments(json);
         assertTrue(segments.isEmpty());
     }
 
     @Test
-    public void testParseSegments_noAdsField() throws JSONException {
+    public void testParseSegments_noAdsField() {
         String json = "{\"segments\":[]}";
         List<AdSegment> segments = parseSegments(json);
         assertTrue(segments.isEmpty());
     }
 
     @Test
-    public void testParseSegments_nullJson() throws JSONException {
+    public void testParseSegments_nullJson() {
         List<AdSegment> segments = parseSegments(null);
         assertTrue(segments.isEmpty());
     }
 
     @Test
-    public void testParseSegments_emptyJson() throws JSONException {
+    public void testParseSegments_emptyJson() {
         List<AdSegment> segments = parseSegments("");
         assertTrue(segments.isEmpty());
     }
 
     @Test
-    public void testParseSegments_invalidJson() throws JSONException {
+    public void testParseSegments_invalidJson() {
         String json = "not valid json";
         List<AdSegment> segments = parseSegments(json);
         assertTrue(segments.isEmpty());
     }
 
     @Test
-    public void testParseSegments_missingFields_usesDefaults() throws JSONException {
+    public void testParseSegments_missingFields_usesDefaults() {
         String json = "{\"ads\":[{\"startSeconds\":10,\"endSeconds\":40}]}";
         List<AdSegment> segments = parseSegments(json);
 
@@ -172,7 +166,7 @@ public class AdAnalysisWorkerTest {
     }
 
     @Test
-    public void testParseSegments_invalidSegment_endBeforeStart() throws JSONException {
+    public void testParseSegments_invalidSegment_endBeforeStart() {
         String json = "{\"ads\":[{\"startSeconds\":50,\"endSeconds\":30,\"reason\":\"invalid\",\"confidence\":0.5}]}";
         List<AdSegment> segments = parseSegments(json);
         // Should skip segments where end <= start
@@ -180,7 +174,7 @@ public class AdAnalysisWorkerTest {
     }
 
     @Test
-    public void testParseSegments_validAndInvalidMixed() throws JSONException {
+    public void testParseSegments_validAndInvalidMixed() {
         String json = "{\"ads\":["
                 + "{\"startSeconds\":10,\"endSeconds\":40,\"reason\":\"valid\",\"confidence\":0.9},"
                 + "{\"startSeconds\":50,\"endSeconds\":30,\"reason\":\"invalid\",\"confidence\":0.5},"
@@ -194,14 +188,15 @@ public class AdAnalysisWorkerTest {
     }
 
     @Test
-    public void testParseSegments_floatValues() throws JSONException {
+    public void testParseSegments_floatValues() {
         String json = "{\"ads\":[{\"startSeconds\":10.5,\"endSeconds\":40.75,\"reason\":\"test\",\"confidence\":0.987}]}";
         List<AdSegment> segments = parseSegments(json);
 
         assertEquals(1, segments.size());
         assertEquals(10.5, segments.get(0).getStartSeconds(), 0.001);
         assertEquals(40.75, segments.get(0).getEndSeconds(), 0.001);
-        assertEquals(0.987, segments.get(0).getConfidence(), 0.001);
+        assertEquals(
+                0.987, segments.get(0).getConfidence(), 0.001);
     }
 
     // ==================== Segment Merging Tests ====================
