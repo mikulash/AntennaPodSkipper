@@ -4,7 +4,6 @@ import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.format.Formatter;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,15 +22,18 @@ import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
+
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
+import de.danoeh.antennapod.event.ModelDownloadEvent;
 import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager;
 import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel;
 import de.danoeh.antennapod.ui.preferences.R;
@@ -43,7 +45,6 @@ public class TranscriptionModelManagerFragment extends Fragment {
     private VoskTranscriptionManager transcriptionManager;
     private RecyclerView recyclerView;
     private ModelAdapter adapter;
-    private ExecutorService executorService;
     private TextView emptyView;
 
     @Nullable
@@ -64,7 +65,6 @@ public class TranscriptionModelManagerFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         transcriptionManager = new VoskTranscriptionManager(requireContext());
-        executorService = Executors.newSingleThreadExecutor();
     }
 
     @Override
@@ -74,24 +74,87 @@ public class TranscriptionModelManagerFragment extends Fragment {
     }
 
     @Override
-    public void onDestroy() {
-        super.onDestroy();
-        if (executorService != null) {
-            executorService.shutdownNow();
+    public void onStart() {
+        super.onStart();
+        EventBus.getDefault().register(this);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        EventBus.getDefault().unregister(this);
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onModelDownloadEvent(ModelDownloadEvent event) {
+        if (adapter == null) {
+            return;
+        }
+
+        String modelId = event.getModelId();
+        DownloadStatus status = adapter.downloadStatusMap.get(modelId);
+
+        switch (event.getStatus()) {
+            case STARTED:
+                if (status == null) {
+                    status = new DownloadStatus();
+                    adapter.downloadStatusMap.put(modelId, status);
+                }
+                status.isDownloading = true;
+                status.progress = 0;
+                status.statusMessage = getString(R.string.download_starting);
+                break;
+
+            case PROGRESS:
+                if (status == null) {
+                    status = new DownloadStatus();
+                    adapter.downloadStatusMap.put(modelId, status);
+                }
+                status.isDownloading = true;
+                status.progress = event.getProgress();
+                status.statusMessage = Math.round(event.getBytesDownloaded() / 1024f / 1024f) + "MB / "
+                        + Math.round(event.getTotalBytes() / 1024f / 1024f) + "MB";
+                break;
+
+            case EXTRACTING:
+                if (status != null) {
+                    status.progress = 0;
+                    status.statusMessage = getString(R.string.download_type_extraction);
+                }
+                break;
+
+            case COMPLETED:
+                adapter.downloadStatusMap.remove(modelId);
+                Toast.makeText(requireContext(), R.string.pref_local_transcription_download_complete,
+                        Toast.LENGTH_SHORT).show();
+                break;
+
+            case FAILED:
+                adapter.downloadStatusMap.remove(modelId);
+                Toast.makeText(requireContext(),
+                        getString(R.string.pref_local_transcription_download_failed, event.getErrorMessage()),
+                        Toast.LENGTH_SHORT).show();
+                break;
+
+            case CANCELLED:
+                adapter.downloadStatusMap.remove(modelId);
+                Toast.makeText(requireContext(), R.string.download_canceled_msg,
+                        Toast.LENGTH_SHORT).show();
+                break;
+
+            default:
+
+        }
+
+        int position = adapter.findPositionByModelId(modelId);
+        if (position >= 0) {
+            adapter.notifyItemChanged(position);
         }
     }
 
     private void loadModels() {
         List<VoskModel> models = transcriptionManager.getAvailableModels();
-        // Group models by language? Or just sort them.
-        // Let's sort by Language then Name
-        Collections.sort(models, (m1, m2) -> {
-            int langCompare = m1.getLanguage().compareTo(m2.getLanguage());
-            if (langCompare != 0) {
-                return langCompare;
-            }
-            return m1.getName().compareTo(m2.getName());
-        });
+        Collections.sort(models, Comparator.comparing(VoskModel::getLanguage).thenComparing(VoskModel::getName));
 
         if (models.isEmpty()) {
             recyclerView.setVisibility(View.GONE);
@@ -105,8 +168,8 @@ public class TranscriptionModelManagerFragment extends Fragment {
     }
 
     private class ModelAdapter extends RecyclerView.Adapter<ModelViewHolder> {
-        private final List<Object> items; // Can be String (Header) or VoskModel
-        private final Map<String, DownloadStatus> downloadStatusMap = new HashMap<>();
+        private final List<Object> items;
+        final Map<String, DownloadStatus> downloadStatusMap = new HashMap<>();
 
         public ModelAdapter(List<VoskModel> models) {
             this.items = new ArrayList<>();
@@ -114,7 +177,7 @@ public class TranscriptionModelManagerFragment extends Fragment {
             for (VoskModel model : models) {
                 if (!model.getLanguage().equals(currentLanguage)) {
                     currentLanguage = model.getLanguage();
-                    items.add(currentLanguage); // Header
+                    items.add(currentLanguage);
                 }
                 items.add(model);
             }
@@ -214,95 +277,15 @@ public class TranscriptionModelManagerFragment extends Fragment {
                     return;
                 }
 
-                DownloadStatus status = new DownloadStatus();
-                status.isDownloading = true;
-                status.statusMessage = getString(R.string.download_starting);
-                downloadStatusMap.put(modelId, status);
-                int startPos = findPositionByModelId(modelId);
-                if (startPos >= 0) {
-                    notifyItemChanged(startPos);
-                }
-
-                Future<?> downloadTask = executorService.submit(() -> {
-                    try {
-                        boolean success = transcriptionManager.downloadModel(modelId,
-                                (progress, currentBytes, totalBytes) -> {
-                                    if (getActivity() == null || Thread.currentThread().isInterrupted()) {
-                                        return;
-                                    }
-                                    requireActivity().runOnUiThread(() -> {
-                                        if (progress < 0) {
-                                            status.progress = 0; // or indeterminate
-                                            status.statusMessage = getString(R.string.download_type_extraction);
-                                        } else {
-                                            status.progress = progress;
-                                            status.statusMessage = Math.round(currentBytes / 1024f / 1024f) + "MB / "
-                                                    + Math.round(totalBytes / 1024f / 1024f) + "MB";
-                                        }
-                                        int currentPos = findPositionByModelId(modelId);
-                                        if (currentPos >= 0) {
-                                            notifyItemChanged(currentPos);
-                                        }
-                                    });
-                                });
-
-                        if (getActivity() == null || Thread.currentThread().isInterrupted()) {
-                            return;
-                        }
-
-                        requireActivity().runOnUiThread(() -> {
-                            // Check if download was already canceled (status removed from map)
-                            boolean wasCanceled = !downloadStatusMap.containsKey(modelId);
-                            downloadStatusMap.remove(modelId);
-                            int currentPos = findPositionByModelId(modelId);
-                            if (currentPos >= 0) {
-                                notifyItemChanged(currentPos);
-                            }
-
-                            // Only show success message if download completed and wasn't canceled
-                            if (success && !wasCanceled) {
-                                Toast.makeText(requireContext(), R.string.pref_local_transcription_download_complete,
-                                        Toast.LENGTH_SHORT).show();
-                            }
-                        });
-                    } catch (Exception e) {
-                        Log.e(TAG, "Download failed", e);
-                        if (getActivity() == null) {
-                            return;
-                        }
-                        requireActivity().runOnUiThread(() -> {
-                            // Check if download was already canceled (status removed from map)
-                            boolean wasCanceled = !downloadStatusMap.containsKey(modelId);
-                            downloadStatusMap.remove(modelId);
-                            int currentPos = findPositionByModelId(modelId);
-                            if (currentPos >= 0) {
-                                notifyItemChanged(currentPos);
-                            }
-                            // Only show error message if download wasn't canceled
-                            if (!wasCanceled) {
-                                Toast.makeText(requireContext(),
-                                        getString(R.string.pref_local_transcription_download_failed, e.getMessage()),
-                                        Toast.LENGTH_SHORT).show();
-                            }
-                        });
-                    }
-                });
-                status.downloadTask = downloadTask;
+                // Start the download worker
+                ModelDownloadWorker.enqueue(requireContext(), modelId);
             }
 
             private void cancelDownload(VoskModel model) {
-                String modelId = model.getId();
-                DownloadStatus status = downloadStatusMap.get(modelId);
-                if (status != null && status.downloadTask != null) {
-                    status.downloadTask.cancel(true);
-                    downloadStatusMap.remove(modelId);
-                    int currentPos = findPositionByModelId(modelId);
-                    if (currentPos >= 0) {
-                        notifyItemChanged(currentPos);
-                    }
-                    Toast.makeText(requireContext(), R.string.download_canceled_msg,
-                            Toast.LENGTH_SHORT).show();
-                }
+                ModelDownloadWorker.cancel(requireContext(), model.getId());
+                downloadStatusMap.remove(model.getId());
+                notifyItemChanged(getBindingAdapterPosition());
+                Toast.makeText(requireContext(), R.string.download_canceled_msg, Toast.LENGTH_SHORT).show();
             }
 
             private void confirmDelete(VoskModel model) {
@@ -368,7 +351,7 @@ public class TranscriptionModelManagerFragment extends Fragment {
             }
         }
 
-        private int findPositionByModelId(String modelId) {
+        int findPositionByModelId(String modelId) {
             for (int i = 0; i < items.size(); i++) {
                 Object item = items.get(i);
                 if (item instanceof VoskModel && modelId.equals(((VoskModel) item).getId())) {
@@ -389,6 +372,5 @@ public class TranscriptionModelManagerFragment extends Fragment {
         boolean isDownloading;
         int progress;
         String statusMessage;
-        Future<?> downloadTask;
     }
 }

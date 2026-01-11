@@ -14,11 +14,13 @@ import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.SwitchPreferenceCompat;
 
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
+
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
+import de.danoeh.antennapod.event.ModelDownloadEvent;
 import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager;
 import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
@@ -29,39 +31,25 @@ import de.danoeh.antennapod.ui.preferences.R;
 public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private static final String PREF_OPENAI_API_KEY = "prefOpenAiApiKey";
     private static final String PREF_OPENAI_MODEL = "prefOpenAiModel";
-    private static final String PREF_AD_ANALYSIS_TYPE = "prefAdAnalysisType";
 
     // Local Transcription
     private static final String PREF_LOCAL_TRANSCRIPTION_ENABLED = "prefLocalTranscriptionEnabled";
     private static final String PREF_LOCAL_TRANSCRIPTION_MODEL = "prefLocalTranscriptionModel";
     private static final String PREF_MANAGE_TRANSCRIPTION_MODELS = "prefManageTranscriptionModels";
-    private static final String PREF_LOCAL_TRANSCRIPTION_DELETE = "prefLocalTranscriptionDelete";
     private static final String PREF_DELETE_ALL_TRANSCRIPTION_MODELS = "prefDeleteAllTranscriptionModels";
 
     private VoskTranscriptionManager transcriptionManager;
-    private ExecutorService downloadExecutor;
 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         addPreferencesFromResource(R.xml.preferences_ai);
 
         transcriptionManager = new VoskTranscriptionManager(requireContext());
-        downloadExecutor = Executors.newSingleThreadExecutor();
 
         setupApiKeyPreference();
         setupModelPreference();
-        setupAnalysisTypePreference();
         setupLocalTranscriptionPreferences();
         setupDeleteAllTranscriptionModels();
-    }
-
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        if (downloadExecutor != null) {
-            downloadExecutor.shutdownNow();
-        }
     }
 
     @Override
@@ -75,6 +63,22 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     public void onStart() {
         super.onStart();
         requireActivity().setTitle(R.string.pref_ai_label);
+        EventBus.getDefault().register(this);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        EventBus.getDefault().unregister(this);
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onModelDownloadEvent(ModelDownloadEvent event) {
+        // Update UI when a model download completes
+        if (event.getStatus() == ModelDownloadEvent.Status.COMPLETED) {
+            updateLocalTranscriptionUI();
+            updateDeleteAllTranscriptionModelsSummary();
+        }
     }
 
     private void setupApiKeyPreference() {
@@ -106,23 +110,6 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
             modelPref.setValue((String) newValue);
             return false;
         });
-    }
-
-    private void setupAnalysisTypePreference() {
-        // Removed as ad analysis is now always cloud-based
-    }
-
-    private void updateVisibility(String analysisType) {
-        // Always show API key and Model preferences as they are required for cloud
-        // analysis
-        Preference apiKeyPref = findPreference(PREF_OPENAI_API_KEY);
-        if (apiKeyPref != null) {
-            apiKeyPref.setVisible(true);
-        }
-        Preference modelPref = findPreference(PREF_OPENAI_MODEL);
-        if (modelPref != null) {
-            modelPref.setVisible(true);
-        }
     }
 
     private void setupLocalTranscriptionPreferences() {
@@ -174,9 +161,6 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                             })
                             .setNegativeButton(android.R.string.cancel, null)
                             .show();
-                    // Don't update value yet? Or update and let them discover it fails?
-                    // Better to not update if not valid?
-                    // Actually, let's allow setting it, but warn.
                 }
 
                 LocalAiPreferences.setLocalTranscriptionModel(requireContext(), modelId);
@@ -209,13 +193,6 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                 }
             }
 
-            // If the currently selected model is not downloaded (e.g. deleted), we should
-            // still probably show it?
-            // Or maybe just show what IS downloaded.
-            // If selected is not in list, ListPreference might act weird.
-            // Let's add the selected one if missing, OR just let the summary handle it.
-            // The request is "show only currently downloaded".
-
             CharSequence[] entries = new CharSequence[downloadedModels.size()];
             CharSequence[] entryValues = new CharSequence[downloadedModels.size()];
             for (int i = 0; i < downloadedModels.size(); i++) {
@@ -231,9 +208,16 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         SwitchPreferenceCompat enabledPref = findPreference(PREF_LOCAL_TRANSCRIPTION_ENABLED);
         if (enabledPref != null) {
             enabledPref.setEnabled(isDownloaded);
-            if (!isDownloaded && enabledPref.isChecked()) {
+            if (!isDownloaded) {
+                // Model was deleted - disable the feature and uncheck the toggle
+                if (enabledPref.isChecked()) {
+                    enabledPref.setChecked(false);
+                    LocalAiPreferences.setLocalTranscriptionEnabled(requireContext(), false);
+                }
                 enabledPref.setSummary("Model not downloaded");
             } else if (enabledPref.isChecked()) {
+                enabledPref.setSummary(R.string.pref_local_transcription_summary);
+            } else {
                 enabledPref.setSummary(R.string.pref_local_transcription_summary);
             }
         }
