@@ -24,16 +24,6 @@ public final class AdAnalysisProviderFactory {
     }
 
     /**
-     * Creates the appropriate ad analysis provider based on user preferences.
-     * If local transcription is enabled, attempts to create
-     * LocalTranscriptionProvider.
-     * If local transcription fails, throws an exception instead of falling back to
-     * OpenAI.
-     *
-     * @throws IllegalStateException if local transcription is enabled but cannot be
-     *                               initialized
-     */
-    /**
      * Creates the appropriate transcription provider based on user preferences.
      */
     public static TranscriptionProvider createTranscriptionProvider(Context context) {
@@ -75,18 +65,5 @@ public final class AdAnalysisProviderFactory {
     public static TranscriptAnalysisProvider createAnalysisProvider(Context context) throws IOException {
         Log.i(TAG, "Creating OpenAiTranscriptAnalysisProvider");
         return new OpenAiTranscriptAnalysisProvider(context);
-    }
-
-    /**
-     * Checks if local transcription is available (model downloaded and preference
-     * enabled).
-     */
-    public static boolean isLocalTranscriptionAvailable(Context context) {
-        if (!LocalAiPreferences.isLocalTranscriptionEnabled(context)) {
-            return false;
-        }
-        String localModel = LocalAiPreferences.getLocalTranscriptionModel(context);
-        VoskTranscriptionManager manager = new VoskTranscriptionManager(context);
-        return manager.isModelDownloaded(localModel);
     }
 }

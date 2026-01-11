@@ -174,19 +174,6 @@ public class TranscriptAnalysisWorker extends Worker {
                         modelName, error, transcript));
     }
 
-    private String buildPrompt(String transcript, int durationMs) {
-        return "You are a classifier that only finds advertisement or sponsor segments in podcasts. "
-                + "An advertisement is a sponsor read, mid-roll, pre-roll, post-roll,"
-                + " or explicit promotion (coupon codes, giveaways, discounts). "
-                + "Do not tag normal banter, housekeeping, or episode content as ads. "
-                + "Use seconds from start of episode for times. "
-                + "Respond ONLY with valid JSON matching {\"ads\":[{\"startSeconds\":number,\"endSeconds\":number,\""
-                + "reason\":string,\"confidence\":number}]} and nothing else.\n\n"
-                + "Episode duration seconds: " + durationMs / 1000f + "\n"
-                + "Transcript (WebVTT):\n\n"
-                + transcript + "\n\nAgain, output only the JSON structure.";
-    }
-
     private List<AdSegment> analyzeChunksInParallel(TranscriptAnalysisProvider provider, List<String> chunks)
             throws Exception {
         final int totalChunks = chunks.size();

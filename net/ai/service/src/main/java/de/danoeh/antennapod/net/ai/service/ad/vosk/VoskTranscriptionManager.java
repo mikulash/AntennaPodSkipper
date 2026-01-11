@@ -35,8 +35,7 @@ import de.danoeh.antennapod.net.ai.service.ad.transcription.TranscriptionManager
 
 /**
  * Manages Vosk speech recognition model download and on-device transcription.
- * Vosk is a lightweight, offline speech recognition toolkit that works well on
- * Android.
+ * <a href="https://alphacephei.com/vosk/">Vosk</a> is a lightweight, offline speech recognition toolkit for Android.
  */
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class VoskTranscriptionManager implements TranscriptionManager {

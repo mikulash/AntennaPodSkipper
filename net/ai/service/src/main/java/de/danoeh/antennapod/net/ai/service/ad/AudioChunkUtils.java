@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Splits an audio file into smaller, valid container chunks using {@link MediaExtractor} and
+ * Splits an audio file into smaller chunks using {@link MediaExtractor} and
  * {@link MediaMuxer} so that very long podcast episodes can be transcribed in multiple
  * API calls without exceeding request limits.
  */

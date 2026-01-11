@@ -23,10 +23,6 @@ public class OpenAiTranscriptAnalysisProvider implements TranscriptAnalysisProvi
     private static final String TAG = "OpenAiTranscriptAnlysis";
     private static final String DEFAULT_MODEL_NAME = "gpt-5-nano";
 
-    // Pricing (Estimated)
-    private static final double PRICE_INPUT_PER_1M = 0.15; // $0.15 per 1M input tokens
-    private static final double PRICE_OUTPUT_PER_1M = 0.60; // $0.60 per 1M output tokens
-
     // Base system message for ad classification
     private static final String SYSTEM_MESSAGE_BASE =
             "You are a classifier that only finds advertisement or sponsor segments in podcasts. "

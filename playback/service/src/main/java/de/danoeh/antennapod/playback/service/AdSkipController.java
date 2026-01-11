@@ -3,10 +3,8 @@ package de.danoeh.antennapod.playback.service;
 import android.content.Context;
 import android.os.Build;
 import android.text.TextUtils;
-
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -35,11 +33,10 @@ class AdSkipController {
         if (!UserPreferences.isAdSkipEnabled()) {
             return;
         }
-        if (!(playable instanceof FeedMedia)) {
+        if (!(playable instanceof FeedMedia media)) {
             clear();
             return;
         }
-        FeedMedia media = (FeedMedia) playable;
         loadIfNecessary(media);
         if (cachedResult == null || cachedResult.getSegments().isEmpty()) {
             return;
