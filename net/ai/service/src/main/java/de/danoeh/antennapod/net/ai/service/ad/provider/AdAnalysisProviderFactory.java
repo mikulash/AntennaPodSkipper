@@ -8,7 +8,6 @@ import androidx.annotation.RequiresApi;
 
 import java.io.IOException;
 
-import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 
 /**
