@@ -25,6 +25,7 @@ import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.net.ai.service.ad.AdAnalysisWorker;
+import de.danoeh.antennapod.net.ai.service.ad.TranscriptionWorkScheduler;
 import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
@@ -109,6 +110,14 @@ public class CompleteAnalysisActionButton extends ItemActionButton {
             return;
         }
 
+        // Check if another local transcription is already running
+        boolean willUseLocalTranscription = !feedUsesCloudModel
+                && LocalAiPreferences.isLocalTranscriptionEnabled(context);
+        if (willUseLocalTranscription && TranscriptionWorkScheduler.isLocalTranscriptionRunning(context)) {
+            showTranscriptionRunningDialog(context);
+            return;
+        }
+
         // Check if transcript already exists - if so, ask to overwrite
         if (hasExistingTranscript(media)) {
             new MaterialAlertDialogBuilder(context)
@@ -143,16 +152,27 @@ public class CompleteAnalysisActionButton extends ItemActionButton {
                 .build();
 
         String uniqueTag = "complete-analysis-" + item.getId();
-        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(AdAnalysisWorker.class)
+        OneTimeWorkRequest.Builder requestBuilder = new OneTimeWorkRequest.Builder(AdAnalysisWorker.class)
                 .addTag(uniqueTag)
                 .setConstraints(constraints)
-                .setInputData(input)
-                .build();
+                .setInputData(input);
+
+        // Add local transcription tag if using local transcription (for concurrency check)
+        String feedModelOverride = null;
+        if (item.getFeed() != null && item.getFeed().getPreferences() != null) {
+            feedModelOverride = item.getFeed().getPreferences().getTranscriptionModel();
+        }
+        boolean feedUsesCloudModel = feedModelOverride != null && feedModelOverride.startsWith("cloud:");
+        boolean usesLocalTranscription = !feedUsesCloudModel
+                && LocalAiPreferences.isLocalTranscriptionEnabled(context);
+        if (usesLocalTranscription) {
+            requestBuilder.addTag(TranscriptionWorkScheduler.TAG_LOCAL_TRANSCRIPTION);
+        }
 
         WorkManager.getInstance(context).enqueueUniqueWork(
                 uniqueTag,
                 ExistingWorkPolicy.REPLACE,
-                request);
+                requestBuilder.build());
 
         Toast.makeText(context, "Complete analysis requested", Toast.LENGTH_SHORT).show();
     }
@@ -167,6 +187,14 @@ public class CompleteAnalysisActionButton extends ItemActionButton {
                     context.startActivity(intent);
                 })
                 .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void showTranscriptionRunningDialog(Context context) {
+        new MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.transcription_already_running_title)
+                .setMessage(R.string.transcription_already_running_message)
+                .setPositiveButton(android.R.string.ok, null)
                 .show();
     }
 }

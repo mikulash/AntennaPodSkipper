@@ -102,6 +102,15 @@ public class TranscribeActionButton extends ItemActionButton {
             showApiKeyMissingDialog(context);
             return;
         }
+
+        // Check if another local transcription is already running
+        boolean willUseLocalTranscription = !feedUsesCloudModel
+                && LocalAiPreferences.isLocalTranscriptionEnabled(context);
+        if (willUseLocalTranscription && TranscriptionWorkScheduler.isLocalTranscriptionRunning(context)) {
+            showTranscriptionRunningDialog(context);
+            return;
+        }
+
         // Check if transcript already exists
         if (hasExistingTranscript(media)) {
             new MaterialAlertDialogBuilder(context)
@@ -140,6 +149,14 @@ public class TranscribeActionButton extends ItemActionButton {
                     context.startActivity(intent);
                 })
                 .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void showTranscriptionRunningDialog(Context context) {
+        new MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.transcription_already_running_title)
+                .setMessage(R.string.transcription_already_running_message)
+                .setPositiveButton(android.R.string.ok, null)
                 .show();
     }
 }

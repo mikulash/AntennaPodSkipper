@@ -1089,6 +1089,8 @@
     <string name="not_downloaded">Not downloaded</string>
     <string name="transcription_api_key_missing_title">API Key Required</string>
     <string name="transcription_api_key_missing_message">Cloud transcription requires an OpenAI API key. Please configure your API key in settings.</string>
+    <string name="transcription_already_running_title">Transcription In Progress</string>
+    <string name="transcription_already_running_message">Another transcription is currently running. Only one local transcription can run at a time due to constraints of the transcription library. Please wait for the current transcription to complete.</string>
 
     <!-- Ad Analysis -->
     <string name="ad_analysis_model_missing_title">Model missing</string>
