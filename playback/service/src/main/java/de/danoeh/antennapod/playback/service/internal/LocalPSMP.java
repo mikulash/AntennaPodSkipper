@@ -7,6 +7,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.util.Pair;
 import android.view.SurfaceHolder;
+
 import androidx.annotation.NonNull;
 import androidx.car.app.connection.CarConnection;
 import androidx.lifecycle.LiveData;
@@ -14,6 +15,19 @@ import androidx.lifecycle.Observer;
 import androidx.media.AudioAttributesCompat;
 import androidx.media.AudioFocusRequestCompat;
 import androidx.media.AudioManagerCompat;
+
+import org.greenrobot.eventbus.EventBus;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.event.PlayerErrorEvent;
 import de.danoeh.antennapod.event.playback.BufferUpdateEvent;
@@ -30,15 +44,6 @@ import de.danoeh.antennapod.playback.service.PlaybackService;
 import de.danoeh.antennapod.playback.service.R;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.episodes.PlaybackSpeedUtils;
-import org.greenrobot.eventbus.EventBus;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Manages the MediaPlayer object of the PlaybackService.
@@ -59,11 +64,13 @@ public class LocalPSMP extends PlaybackServiceMediaPlayer {
     private volatile Pair<Integer, Integer> videoSize;
     private final AudioFocusRequestCompat audioFocusRequest;
     private final Handler audioFocusCanceller;
+    private final Handler mainHandler;
     private boolean isShutDown = false;
     private CountDownLatch seekLatch;
     private LiveData<Integer> androidAutoConnectionState;
     private boolean androidAutoConnected;
     private Observer<Integer> androidAutoConnectionObserver;
+    private final ExecutorService executor;
 
     public LocalPSMP(@NonNull Context context,
                      @NonNull PlaybackServiceMediaPlayer.PSMPCallback callback) {
@@ -71,6 +78,7 @@ public class LocalPSMP extends PlaybackServiceMediaPlayer {
         this.audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
         this.startWhenPrepared = new AtomicBoolean(false);
         audioFocusCanceller = new Handler(Looper.getMainLooper());
+        mainHandler = new Handler(Looper.getMainLooper());
         mediaPlayer = null;
         statusBeforeSeeking = null;
         pausedBecauseOfTransientAudiofocusLoss = false;
@@ -92,6 +100,11 @@ public class LocalPSMP extends PlaybackServiceMediaPlayer {
                 .setOnAudioFocusChangeListener(audioFocusChangeListener)
                 .setWillPauseWhenDucked(true)
                 .build();
+        executor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "LocalPSMP");
+            t.setPriority(Thread.NORM_PRIORITY);
+            return t;
+        });
     }
 
     /**
@@ -541,6 +554,7 @@ public class LocalPSMP extends PlaybackServiceMediaPlayer {
         isShutDown = true;
         abandonAudioFocus();
         releaseWifiLockIfNecessary();
+        executor.shutdown();
     }
 
     @Override
@@ -685,7 +699,7 @@ public class LocalPSMP extends PlaybackServiceMediaPlayer {
 
         callback.episodeFinishedPlayback(); // notify that the current episode just finished
 
-        boolean isPlaying = playerStatus == PlayerStatus.PLAYING;
+        final boolean isPlaying = playerStatus == PlayerStatus.PLAYING;
 
         // we're relying on the position stored in the Playable object for post-playback processing
         if (media != null) {
@@ -702,26 +716,45 @@ public class LocalPSMP extends PlaybackServiceMediaPlayer {
         abandonAudioFocus();
 
         final Playable currentMedia = media;
-        Playable nextMedia = null;
 
         // we should continue to next episode if we were told to continue and we're allowed to (by sleep timer)
-        shouldContinue &= callback.shouldContinueToNextEpisode();
+        final boolean shouldContinueFinal = shouldContinue && callback.shouldContinueToNextEpisode();
 
-        if (shouldContinue) {
+        if (shouldContinueFinal) {
             // Load next episode if previous episode was in the queue and if there
             // is an episode in the queue left.
             // Start playback immediately if continuous playback is enabled
-            nextMedia = callback.getNextInQueue(currentMedia);
-            if (nextMedia != null) {
-                callback.onPlaybackEnded(nextMedia.getMediaType(), false);
-                // setting media to null signals to playMediaObject() that
-                // we're taking care of post-playback processing
-                media = null;
-                playMediaObject(nextMedia, false, !nextMedia.localFileAvailable(), isPlaying, isPlaying);
-            } else if (wasSkipped) {
-                EventBus.getDefault().post(new MessageEvent(context.getString(R.string.no_following_in_queue)));
-            }
+            // Fetch next item on background thread to avoid DB I/O on main thread
+            executor.execute(() -> {
+                final Playable nextMedia = callback.getNextInQueue(currentMedia);
+                // Post back to main thread for player operations
+                mainHandler.post(() -> onEndPlaybackAfterFetch(
+                        hasEnded, wasSkipped, true, toStoppedState, isPlaying, currentMedia, nextMedia));
+            });
+        } else {
+            // No need to fetch next item, finish immediately
+            onEndPlaybackAfterFetch(hasEnded, wasSkipped, false, toStoppedState, isPlaying, currentMedia, null);
         }
+    }
+
+    /**
+     * Continuation of endPlayback after fetching the next item from the queue.
+     * This must be called on the main thread.
+     */
+    private void onEndPlaybackAfterFetch(final boolean hasEnded, final boolean wasSkipped,
+                                          final boolean shouldContinue, final boolean toStoppedState,
+                                          final boolean isPlaying, final Playable currentMedia,
+                                          final Playable nextMedia) {
+        if (nextMedia != null) {
+            callback.onPlaybackEnded(nextMedia.getMediaType(), false);
+            // setting media to null signals to playMediaObject() that
+            // we're taking care of post-playback processing
+            media = null;
+            playMediaObject(nextMedia, false, !nextMedia.localFileAvailable(), isPlaying, isPlaying);
+        } else if (shouldContinue && wasSkipped) {
+            EventBus.getDefault().post(new MessageEvent(context.getString(R.string.no_following_in_queue)));
+        }
+
         if (shouldContinue || toStoppedState) {
             if (nextMedia == null) {
                 callback.onPlaybackEnded(null, true);
