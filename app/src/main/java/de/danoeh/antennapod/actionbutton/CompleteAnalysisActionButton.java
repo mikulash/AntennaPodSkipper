@@ -10,12 +10,6 @@ import android.widget.Toast;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
-import androidx.work.Constraints;
-import androidx.work.Data;
-import androidx.work.ExistingWorkPolicy;
-import androidx.work.NetworkType;
-import androidx.work.OneTimeWorkRequest;
-import androidx.work.WorkManager;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
@@ -24,15 +18,16 @@ import java.io.File;
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
-import de.danoeh.antennapod.net.ai.service.ad.AdAnalysisWorker;
-import de.danoeh.antennapod.net.ai.service.ad.TranscriptionWorkScheduler;
+import de.danoeh.antennapod.net.ai.service.ad.AdAnalysisWorkScheduler;
 import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.ui.screen.preferences.PreferenceActivity;
 
 /**
- * Action button that performs complete ad analysis: transcription followed by ad detection.
+ * Action button that performs complete ad analysis: transcription followed by
+ * ad detection.
+ * Uses a queue so that only one episode is processed at a time.
  */
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class CompleteAnalysisActionButton extends ItemActionButton {
@@ -96,7 +91,7 @@ public class CompleteAnalysisActionButton extends ItemActionButton {
                         })
                         .setNeutralButton(R.string.action_use_cloud, (d, w) -> {
                             LocalAiPreferences.setLocalTranscriptionEnabled(context, false);
-                            runCompleteAnalysis(context, media);
+                            enqueueAnalysis(context, media);
                         })
                         .setNegativeButton(android.R.string.cancel, null)
                         .show();
@@ -110,71 +105,12 @@ public class CompleteAnalysisActionButton extends ItemActionButton {
             return;
         }
 
-        // Check if another local transcription is already running
-        boolean willUseLocalTranscription = !feedUsesCloudModel
-                && LocalAiPreferences.isLocalTranscriptionEnabled(context);
-        if (willUseLocalTranscription && TranscriptionWorkScheduler.isLocalTranscriptionRunning(context)) {
-            showTranscriptionRunningDialog(context);
-            return;
-        }
-
-        // Check if transcript already exists - if so, ask to overwrite
-        if (hasExistingTranscript(media)) {
-            new MaterialAlertDialogBuilder(context)
-                    .setTitle(R.string.transcription_overwrite_title)
-                    .setMessage(R.string.transcription_overwrite_message)
-                    .setPositiveButton(R.string.transcription_overwrite_confirm,
-                            (d, w) -> runCompleteAnalysis(context, media))
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .show();
-            return;
-        }
-        runCompleteAnalysis(context, media);
+        enqueueAnalysis(context, media);
     }
 
-    private boolean hasExistingTranscript(FeedMedia media) {
-        String transcriptFileUrl = media.getTranscriptFileUrl();
-        if (TextUtils.isEmpty(transcriptFileUrl)) {
-            return false;
-        }
-        File transcriptFile = new File(transcriptFileUrl);
-        return transcriptFile.exists() && transcriptFile.length() > 0;
-    }
-
-    private void runCompleteAnalysis(Context context, FeedMedia media) {
-        Data input = new Data.Builder()
-                .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, item.getId())
-                .build();
-
-        Constraints constraints = new Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .setRequiresBatteryNotLow(true)
-                .build();
-
-        String uniqueTag = "complete-analysis-" + item.getId();
-        OneTimeWorkRequest.Builder requestBuilder = new OneTimeWorkRequest.Builder(AdAnalysisWorker.class)
-                .addTag(uniqueTag)
-                .setConstraints(constraints)
-                .setInputData(input);
-
-        // Add local transcription tag if using local transcription (for concurrency check)
-        String feedModelOverride = null;
-        if (item.getFeed() != null && item.getFeed().getPreferences() != null) {
-            feedModelOverride = item.getFeed().getPreferences().getTranscriptionModel();
-        }
-        boolean feedUsesCloudModel = feedModelOverride != null && feedModelOverride.startsWith("cloud:");
-        boolean usesLocalTranscription = !feedUsesCloudModel
-                && LocalAiPreferences.isLocalTranscriptionEnabled(context);
-        if (usesLocalTranscription) {
-            requestBuilder.addTag(TranscriptionWorkScheduler.TAG_LOCAL_TRANSCRIPTION);
-        }
-
-        WorkManager.getInstance(context).enqueueUniqueWork(
-                uniqueTag,
-                ExistingWorkPolicy.REPLACE,
-                requestBuilder.build());
-
-        Toast.makeText(context, "Complete analysis requested", Toast.LENGTH_SHORT).show();
+    private void enqueueAnalysis(Context context, FeedMedia media) {
+        AdAnalysisWorkScheduler.enqueueManual(context, media);
+        Toast.makeText(context, R.string.ad_analysis_queued, Toast.LENGTH_SHORT).show();
     }
 
     private void showApiKeyMissingDialog(Context context) {
@@ -187,14 +123,6 @@ public class CompleteAnalysisActionButton extends ItemActionButton {
                     context.startActivity(intent);
                 })
                 .setNegativeButton(android.R.string.cancel, null)
-                .show();
-    }
-
-    private void showTranscriptionRunningDialog(Context context) {
-        new MaterialAlertDialogBuilder(context)
-                .setTitle(R.string.transcription_already_running_title)
-                .setMessage(R.string.transcription_already_running_message)
-                .setPositiveButton(android.R.string.ok, null)
                 .show();
     }
 }

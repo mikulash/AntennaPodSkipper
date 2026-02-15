@@ -16,9 +16,18 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 
+/**
+ * Schedules combined transcription + ad analysis work.
+ * Uses a single shared queue name with APPEND policy so that only one
+ * episode is processed at a time. Additional requests are queued behind
+ * the currently running work.
+ */
 @RequiresApi(api = Build.VERSION_CODES.O)
 public final class AdAnalysisWorkScheduler {
-    private static final String UNIQUE_PREFIX = "ad-analysis-";
+    /** Shared queue name — all episodes share this so they execute serially. */
+    public static final String QUEUE_NAME = "ad-analysis-queue";
+    /** Per-episode tag prefix for observing / cancelling individual items. */
+    public static final String TAG_PREFIX = "ad-analysis-";
 
     private AdAnalysisWorkScheduler() {
     }
@@ -36,7 +45,7 @@ public final class AdAnalysisWorkScheduler {
             return;
         }
         Data input = new Data.Builder()
-                .putLong(TranscriptAnalysisWorker.DATA_FEED_ITEM_ID, item.getId())
+                .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, item.getId())
                 .build();
 
         // Only require network if not running in fully local mode
@@ -47,15 +56,16 @@ public final class AdAnalysisWorkScheduler {
                 .setRequiresBatteryNotLow(true)
                 .build();
 
-        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(TranscriptAnalysisWorker.class)
-                .addTag(UNIQUE_PREFIX + item.getId())
+        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(AdAnalysisWorker.class)
+                .addTag(TAG_PREFIX + item.getId())
                 .setConstraints(constraints)
                 .setInputData(input)
                 .build();
 
+        // APPEND ensures work is queued behind any currently running work
         WorkManager.getInstance(context).enqueueUniqueWork(
-                UNIQUE_PREFIX + item.getId(),
-                ExistingWorkPolicy.REPLACE,
+                QUEUE_NAME,
+                ExistingWorkPolicy.APPEND,
                 request);
     }
 }

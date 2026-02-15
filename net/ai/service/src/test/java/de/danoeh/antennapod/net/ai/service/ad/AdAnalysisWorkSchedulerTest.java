@@ -17,12 +17,12 @@ import org.robolectric.RuntimeEnvironment;
 
 /**
  * Unit tests for {@link AdAnalysisWorkScheduler}.
- * Tests focus on validation logic, constraint building, and input data creation.
+ * Tests focus on validation logic, constraint building, and input data
+ * creation.
  * Note: Actual WorkManager enqueuing is not tested here.
  */
 @RunWith(RobolectricTestRunner.class)
 public class AdAnalysisWorkSchedulerTest {
-
 
     @Before
     public void setUp() {
@@ -56,40 +56,40 @@ public class AdAnalysisWorkSchedulerTest {
     public void testDataBuilder_containsFeedItemId() {
         long feedItemId = 54321L;
         Data input = new Data.Builder()
-                .putLong(TranscriptAnalysisWorker.DATA_FEED_ITEM_ID, feedItemId)
+                .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, feedItemId)
                 .build();
 
-        assertEquals(feedItemId, input.getLong(TranscriptAnalysisWorker.DATA_FEED_ITEM_ID, -1));
+        assertEquals(feedItemId, input.getLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, -1));
     }
 
     @Test
     public void testDataBuilder_zeroId() {
         long feedItemId = 0L;
         Data input = new Data.Builder()
-                .putLong(TranscriptAnalysisWorker.DATA_FEED_ITEM_ID, feedItemId)
+                .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, feedItemId)
                 .build();
 
-        assertEquals(0L, input.getLong(TranscriptAnalysisWorker.DATA_FEED_ITEM_ID, -1));
+        assertEquals(0L, input.getLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, -1));
     }
 
     @Test
     public void testDataBuilder_negativeId() {
         long feedItemId = -1L;
         Data input = new Data.Builder()
-                .putLong(TranscriptAnalysisWorker.DATA_FEED_ITEM_ID, feedItemId)
+                .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, feedItemId)
                 .build();
 
-        assertEquals(-1L, input.getLong(TranscriptAnalysisWorker.DATA_FEED_ITEM_ID, 0));
+        assertEquals(-1L, input.getLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, 0));
     }
 
     @Test
     public void testDataBuilder_largeId() {
         long feedItemId = 9999999999L;
         Data input = new Data.Builder()
-                .putLong(TranscriptAnalysisWorker.DATA_FEED_ITEM_ID, feedItemId)
+                .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, feedItemId)
                 .build();
 
-        assertEquals(9999999999L, input.getLong(TranscriptAnalysisWorker.DATA_FEED_ITEM_ID, -1));
+        assertEquals(9999999999L, input.getLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, -1));
     }
 
     // ==================== Network Requirement Tests ====================
@@ -138,10 +138,10 @@ public class AdAnalysisWorkSchedulerTest {
     // ==================== Work Policy Tests ====================
 
     @Test
-    public void testWorkPolicy_replaceExisting() {
-        // Ad analysis uses REPLACE policy for manual triggers
-        // This ensures re-running analysis replaces any existing work
-        String policy = "REPLACE";
-        assertEquals("REPLACE", policy);
+    public void testWorkPolicy_appendForQueue() {
+        // Ad analysis uses APPEND policy for queue-based execution
+        // This ensures multiple episodes are processed one at a time
+        String policy = "APPEND";
+        assertEquals("APPEND", policy);
     }
 }

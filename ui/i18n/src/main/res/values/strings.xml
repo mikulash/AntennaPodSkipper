@@ -1043,7 +1043,7 @@
     <string name="ad_analysis_analyzing">Analyzing</string>
     <string name="ad_analysis_requires_transcript">Transcribe the episode first before analyzing ads.</string>
     <string name="action_transcribe">Transcribe</string>
-    <string name="action_complete_analysis">Do both</string>
+    <string name="action_complete_analysis">Run ad analysis</string>
     <string name="transcription_requires_download">Download the episode first to transcribe.</string>
     <string name="transcription_requested">Transcription requested.</string>
     <string name="transcription_overwrite_title">Replace existing transcript?</string>
@@ -1098,6 +1098,8 @@
     <string name="action_use_cloud">Use Cloud</string>
     <string name="action_download_model">Download</string>
     <string name="open_settings">Open settings</string>
+    <string name="ad_analysis_queued">Added to queue</string>
+    <string name="ad_analysis_in_queue">In queue</string>
 
     <!-- Delete all models -->
     <string name="pref_delete_all_models_title">Delete all downloaded models</string>
