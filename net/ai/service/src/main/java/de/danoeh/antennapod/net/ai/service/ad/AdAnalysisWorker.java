@@ -180,9 +180,7 @@ public class AdAnalysisWorker extends Worker {
             return null;
         }
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            flags |= PendingIntent.FLAG_IMMUTABLE;
-        }
+        flags |= PendingIntent.FLAG_IMMUTABLE;
         return PendingIntent.getActivity(context, FOREGROUND_NOTIFICATION_ID, intent, flags);
     }
 
