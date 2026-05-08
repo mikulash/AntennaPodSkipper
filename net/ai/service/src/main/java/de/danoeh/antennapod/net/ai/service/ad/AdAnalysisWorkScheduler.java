@@ -18,9 +18,10 @@ import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 
 /**
  * Schedules combined transcription + ad analysis work.
- * Uses a single shared queue name with APPEND policy so that only one
- * episode is processed at a time. Additional requests are queued behind
- * the currently running work.
+ * Uses a single shared queue name with APPEND_OR_REPLACE policy so that only
+ * one episode is processed at a time. Additional requests are queued behind the
+ * currently running work, while retries recover from a failed or cancelled
+ * queue chain.
  */
 @RequiresApi(api = Build.VERSION_CODES.O)
 public final class AdAnalysisWorkScheduler {
@@ -62,10 +63,11 @@ public final class AdAnalysisWorkScheduler {
                 .setInputData(input)
                 .build();
 
-        // APPEND ensures work is queued behind any currently running work
+        // APPEND_OR_REPLACE preserves serial queueing but does not attach new
+        // retries to an old failed/cancelled chain where they would never run.
         WorkManager.getInstance(context).enqueueUniqueWork(
                 QUEUE_NAME,
-                ExistingWorkPolicy.APPEND,
+                ExistingWorkPolicy.APPEND_OR_REPLACE,
                 request);
     }
 }

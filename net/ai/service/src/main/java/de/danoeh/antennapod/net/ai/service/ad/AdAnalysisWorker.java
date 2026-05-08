@@ -4,35 +4,35 @@ import android.content.Context;
 import android.os.Build;
 import android.text.TextUtils;
 import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
-import androidx.work.Data;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
+
 import com.openai.errors.UnauthorizedException;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+
+import org.greenrobot.eventbus.EventBus;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import de.danoeh.antennapod.ui.i18n.R;
+
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.ad.AdAnalysisResult;
 import de.danoeh.antennapod.model.ad.AdSegment;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.net.ai.service.ad.provider.AdAnalysisProviderFactory;
+import de.danoeh.antennapod.net.ai.service.ad.provider.TranscriptAnalysisProvider;
+import de.danoeh.antennapod.net.ai.service.ad.provider.TranscriptionProvider;
 import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.storage.database.DBReader;
-import de.danoeh.antennapod.net.ai.service.ad.provider.TranscriptionProvider;
-import de.danoeh.antennapod.net.ai.service.ad.provider.TranscriptAnalysisProvider;
-import de.danoeh.antennapod.net.ai.service.ad.provider.AdAnalysisProviderFactory;
+import de.danoeh.antennapod.ui.i18n.R;
 import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
-import org.greenrobot.eventbus.EventBus;
 
 /**
  * Combined worker that performs both transcription and transcript analysis.
@@ -41,13 +41,7 @@ import org.greenrobot.eventbus.EventBus;
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class AdAnalysisWorker extends Worker {
     public static final String DATA_FEED_ITEM_ID = "feedItemId";
-    private static final String PROGRESS_KEY_PERCENT = "ad_analysis_progress_percent";
-    private static final String PROGRESS_KEY_STAGE = "ad_analysis_progress_stage";
-    private static final String PROGRESS_KEY_CHUNKS_DONE = "ad_analysis_chunks_done";
-    private static final String PROGRESS_KEY_CHUNKS_TOTAL = "ad_analysis_chunks_total";
     private static final String TAG = "AdAnalysisWorker";
-    private static final long TRANSCRIPTION_CHUNK_SECONDS = 150; // 2.5 minutes
-    private static final int MAX_TRANSCRIPT_CHARS_PER_CHUNK = 100000; // ~25k tokens
 
     public AdAnalysisWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
@@ -57,34 +51,41 @@ public class AdAnalysisWorker extends Worker {
     @Override
     public Result doWork() {
         long feedItemId = getInputData().getLong(DATA_FEED_ITEM_ID, -1);
-        Log.d(TAG, "Combined ad analysis (transcription + analysis) started on item: " + feedItemId);
+        AdAnalysisRunObserver runObserver = new AdAnalysisRunObserver(feedItemId);
 
         if (feedItemId <= 0) {
+            runObserver.finished("invalid_feed_item_id");
             return Result.failure();
         }
 
         FeedItem item = DBReader.getFeedItem(feedItemId);
         if (item == null || item.getMedia() == null) {
+            runObserver.finished("missing_feed_item_or_media");
             return Result.failure();
         }
         FeedMedia media = item.getMedia();
         if (TextUtils.isEmpty(media.getLocalFileUrl())) {
+            runObserver.finished("no_local_media");
             return Result.success();
         }
 
-        // Phase 1: Transcription
-        String transcript = performTranscription(item, media);
+        AdAnalysisProgressSink progressSink = new WorkManagerAdAnalysisProgressSink(this);
+
+        String transcript = performTranscription(item, media, progressSink, runObserver);
         if (TextUtils.isEmpty(transcript)) {
+            runObserver.finished("transcription_failed");
             return Result.failure();
         }
 
-        // Phase 2: Transcript Analysis
-        return performAnalysis(feedItemId, item, transcript);
+        Result result = performAnalysis(feedItemId, item, transcript, progressSink, runObserver);
+        runObserver.finished("analysis_completed");
+        return result;
     }
 
-    private String performTranscription(FeedItem item, FeedMedia media) {
-        Log.i(TAG, "Phase 1: Starting transcription");
-        setProgressStage("transcribing", 0);
+    private String performTranscription(FeedItem item, FeedMedia media, AdAnalysisProgressSink progressSink,
+            AdAnalysisRunObserver runObserver) {
+        runObserver.phaseStarted("transcription");
+        progressSink.report(AdAnalysisStages.TRANSCRIBING, 0);
 
         TranscriptionProvider transcriptionProvider = null;
         String modelOverride = null;
@@ -99,6 +100,7 @@ public class AdAnalysisWorker extends Worker {
                     modelOverride, languageOverride);
         } catch (Exception e) {
             Log.e(TAG, "Transcription provider could not be created", e);
+            saveError(item.getId(), e.getMessage(), "transcription", "");
             if (isMemoryError(e)) {
                 notifyInsufficientMemory(e);
             }
@@ -110,7 +112,7 @@ public class AdAnalysisWorker extends Worker {
             Log.i(TAG, "Transcription started for feedItemId=" + item.getId()
                     + ", title=" + item.getTitle());
 
-            String transcript = transcribeInChunks(transcriptionProvider, media);
+            String transcript = transcribeInChunks(transcriptionProvider, media, progressSink);
             Log.i(TAG, "Transcription complete, length=" + transcript.length());
 
             // Store transcript
@@ -119,15 +121,22 @@ public class AdAnalysisWorker extends Worker {
                 Log.i(TAG, "Transcript stored successfully");
             } catch (Exception e) {
                 Log.w(TAG, "Failed to store transcript", e);
+                saveError(item.getId(), e.getMessage(), "transcription", transcript);
                 return null;
             }
 
-            setProgressStage("transcription_done", 50);
+            progressSink.report(AdAnalysisStages.TRANSCRIPTION_DONE,
+                    AdAnalysisConfig.TRANSCRIPTION_PROGRESS_WEIGHT_PERCENT);
+            runObserver.phaseFinished("transcription");
             return transcript;
         } catch (Exception e) {
+            runObserver.failed("transcription", e);
             Log.e(TAG, "Transcription failed", e);
             if (isUnauthorized(e)) {
+                AdSegmentStore.clear(getApplicationContext(), item.getId());
                 notifyInvalidApiKey();
+            } else {
+                saveError(item.getId(), transcriptionProvider.buildErrorMessage(e), "transcription", "");
             }
             return null;
         } finally {
@@ -135,9 +144,10 @@ public class AdAnalysisWorker extends Worker {
         }
     }
 
-    private Result performAnalysis(long feedItemId, FeedItem item, String transcript) {
-        Log.i(TAG, "Phase 2: Starting transcript analysis");
-        setProgressStage("analyzing", 50);
+    private Result performAnalysis(long feedItemId, FeedItem item, String transcript,
+            AdAnalysisProgressSink progressSink, AdAnalysisRunObserver runObserver) {
+        runObserver.phaseStarted("analysis");
+        progressSink.report(AdAnalysisStages.ANALYZING, AdAnalysisConfig.TRANSCRIPTION_PROGRESS_WEIGHT_PERCENT);
 
         TranscriptAnalysisProvider analysisProvider = null;
 
@@ -155,7 +165,8 @@ public class AdAnalysisWorker extends Worker {
                     + ", title=" + item.getTitle());
 
             // Check if transcript needs to be split
-            List<String> transcriptChunks = splitTranscriptIfNeeded(transcript);
+            List<String> transcriptChunks = TranscriptChunker.split(transcript,
+                    AdAnalysisConfig.MAX_TRANSCRIPT_CHARS_PER_CHUNK);
             int totalChunks = transcriptChunks.size();
             Log.i(TAG, "Analyzing transcript in " + totalChunks + " chunk(s)");
 
@@ -165,22 +176,24 @@ public class AdAnalysisWorker extends Worker {
                 String content = analysisProvider.analyzeTranscript(transcriptChunks.get(0), percent -> {
                     // Map 0-100% analysis progress to 50-100% overall progress
                     int overallPercent = 50 + (percent / 2);
-                    setProgressStage("analyzing", overallPercent);
+                    progressSink.report(AdAnalysisStages.ANALYZING, overallPercent);
                 });
-                allSegments = parseSegments(content);
+                allSegments = AdSegmentJsonParser.parse(content);
             } else {
                 // Multiple chunks - analyze in parallel
-                allSegments = analyzeChunksInParallel(analysisProvider, transcriptChunks);
+                allSegments = analyzeChunksInParallel(analysisProvider, transcriptChunks, progressSink);
             }
 
-            List<AdSegment> mergedSegments = mergeSegments(allSegments);
+            List<AdSegment> mergedSegments = AdSegmentMerger.merge(allSegments);
             Log.i(TAG, "Ad analysis finished: " + mergedSegments.size() + " segment(s) detected");
             AdSegmentStore.save(getApplicationContext(), feedItemId,
                     new AdAnalysisResult(mergedSegments, System.currentTimeMillis(),
                             analysisProvider.getModelName(), "", transcript));
-            setProgressStage("done", 100);
+            progressSink.report(AdAnalysisStages.DONE, 100);
+            runObserver.phaseFinished("analysis");
             return Result.success();
         } catch (Exception e) {
+            runObserver.failed("analysis", e);
             Log.e(TAG, "Ad analysis failed", e);
             if (isUnauthorized(e)) {
                 AdSegmentStore.clear(getApplicationContext(), feedItemId);
@@ -197,33 +210,25 @@ public class AdAnalysisWorker extends Worker {
         }
     }
 
-    private String transcribeInChunks(TranscriptionProvider provider, FeedMedia media) throws Exception {
+    private String transcribeInChunks(TranscriptionProvider provider, FeedMedia media,
+            AdAnalysisProgressSink progressSink) throws Exception {
         List<Path> chunkPaths = AudioChunkUtils.createAudioChunks(getApplicationContext(),
-                media.getLocalFileUrl(), TRANSCRIPTION_CHUNK_SECONDS);
-        Log.i(TAG, "Transcribing " + chunkPaths.size() + " chunk(s) " + "target=" + TRANSCRIPTION_CHUNK_SECONDS
-                + "s each");
+                media.getLocalFileUrl(), AdAnalysisConfig.TRANSCRIPTION_CHUNK_SECONDS);
+        Log.i(TAG, "Transcribing " + chunkPaths.size() + " chunk(s) target="
+                + AdAnalysisConfig.TRANSCRIPTION_CHUNK_SECONDS + "s each");
         validateChunkSizes(provider, chunkPaths);
 
         // Parallel execution setup
         int availableProcessors = Runtime.getRuntime().availableProcessors();
 
-        // Calculate dynamic thread count based on memory
         long maxMemory = Runtime.getRuntime().maxMemory();
         long usedMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
         long availableMemory = maxMemory - usedMemory;
-
-        // Conservative estimate: 64MB per thread (30-40MB audio buffer + native overhead)
-        final long memoryPerThread = 64 * 1024 * 1024;
-        // Keep 200MB for the rest of the app/UI to prevent OOM
-        final long safeBuffer = 200 * 1024 * 1024;
-
-        int maxThreadsByMemory = (int) ((availableMemory - safeBuffer) / memoryPerThread);
-        // Ensure at least 1 thread, but don't exceed processors or memory limit
-        int threadCount = Math.max(1, Math.min(availableProcessors, maxThreadsByMemory));
+        int threadCount = TranscriptionThreadCountPolicy.chooseThreadCount(availableProcessors, maxMemory, usedMemory);
 
         Log.i(TAG, "Memory stats: Max=" + (maxMemory / 1024 / 1024) + "MB, Used=" + (usedMemory / 1024 / 1024)
                 + "MB, Avail=" + (availableMemory / 1024 / 1024) + "MB. Threads: ByCPU=" + availableProcessors
-                + ", ByMem=" + maxThreadsByMemory + " -> Using " + threadCount + " threads");
+                + " -> Using " + threadCount + " threads");
 
         java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(threadCount);
         List<java.util.concurrent.Future<String>> futures = new java.util.ArrayList<>();
@@ -259,7 +264,7 @@ public class AdAnalysisWorker extends Worker {
                         if (chunkPath == null || !Files.exists(chunkPath)) {
                             Log.e(TAG, "Chunk " + (chunkIndex + 1) + " missing on disk; skipping section");
                             int currentDone = doneCount.incrementAndGet();
-                            updateProgressIfIncreased(lastReportedPercent, currentDone,
+                            updateProgressIfIncreased(progressSink, lastReportedPercent, currentDone,
                                     totalProgressParts, totalChunks);
                             return "";
                         }
@@ -270,19 +275,21 @@ public class AdAnalysisWorker extends Worker {
 
                         // Update progress (started part)
                         int currentDone = doneCount.incrementAndGet();
-                        updateProgressIfIncreased(lastReportedPercent, currentDone, totalProgressParts, totalChunks);
+                        updateProgressIfIncreased(progressSink, lastReportedPercent, currentDone,
+                                totalProgressParts, totalChunks);
 
                         // Transcribe
                         String transcription = provider.transcribeChunk(chunkPath, chunkIndex, totalChunks, 2);
                         Log.d(TAG,
                                 "Chunk transcription " + (chunkIndex + 1) + " done, length=" + transcription.length());
 
-                        double offsetSeconds = chunkIndex * TRANSCRIPTION_CHUNK_SECONDS;
-                        String adjusted = applyOffset(transcription, offsetSeconds);
+                        double offsetSeconds = chunkIndex * AdAnalysisConfig.TRANSCRIPTION_CHUNK_SECONDS;
+                        String adjusted = VttTimestampAdjuster.applyOffset(transcription, offsetSeconds);
 
                         // Update progress (completed part)
                         currentDone = doneCount.incrementAndGet();
-                        updateProgressIfIncreased(lastReportedPercent, currentDone, totalProgressParts, totalChunks);
+                        updateProgressIfIncreased(progressSink, lastReportedPercent, currentDone,
+                                totalProgressParts, totalChunks);
 
                         return adjusted;
                     } catch (Exception e) {
@@ -349,53 +356,6 @@ public class AdAnalysisWorker extends Worker {
         }
     }
 
-    private String applyOffset(String vtt, double offsetSeconds) {
-        String[] lines = vtt.split("\n");
-        StringBuilder adjusted = new StringBuilder();
-        for (String line : lines) {
-            if (line.trim().equalsIgnoreCase("WEBVTT")) {
-                continue; // Avoid duplicating headers when concatenating chunks
-            }
-            if (line.contains("-->")) {
-                String[] parts = line.split("-->");
-                if (parts.length == 2) {
-                    String start = parts[0].trim();
-                    String end = parts[1].trim();
-                    String newStart = formatTime(parseSeconds(start) + offsetSeconds);
-                    String newEnd = formatTime(parseSeconds(end) + offsetSeconds);
-                    adjusted.append(newStart).append(" --> ").append(newEnd).append('\n');
-                    continue;
-                }
-            }
-            adjusted.append(line).append('\n');
-        }
-        return adjusted.toString();
-    }
-
-    private double parseSeconds(String timeString) {
-        // Format: HH:MM:SS.mmm
-        String[] parts = timeString.split(":");
-        if (parts.length != 3) {
-            return 0;
-        }
-        try {
-            double hours = Double.parseDouble(parts[0]);
-            double minutes = Double.parseDouble(parts[1]);
-            double seconds = Double.parseDouble(parts[2].replace(',', '.'));
-            return hours * 3600 + minutes * 60 + seconds;
-        } catch (NumberFormatException e) {
-            return 0;
-        }
-    }
-
-    private String formatTime(double seconds) {
-        int hours = (int) (seconds / 3600);
-        seconds -= hours * 3600;
-        int minutes = (int) (seconds / 60);
-        seconds -= minutes * 60;
-        return String.format(Locale.US, "%02d:%02d:%06.3f", hours, minutes, seconds);
-    }
-
     private void validateChunkSizes(TranscriptionProvider provider, List<Path> chunkPaths) throws java.io.IOException {
         long maxBytes = provider.getMaxAudioBytes();
         if (maxBytes <= 0) {
@@ -426,8 +386,9 @@ public class AdAnalysisWorker extends Worker {
      * Updates progress only if the new percentage is higher than the last reported percentage.
      * This prevents the progress bar from going backward when chunks complete out of order.
      */
-    private void updateProgressIfIncreased(java.util.concurrent.atomic.AtomicInteger lastReportedPercent,
-            int currentDone, double totalProgressParts, int totalChunks) {
+    private void updateProgressIfIncreased(AdAnalysisProgressSink progressSink,
+            java.util.concurrent.atomic.AtomicInteger lastReportedPercent, int currentDone,
+            double totalProgressParts, int totalChunks) {
         int newPercent = calculatePercent(currentDone, totalProgressParts);
         int oldPercent = lastReportedPercent.get();
 
@@ -439,16 +400,16 @@ public class AdAnalysisWorker extends Worker {
                 int overallPercent = newPercent / 2;
                 // Calculate completed chunks (each chunk contributes 2 to doneCount)
                 int completedChunks = currentDone / 2;
-                setProgressStageWithChunks("transcribing", overallPercent, completedChunks, totalChunks);
+                progressSink.report(AdAnalysisStages.TRANSCRIBING, overallPercent, completedChunks, totalChunks);
             }
         }
     }
 
-    private List<AdSegment> analyzeChunksInParallel(TranscriptAnalysisProvider provider, List<String> chunks)
-            throws Exception {
+    private List<AdSegment> analyzeChunksInParallel(TranscriptAnalysisProvider provider, List<String> chunks,
+            AdAnalysisProgressSink progressSink) throws Exception {
         final int totalChunks = chunks.size();
         java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(
-                Math.min(totalChunks, 3)); // Max 3 parallel requests to avoid overwhelming API
+                Math.min(totalChunks, AdAnalysisConfig.MAX_PARALLEL_ANALYSIS_REQUESTS));
         List<java.util.concurrent.Future<List<AdSegment>>> futures = new java.util.ArrayList<>();
         java.util.concurrent.atomic.AtomicInteger completedChunks = new java.util.concurrent.atomic.AtomicInteger(0);
 
@@ -461,13 +422,13 @@ public class AdAnalysisWorker extends Worker {
                 futures.add(executor.submit(() -> {
                     Log.i(TAG, "Analyzing chunk " + (chunkIndex + 1) + "/" + totalChunks);
                     String content = provider.analyzeTranscript(chunk, null); // No per-chunk progress for parallel
-                    List<AdSegment> segments = parseSegments(content);
+                    List<AdSegment> segments = AdSegmentJsonParser.parse(content);
 
                     // Update progress when chunk completes (map to 50-100% overall)
                     int completed = completedChunks.incrementAndGet();
                     int analysisPercent = (completed * 100) / totalChunks;
                     int overallPercent = 50 + (analysisPercent / 2);
-                    setProgressStageWithChunks("analyzing", overallPercent, completed, totalChunks);
+                    progressSink.report(AdAnalysisStages.ANALYZING, overallPercent, completed, totalChunks);
 
                     Log.i(TAG, "Chunk " + (chunkIndex + 1) + " complete, found " + segments.size() + " segment(s)");
                     return segments;
@@ -494,131 +455,6 @@ public class AdAnalysisWorker extends Worker {
         }
     }
 
-    private List<AdSegment> parseSegments(String rawJson) throws JSONException {
-        List<AdSegment> segments = new ArrayList<>();
-        String sanitized = sanitizeJson(rawJson);
-        if (TextUtils.isEmpty(sanitized)) {
-            return segments;
-        }
-        JSONObject root = new JSONObject(sanitized);
-        JSONArray ads = root.optJSONArray("ads");
-        if (ads == null) {
-            return segments;
-        }
-        for (int i = 0; i < ads.length(); i++) {
-            JSONObject ad = ads.getJSONObject(i);
-            double start = ad.optDouble("startSeconds", 0);
-            double end = ad.optDouble("endSeconds", 0);
-            String reason = ad.optString("reason", "");
-            double confidence = ad.optDouble("confidence", 0);
-            if (end > start) {
-                segments.add(new AdSegment(start, end, reason, confidence));
-            }
-        }
-        return segments;
-    }
-
-    private List<AdSegment> mergeSegments(List<AdSegment> input) {
-        if (input.isEmpty()) {
-            return input;
-        }
-        input.sort(Comparator.comparingDouble(AdSegment::getStartSeconds));
-        List<AdSegment> merged = new ArrayList<>();
-        AdSegment current = input.get(0);
-        for (int i = 1; i < input.size(); i++) {
-            AdSegment next = input.get(i);
-            if (next.getStartSeconds() <= current.getEndSeconds() + 0.5) {
-                double end = Math.max(current.getEndSeconds(), next.getEndSeconds());
-                String reason = TextUtils.isEmpty(current.getReason()) ? next.getReason() : current.getReason();
-                double confidence = Math.max(current.getConfidence(), next.getConfidence());
-                current = new AdSegment(current.getStartSeconds(), end, reason, confidence);
-            } else {
-                merged.add(current);
-                current = next;
-            }
-        }
-        merged.add(current);
-        return merged;
-    }
-
-    private String sanitizeJson(String raw) {
-        if (TextUtils.isEmpty(raw)) {
-            return raw;
-        }
-        String cleaned = raw.trim();
-        if (cleaned.startsWith("```")) {
-            int firstNewline = cleaned.indexOf('\n');
-            if (firstNewline >= 0 && firstNewline + 1 < cleaned.length()) {
-                cleaned = cleaned.substring(firstNewline + 1);
-            }
-            if (cleaned.endsWith("```")) {
-                cleaned = cleaned.substring(0, cleaned.lastIndexOf("```"));
-            }
-            cleaned = cleaned.trim();
-        }
-        int start = cleaned.indexOf('{');
-        int end = cleaned.lastIndexOf('}');
-        if (start >= 0 && end >= start) {
-            return cleaned.substring(start, end + 1).trim();
-        }
-        return cleaned;
-    }
-
-    private void saveError(long feedItemId, String error, String modelName, String transcript) {
-        if (modelName == null) {
-            modelName = "unknown";
-        }
-        AdSegmentStore.save(getApplicationContext(), feedItemId,
-                new AdAnalysisResult(Collections.emptyList(), System.currentTimeMillis(),
-                        modelName, error, transcript));
-    }
-
-    private void setProgressStage(String stage, int percent) {
-        Data progress = new Data.Builder()
-                .putString(PROGRESS_KEY_STAGE, stage)
-                .putInt(PROGRESS_KEY_PERCENT, percent)
-                .build();
-        setProgressAsync(progress);
-    }
-
-    private void setProgressStageWithChunks(String stage, int percent, int chunksDone, int chunksTotal) {
-        Data progress = new Data.Builder()
-                .putString(PROGRESS_KEY_STAGE, stage)
-                .putInt(PROGRESS_KEY_PERCENT, percent)
-                .putInt(PROGRESS_KEY_CHUNKS_DONE, chunksDone)
-                .putInt(PROGRESS_KEY_CHUNKS_TOTAL, chunksTotal)
-                .build();
-        setProgressAsync(progress);
-    }
-
-    private List<String> splitTranscriptIfNeeded(String transcript) {
-        List<String> chunks = new ArrayList<>();
-        if (transcript.length() <= MAX_TRANSCRIPT_CHARS_PER_CHUNK) {
-            chunks.add(transcript);
-            return chunks;
-        }
-
-        // Split into roughly equal chunks
-        int numChunks = (int) Math.ceil((double) transcript.length() / MAX_TRANSCRIPT_CHARS_PER_CHUNK);
-        int chunkSize = transcript.length() / numChunks;
-
-        int start = 0;
-        while (start < transcript.length()) {
-            int end = Math.min(start + chunkSize, transcript.length());
-            // Try to break at a newline to avoid splitting sentences
-            if (end < transcript.length()) {
-                int newlineIndex = transcript.lastIndexOf('\n', end);
-                if (newlineIndex > start) {
-                    end = newlineIndex;
-                }
-            }
-            chunks.add(transcript.substring(start, end));
-            start = end;
-        }
-
-        return chunks;
-    }
-
     private void closeTranscriptionProvider(TranscriptionProvider tp) {
         if (tp != null) {
             try {
@@ -637,6 +473,14 @@ public class AdAnalysisWorker extends Worker {
                 Log.w(TAG, "Failed to close analysis provider", ignored);
             }
         }
+    }
+
+    private void saveError(long feedItemId, String error, String model, String transcript) {
+        String persistedError = TextUtils.isEmpty(error) ? "Unknown ad analysis error" : error;
+        String persistedModel = TextUtils.isEmpty(model) ? "unknown" : model;
+        AdSegmentStore.save(getApplicationContext(), feedItemId,
+                new AdAnalysisResult(Collections.emptyList(), System.currentTimeMillis(),
+                        persistedModel, persistedError, transcript));
     }
 
     private boolean isUnauthorized(Throwable throwable) {

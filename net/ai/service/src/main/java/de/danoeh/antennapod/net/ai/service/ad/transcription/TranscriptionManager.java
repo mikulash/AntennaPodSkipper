@@ -33,7 +33,7 @@ public interface TranscriptionManager {
      * Transcribes an audio chunk and returns the result in VTT format.
      *
      * @param audioFile The audio file to transcribe
-     * @param offsetSeconds The time offset for this chunk in seconds
+     * @param offsetSeconds Optional base time to add when the implementation cannot emit chunk-relative timestamps
      * @return VTT-formatted transcription
      * @throws IOException if transcription fails
      */

@@ -5,15 +5,10 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.junit.Test;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -565,175 +560,74 @@ public class AdAnalysisWorkerTest {
         assertFalse(isMemoryError("Connection timeout"));
     }
 
-    // ==================== Helper Methods (mirrors AdAnalysisWorker logic) ====================
+    @Test
+    public void testMergeSegments_doesNotMutateInputOrder() {
+        List<AdSegment> input = Arrays.asList(
+                new AdSegment(100, 130, "second", 0.8),
+                new AdSegment(0, 30, "first", 0.9)
+        );
+
+        mergeSegments(input);
+
+        assertEquals(100.0, input.get(0).getStartSeconds(), 0.001);
+        assertEquals(0.0, input.get(1).getStartSeconds(), 0.001);
+    }
+
+    @Test
+    public void testTranscriptionThreadCountPolicy_minimumOneThreadWhenMemoryIsTight() {
+        int threadCount = TranscriptionThreadCountPolicy.chooseThreadCount(8, 256L * 1024L * 1024L,
+                128L * 1024L * 1024L);
+
+        assertEquals(1, threadCount);
+    }
+
+    @Test
+    public void testTranscriptionThreadCountPolicy_limitsByMemoryAndCpu() {
+        int threadCount = TranscriptionThreadCountPolicy.chooseThreadCount(8, 1024L * 1024L * 1024L,
+                256L * 1024L * 1024L);
+
+        assertEquals(8, threadCount);
+    }
+
+    // ==================== Helper Methods (delegate to production utilities) ====================
 
     private String sanitizeJson(String raw) {
-        if (raw == null || raw.isEmpty()) {
-            return raw;
-        }
-        String cleaned = raw.trim();
-        if (cleaned.startsWith("```")) {
-            int firstNewline = cleaned.indexOf('\n');
-            if (firstNewline >= 0 && firstNewline + 1 < cleaned.length()) {
-                cleaned = cleaned.substring(firstNewline + 1);
-            }
-            if (cleaned.endsWith("```")) {
-                cleaned = cleaned.substring(0, cleaned.lastIndexOf("```"));
-            }
-            cleaned = cleaned.trim();
-        }
-        int start = cleaned.indexOf('{');
-        int end = cleaned.lastIndexOf('}');
-        if (start >= 0 && end >= start) {
-            return cleaned.substring(start, end + 1).trim();
-        }
-        return cleaned;
+        return AdSegmentJsonParser.sanitize(raw);
     }
 
     private List<AdSegment> parseSegments(String json) {
-        List<AdSegment> segments = new ArrayList<>();
-        if (json == null || json.isEmpty()) {
-            return segments;
-        }
-        try {
-            String sanitized = sanitizeJson(json);
-            if (sanitized == null || sanitized.isEmpty()) {
-                return segments;
-            }
-            JSONObject root = new JSONObject(sanitized);
-            JSONArray ads = root.optJSONArray("ads");
-            if (ads == null) {
-                return segments;
-            }
-            for (int i = 0; i < ads.length(); i++) {
-                JSONObject ad = ads.getJSONObject(i);
-                double start = ad.optDouble("startSeconds", 0);
-                double end = ad.optDouble("endSeconds", 0);
-                String reason = ad.optString("reason", "");
-                double confidence = ad.optDouble("confidence", 0);
-                if (end > start) {
-                    segments.add(new AdSegment(start, end, reason, confidence));
-                }
-            }
-        } catch (JSONException e) {
-            // Invalid JSON, return empty list
-        }
-        return segments;
+        return AdSegmentJsonParser.parse(json);
     }
 
     private List<AdSegment> mergeSegments(List<AdSegment> input) {
-        if (input.isEmpty()) {
-            return input;
-        }
-        List<AdSegment> sorted = new ArrayList<>(input);
-        sorted.sort(Comparator.comparingDouble(AdSegment::getStartSeconds));
-        List<AdSegment> merged = new ArrayList<>();
-        AdSegment current = sorted.get(0);
-        for (int i = 1; i < sorted.size(); i++) {
-            AdSegment next = sorted.get(i);
-            if (next.getStartSeconds() <= current.getEndSeconds() + 0.5) {
-                double end = Math.max(current.getEndSeconds(), next.getEndSeconds());
-                String reason = (current.getReason() == null || current.getReason().isEmpty())
-                        ? next.getReason() : current.getReason();
-                double confidence = Math.max(current.getConfidence(), next.getConfidence());
-                current = new AdSegment(current.getStartSeconds(), end, reason, confidence);
-            } else {
-                merged.add(current);
-                current = next;
-            }
-        }
-        merged.add(current);
-        return merged;
+        return AdSegmentMerger.merge(input);
     }
 
     private double parseSeconds(String timeString) {
-        String[] parts = timeString.split(":");
-        if (parts.length != 3) {
-            return 0;
-        }
-        try {
-            double hours = Double.parseDouble(parts[0]);
-            double minutes = Double.parseDouble(parts[1]);
-            double seconds = Double.parseDouble(parts[2].replace(',', '.'));
-            return hours * 3600 + minutes * 60 + seconds;
-        } catch (NumberFormatException e) {
-            return 0;
-        }
+        return VttTimestampAdjuster.parseSeconds(timeString);
     }
 
     private String formatTime(double seconds) {
-        int hours = (int) (seconds / 3600);
-        seconds -= hours * 3600;
-        int minutes = (int) (seconds / 60);
-        seconds -= minutes * 60;
-        return String.format(Locale.US, "%02d:%02d:%06.3f", hours, minutes, seconds);
+        return VttTimestampAdjuster.formatTime(seconds);
     }
 
     private String applyOffset(String vtt, double offsetSeconds) {
-        String[] lines = vtt.split("\n");
-        StringBuilder adjusted = new StringBuilder();
-        for (String line : lines) {
-            if (line.trim().equalsIgnoreCase("WEBVTT")) {
-                continue;
-            }
-            if (line.contains("-->")) {
-                String[] parts = line.split("-->");
-                if (parts.length == 2) {
-                    String start = parts[0].trim();
-                    String end = parts[1].trim();
-                    String newStart = formatTime(parseSeconds(start) + offsetSeconds);
-                    String newEnd = formatTime(parseSeconds(end) + offsetSeconds);
-                    adjusted.append(newStart).append(" --> ").append(newEnd).append('\n');
-                    continue;
-                }
-            }
-            adjusted.append(line).append('\n');
-        }
-        return adjusted.toString();
+        return VttTimestampAdjuster.applyOffset(vtt, offsetSeconds);
     }
 
     private List<String> splitTranscriptIfNeeded(String transcript) {
-        int maxChars = 100000;
-        List<String> chunks = new ArrayList<>();
-        if (transcript.length() <= maxChars) {
-            chunks.add(transcript);
-            return chunks;
-        }
-
-        int numChunks = (int) Math.ceil((double) transcript.length() / maxChars);
-        int chunkSize = transcript.length() / numChunks;
-
-        int start = 0;
-        while (start < transcript.length()) {
-            int end = Math.min(start + chunkSize, transcript.length());
-            if (end < transcript.length()) {
-                int newlineIndex = transcript.lastIndexOf('\n', end);
-                if (newlineIndex > start) {
-                    end = newlineIndex;
-                }
-            }
-            chunks.add(transcript.substring(start, end));
-            start = end;
-        }
-
-        return chunks;
+        return TranscriptChunker.split(transcript, AdAnalysisConfig.MAX_TRANSCRIPT_CHARS_PER_CHUNK);
     }
 
     private boolean isUnauthorized(String message) {
-        if (message == null) {
-            return false;
-        }
-        String normalized = message.toLowerCase(Locale.US);
+        String normalized = message == null ? "" : message.toLowerCase(Locale.US);
         return normalized.contains("unauthorized") || normalized.contains("401");
     }
 
     private boolean isMemoryError(String message) {
-        if (message == null) {
-            return false;
-        }
-        String normalized = message.toLowerCase(Locale.US);
-        return normalized.contains("not enough memory")
-                || normalized.contains("insufficient memory")
+        String normalized = message == null ? "" : message.toLowerCase(Locale.US);
+        return normalized.contains("not enough memory") || normalized.contains("insufficient memory")
                 || normalized.contains("not enough system ram");
     }
+
 }

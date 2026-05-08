@@ -22,6 +22,7 @@ dependencies {
     annotationProcessor "androidx.annotation:annotation:$annotationVersion"
     implementation "androidx.core:core:$coreVersion"
     implementation "androidx.work:work-runtime:$workManagerVersion"
+    implementation "com.google.guava:guava:31.0.1-android"
 
     implementation "com.squareup.okhttp3:okhttp:$okhttpVersion"
     implementation "commons-io:commons-io:$commonsioVersion"
@@ -29,9 +30,7 @@ dependencies {
     implementation "org.greenrobot:eventbus:$eventbusVersion"
     implementation "io.reactivex.rxjava3:rxandroid:$rxAndroidVersion"
     implementation "io.reactivex.rxjava3:rxjava:$rxJavaVersion"
-    implementation "com.google.guava:guava:31.0.1-android"
-
-    implementation 'com.openai:openai-java:4.11.0'
+    implementation "com.openai:openai-java:$openAiVersion"
     // Vosk for local on-device speech recognition
     implementation "com.alphacephei:vosk-android:0.3.75"
 
@@ -40,5 +39,5 @@ dependencies {
     testImplementation "org.awaitility:awaitility:$awaitilityVersion"
     testImplementation "org.mockito:mockito-core:$mockitoVersion"
     testImplementation "androidx.preference:preference:$preferenceVersion"
-    testImplementation "org.json:json:20231013"
+    testImplementation "org.json:json:20251224"
 }

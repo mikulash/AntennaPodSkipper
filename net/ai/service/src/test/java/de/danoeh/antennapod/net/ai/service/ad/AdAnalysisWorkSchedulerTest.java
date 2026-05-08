@@ -138,10 +138,10 @@ public class AdAnalysisWorkSchedulerTest {
     // ==================== Work Policy Tests ====================
 
     @Test
-    public void testWorkPolicy_appendForQueue() {
-        // Ad analysis uses APPEND policy for queue-based execution
-        // This ensures multiple episodes are processed one at a time
-        String policy = "APPEND";
-        assertEquals("APPEND", policy);
+    public void testWorkPolicy_appendOrReplaceForQueueRetry() {
+        // Ad analysis uses APPEND_OR_REPLACE so healthy chains remain serial,
+        // but retries are not chained behind failed/cancelled work.
+        String policy = "APPEND_OR_REPLACE";
+        assertEquals("APPEND_OR_REPLACE", policy);
     }
 }
