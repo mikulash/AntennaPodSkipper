@@ -43,6 +43,7 @@ import org.greenrobot.eventbus.ThreadMode;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -71,6 +72,7 @@ import de.danoeh.antennapod.model.ad.AdSegment;
 import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.net.ai.service.ad.AdAnalysisWorkScheduler;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
 import de.danoeh.antennapod.playback.service.PlaybackController;
 import de.danoeh.antennapod.playback.service.PlaybackStatus;
@@ -125,6 +127,7 @@ public class ItemFragment extends Fragment {
     private PlaybackController controller;
     private FeeditemFragmentBinding viewBinding;
     private LiveData<List<WorkInfo>> analysisWorkLiveData;
+    private LiveData<List<WorkInfo>> queueChainLiveData;
     private boolean isAnalysisRunning = false;
     private boolean pendingEnqueue = false;
     private String analysisStageLabel = null;
@@ -637,16 +640,24 @@ public class ItemFragment extends Fragment {
         if (!isAdAnalysisSupported()) {
             return;
         }
-        String tag = "ad-analysis-" + feedItemId;
+        String tag = AdAnalysisWorkScheduler.TAG_PREFIX + feedItemId;
         if (analysisWorkLiveData != null) {
             analysisWorkLiveData.removeObservers(getViewLifecycleOwner());
         }
         analysisWorkLiveData = WorkManager.getInstance(requireContext()).getWorkInfosByTagLiveData(tag);
         analysisWorkLiveData.observe(getViewLifecycleOwner(), this::updateAnalysisProgress);
+
+        // Observe the entire queue chain to track queue position
+        if (queueChainLiveData != null) {
+            queueChainLiveData.removeObservers(getViewLifecycleOwner());
+        }
+        queueChainLiveData = WorkManager.getInstance(requireContext())
+                .getWorkInfosForUniqueWorkLiveData(AdAnalysisWorkScheduler.QUEUE_NAME);
+        queueChainLiveData.observe(getViewLifecycleOwner(), this::updateQueuePosition);
     }
 
     private void cancelAnalysisWork(long feedItemId) {
-        String tag = "ad-analysis-" + feedItemId;
+        String tag = AdAnalysisWorkScheduler.TAG_PREFIX + feedItemId;
         WorkManager.getInstance(requireContext()).cancelAllWorkByTag(tag);
     }
 
@@ -695,6 +706,7 @@ public class ItemFragment extends Fragment {
         }
         if (enqueuedInfo != null) {
             pendingEnqueue = false;
+            // Show "In queue" immediately; position will be updated by queueChainLiveData
             showAnalysisProgress("queued", -1, 0, 0);
             return;
         }
@@ -741,6 +753,55 @@ public class ItemFragment extends Fragment {
             return getString(R.string.ad_analysis_analyzing);
         }
         return getString(R.string.ad_analysis_transcribing);
+    }
+
+    /**
+     * Called when the full ad-analysis-queue chain LiveData updates.
+     * Determines the 1-based queue position of this item among waiting (ENQUEUED/BLOCKED)
+     * work items and updates the button label accordingly.
+     */
+    private void updateQueuePosition(List<WorkInfo> chainInfos) {
+        if (item == null || chainInfos == null || chainInfos.isEmpty()) {
+            return;
+        }
+        if (!isAnalysisRunning) {
+            return;
+        }
+
+        String myTag = AdAnalysisWorkScheduler.TAG_PREFIX + item.getId();
+
+        // Collect only ENQUEUED or BLOCKED items (those waiting in line)
+        List<WorkInfo> waitingItems = new ArrayList<>();
+        boolean myItemIsWaiting = false;
+        for (WorkInfo info : chainInfos) {
+            WorkInfo.State state = info.getState();
+            if (state == WorkInfo.State.ENQUEUED || state == WorkInfo.State.BLOCKED) {
+                waitingItems.add(info);
+                if (info.getTags().contains(myTag)) {
+                    myItemIsWaiting = true;
+                }
+            }
+        }
+
+        if (!myItemIsWaiting || waitingItems.size() <= 1) {
+            // Not waiting, or alone in queue — keep the current label as-is
+            return;
+        }
+
+        // Find position of our item among the waiting items (order preserved from WorkManager)
+        int position = 0;
+        for (int i = 0; i < waitingItems.size(); i++) {
+            if (waitingItems.get(i).getTags().contains(myTag)) {
+                position = i + 1; // 1-based
+                break;
+            }
+        }
+
+        if (position > 0) {
+            analysisStageLabel = getString(R.string.ad_analysis_in_queue_position, position);
+            viewBinding.butActionCompleteText.setText(analysisStageLabel);
+            viewBinding.butActionCompleteText.setTransformationMethod(null);
+        }
     }
 
     @Override

@@ -54,7 +54,6 @@ public final class AdAnalysisWorkScheduler {
 
         Constraints constraints = new Constraints.Builder()
                 .setRequiredNetworkType(networkType)
-                .setRequiresBatteryNotLow(true)
                 .build();
 
         OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(AdAnalysisWorker.class)

@@ -11,10 +11,20 @@ import androidx.work.ListenableWorker;
 public class WorkManagerAdAnalysisProgressSink implements AdAnalysisProgressSink {
     private static final String TAG = "AdAnalysisProgress";
 
+    public interface ForegroundUpdater {
+        void update(String stage, int percent, int chunksDone, int chunksTotal);
+    }
+
     private final ListenableWorker worker;
+    private final ForegroundUpdater foregroundUpdater;
 
     public WorkManagerAdAnalysisProgressSink(ListenableWorker worker) {
+        this(worker, null);
+    }
+
+    public WorkManagerAdAnalysisProgressSink(ListenableWorker worker, ForegroundUpdater foregroundUpdater) {
         this.worker = worker;
+        this.foregroundUpdater = foregroundUpdater;
     }
 
     @Override
@@ -25,6 +35,7 @@ public class WorkManagerAdAnalysisProgressSink implements AdAnalysisProgressSink
                 .putInt(AdAnalysisProgressKeys.PERCENT, percent)
                 .build();
         worker.setProgressAsync(progress);
+        updateForeground(stage, percent, 0, 0);
     }
 
     @Override
@@ -38,5 +49,12 @@ public class WorkManagerAdAnalysisProgressSink implements AdAnalysisProgressSink
                 .putInt(AdAnalysisProgressKeys.CHUNKS_TOTAL, chunksTotal)
                 .build();
         worker.setProgressAsync(progress);
+        updateForeground(stage, percent, chunksDone, chunksTotal);
+    }
+
+    private void updateForeground(String stage, int percent, int chunksDone, int chunksTotal) {
+        if (foregroundUpdater != null) {
+            foregroundUpdater.update(stage, percent, chunksDone, chunksTotal);
+        }
     }
 }

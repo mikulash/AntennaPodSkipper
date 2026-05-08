@@ -937,6 +937,8 @@
     <string name="notification_channel_downloading_description">Shown while currently downloading episodes.</string>
     <string name="notification_channel_refreshing">Refreshing podcasts</string>
     <string name="notification_channel_refreshing_description">Shown while checking for new episodes.</string>
+    <string name="notification_channel_ad_analysis">Ad analysis</string>
+    <string name="notification_channel_ad_analysis_description">Shown while analyzing episodes for ads.</string>
     <string name="notification_channel_playing">Currently playing</string>
     <string name="notification_channel_playing_description">Allows to control playback. This is the main notification you see while playing a podcast.</string>
     <string name="notification_channel_download_error">Download failed</string>
@@ -1022,6 +1024,7 @@
     <string name="pref_openai_model_title">OpenAI model</string>
     <string name="pref_openai_model_gpt51">gpt-5.1</string>
     <string name="pref_openai_model_gpt5_mini">gpt-5-mini</string>
+    <string name="pref_openai_model_gpt54_mini">gpt-5.4-mini</string>
     <string name="pref_openai_model_gpt5_nano">gpt-5-nano</string>
     <string name="pref_openai_model_default">gpt-5-nano</string>
     <string name="action_analyze_ads">Analyze ads</string>
@@ -1041,6 +1044,7 @@
     <string name="ad_segments_tab_transcript">Transcript</string>
     <string name="ad_analysis_transcribing">Transcribing</string>
     <string name="ad_analysis_analyzing">Analyzing</string>
+    <string name="ad_analysis_notification_title">Analyzing ads</string>
     <string name="ad_analysis_requires_transcript">Transcribe the episode first before analyzing ads.</string>
     <string name="action_transcribe">Transcribe</string>
     <string name="action_complete_analysis">Run ad analysis</string>
@@ -1100,6 +1104,7 @@
     <string name="open_settings">Open settings</string>
     <string name="ad_analysis_queued">Added to queue</string>
     <string name="ad_analysis_in_queue">In queue</string>
+    <string name="ad_analysis_in_queue_position">In queue (#%1$d)</string>
 
     <!-- Delete all models -->
     <string name="pref_delete_all_models_title">Delete all downloaded models</string>

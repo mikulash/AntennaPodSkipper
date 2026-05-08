@@ -1,15 +1,24 @@
 package de.danoeh.antennapod.net.ai.service.ad;
 
+import android.app.Notification;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.core.app.NotificationCompat;
+import androidx.work.ForegroundInfo;
+import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.openai.errors.UnauthorizedException;
 
 import org.greenrobot.eventbus.EventBus;
@@ -32,6 +41,7 @@ import de.danoeh.antennapod.net.ai.service.ad.provider.TranscriptionProvider;
 import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.ui.i18n.R;
+import de.danoeh.antennapod.ui.notifications.NotificationUtils;
 import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
 
 /**
@@ -42,6 +52,9 @@ import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
 public class AdAnalysisWorker extends Worker {
     public static final String DATA_FEED_ITEM_ID = "feedItemId";
     private static final String TAG = "AdAnalysisWorker";
+    private static final int FOREGROUND_NOTIFICATION_ID = 0x0AD0A11;
+
+    private String foregroundEpisodeTitle = "";
 
     public AdAnalysisWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
@@ -69,7 +82,11 @@ public class AdAnalysisWorker extends Worker {
             return Result.success();
         }
 
-        AdAnalysisProgressSink progressSink = new WorkManagerAdAnalysisProgressSink(this);
+        foregroundEpisodeTitle = item.getTitle();
+        startForegroundNotification(AdAnalysisStages.TRANSCRIBING, 0, 0, 0);
+
+        AdAnalysisProgressSink progressSink = new WorkManagerAdAnalysisProgressSink(this,
+                this::updateForegroundNotification);
 
         String transcript = performTranscription(item, media, progressSink, runObserver);
         if (TextUtils.isEmpty(transcript)) {
@@ -80,6 +97,112 @@ public class AdAnalysisWorker extends Worker {
         Result result = performAnalysis(feedItemId, item, transcript, progressSink, runObserver);
         runObserver.finished("analysis_completed");
         return result;
+    }
+
+    @NonNull
+    @Override
+    public ListenableFuture<ForegroundInfo> getForegroundInfoAsync() {
+        return Futures.immediateFuture(createForegroundInfo(AdAnalysisStages.TRANSCRIBING, 0, 0, 0));
+    }
+
+    private void startForegroundNotification(String stage, int percent, int chunksDone, int chunksTotal) {
+        try {
+            setForegroundAsync(createForegroundInfo(stage, percent, chunksDone, chunksTotal)).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            Log.w(TAG, "Interrupted while promoting ad analysis to foreground", e);
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to promote ad analysis to foreground", e);
+        }
+    }
+
+    private void updateForegroundNotification(String stage, int percent, int chunksDone, int chunksTotal) {
+        if (!isStopped()) {
+            setForegroundAsync(createForegroundInfo(stage, percent, chunksDone, chunksTotal));
+        }
+    }
+
+    @NonNull
+    private ForegroundInfo createForegroundInfo(String stage, int percent, int chunksDone, int chunksTotal) {
+        Context context = getApplicationContext();
+        NotificationUtils.createChannels(context);
+        Notification notification = createForegroundNotification(context, stage, percent, chunksDone, chunksTotal);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            return new ForegroundInfo(FOREGROUND_NOTIFICATION_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        }
+        return new ForegroundInfo(FOREGROUND_NOTIFICATION_ID, notification);
+    }
+
+    @NonNull
+    private Notification createForegroundNotification(Context context, String stage, int percent,
+            int chunksDone, int chunksTotal) {
+        String status = getForegroundStatusText(context, stage, percent, chunksDone, chunksTotal);
+        String title = context.getString(R.string.ad_analysis_notification_title);
+        String episodeTitle = TextUtils.isEmpty(foregroundEpisodeTitle)
+                ? context.getString(R.string.action_complete_analysis)
+                : foregroundEpisodeTitle;
+        String bigText = status + "\n" + episodeTitle;
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context,
+                NotificationUtils.CHANNEL_ID_AD_ANALYSIS)
+                .setTicker(title)
+                .setContentTitle(title)
+                .setContentText(status)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(bigText))
+                .setSmallIcon(de.danoeh.antennapod.ui.notifications.R.drawable.ic_notification_sync)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setShowWhen(false)
+                .setWhen(0)
+                .setLocalOnly(true)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .addAction(de.danoeh.antennapod.ui.notifications.R.drawable.ic_notification_cancel,
+                        context.getString(R.string.cancel_label),
+                        WorkManager.getInstance(context).createCancelPendingIntent(getId()));
+
+        PendingIntent launchIntent = createLaunchPendingIntent(context);
+        if (launchIntent != null) {
+            builder.setContentIntent(launchIntent);
+        }
+
+        if (percent >= 0) {
+            builder.setProgress(100, Math.min(100, Math.max(0, percent)), false);
+        } else {
+            builder.setProgress(0, 0, true);
+        }
+        return builder.build();
+    }
+
+    private PendingIntent createLaunchPendingIntent(Context context) {
+        Intent intent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+        if (intent == null) {
+            return null;
+        }
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        return PendingIntent.getActivity(context, FOREGROUND_NOTIFICATION_ID, intent, flags);
+    }
+
+    private String getForegroundStatusText(Context context, String stage, int percent,
+            int chunksDone, int chunksTotal) {
+        String label;
+        if (AdAnalysisStages.ANALYZING.equalsIgnoreCase(stage)
+                || AdAnalysisStages.TRANSCRIPTION_DONE.equalsIgnoreCase(stage)
+                || AdAnalysisStages.DONE.equalsIgnoreCase(stage)) {
+            label = context.getString(R.string.ad_analysis_analyzing);
+        } else {
+            label = context.getString(R.string.ad_analysis_transcribing);
+        }
+        if (chunksTotal > 0) {
+            return label + " (" + chunksDone + "/" + chunksTotal + ")";
+        }
+        if (percent >= 0) {
+            return label + " (" + Math.min(100, Math.max(0, percent)) + "%)";
+        }
+        return label;
     }
 
     private String performTranscription(FeedItem item, FeedMedia media, AdAnalysisProgressSink progressSink,

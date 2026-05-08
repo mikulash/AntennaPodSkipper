@@ -16,6 +16,7 @@ dependencies {
     implementation project(':storage:database')
     implementation project(':storage:preferences')
     implementation project(':ui:i18n')
+    implementation project(':ui:notifications')
     implementation project(':ui:transcript')
     implementation project(':parser:media')
 

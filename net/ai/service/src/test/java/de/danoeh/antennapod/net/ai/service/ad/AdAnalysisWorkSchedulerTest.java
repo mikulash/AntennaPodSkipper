@@ -104,10 +104,10 @@ public class AdAnalysisWorkSchedulerTest {
     // ==================== Constraint Building Tests ====================
 
     @Test
-    public void testConstraints_batteryNotLow() {
-        // The scheduler requires battery not low
-        boolean requiresBatteryNotLow = true;
-        assertTrue(requiresBatteryNotLow);
+    public void testConstraints_doesNotRequireBatteryNotLowForManualRun() {
+        // A manual ad analysis should keep running after the app is backgrounded.
+        boolean requiresBatteryNotLow = false;
+        assertFalse(requiresBatteryNotLow);
     }
 
     @Test

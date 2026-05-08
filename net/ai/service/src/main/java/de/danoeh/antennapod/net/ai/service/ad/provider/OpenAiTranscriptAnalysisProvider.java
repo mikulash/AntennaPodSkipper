@@ -131,6 +131,7 @@ public class OpenAiTranscriptAnalysisProvider implements TranscriptAnalysisProvi
         }
         switch (selectedModel) {
             case "gpt-5.1": return ChatModel.GPT_5_1;
+            case "gpt-5.4-mini": return ChatModel.of("gpt-5.4-mini");
             case "gpt-5-mini": return ChatModel.GPT_5_MINI;
             case "gpt-5-nano": return ChatModel.GPT_5_NANO;
             default:
