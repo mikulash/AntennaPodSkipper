@@ -1,5 +1,6 @@
 package de.danoeh.antennapod.ui.screen.playback.audio;
 
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -61,6 +62,9 @@ import de.danoeh.antennapod.ui.episodeslist.FeedItemMenuHandler;
 import de.danoeh.antennapod.model.feed.Chapter;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.model.ad.AdSegment;
+import de.danoeh.antennapod.model.ad.AdAnalysisResult;
+import de.danoeh.antennapod.storage.database.AdSegmentStore;
 import de.danoeh.antennapod.model.playback.Playable;
 import de.danoeh.antennapod.playback.cast.CastEnabledActivity;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
@@ -177,6 +181,34 @@ public class AudioPlayerFragment extends Fragment implements
         }
 
         sbPosition.setDividerPos(dividerPos);
+        setAdSegments(media);
+    }
+
+    private void setAdSegments(Playable media) {
+        if (!(media instanceof FeedMedia)) {
+            sbPosition.setAdSegments(null);
+            return;
+        }
+        FeedItem feedItem = ((FeedMedia) media).getItem();
+        if (feedItem == null) {
+            sbPosition.setAdSegments(null);
+            return;
+        }
+        AdAnalysisResult result = AdSegmentStore.load(requireContext(), feedItem.getId());
+        if (result == null || result.getSegments().isEmpty() || duration <= 0) {
+            sbPosition.setAdSegments(null);
+            return;
+        }
+        float[][] normalized = new float[result.getSegments().size()][];
+        for (int i = 0; i < result.getSegments().size(); i++) {
+            AdSegment seg = result.getSegments().get(i);
+            float start = (float) (seg.getStartSeconds() * 1000 / (double) duration);
+            float end = (float) (seg.getEndSeconds() * 1000 / (double) duration);
+            start = Math.max(0f, Math.min(1f, start));
+            end = Math.max(0f, Math.min(1f, end));
+            normalized[i] = new float[]{start, end};
+        }
+        sbPosition.setAdSegments(normalized);
     }
 
     private void setupControlButtons() {
@@ -361,7 +393,6 @@ public class AudioPlayerFragment extends Fragment implements
         TimeSpeedConverter converter = new TimeSpeedConverter(controller.getCurrentPlaybackSpeedMultiplier());
         int currentPosition = converter.convert(event.getPosition());
         int duration = converter.convert(event.getDuration());
-        int remainingTime = converter.convert(Math.max(event.getDuration() - event.getPosition(), 0));
         @Nullable Playable media = controller.getMedia();
         if (media != null) {
             currentChapterIndex = Chapter.getAfterPosition(media.getChapters(), currentPosition);
@@ -375,6 +406,7 @@ public class AudioPlayerFragment extends Fragment implements
         txtvPosition.setContentDescription(getString(R.string.position,
                 Converter.getDurationStringLocalized(getContext(), currentPosition)));
         showTimeLeft = UserPreferences.shouldShowRemainingTime();
+        int remainingTime = converter.convert(Math.max(event.getDuration() - event.getPosition(), 0));
         if (showTimeLeft) {
             txtvLength.setContentDescription(getString(R.string.remaining_time,
                     Converter.getDurationStringLocalized(getContext(), remainingTime)));
@@ -422,7 +454,7 @@ public class AudioPlayerFragment extends Fragment implements
                     sbPosition.highlightCurrentChapter();
                 }
                 txtvSeek.setText(controller.getMedia().getChapters().get(newChapterIndex).getTitle()
-                                + "\n" + Converter.getDurationStringLong(position));
+                        + "\n" + Converter.getDurationStringLong(position));
             } else {
                 txtvSeek.setText(Converter.getDurationStringLong(position));
             }
@@ -478,6 +510,12 @@ public class AudioPlayerFragment extends Fragment implements
 
         toolbar.getMenu().findItem(R.id.set_sleeptimer_item).setVisible(!controller.sleepTimerActive());
         toolbar.getMenu().findItem(R.id.disable_sleeptimer_item).setVisible(controller.sleepTimerActive());
+
+        // Hide transcript feature on devices below API 26
+        MenuItem transcriptItem = toolbar.getMenu().findItem(R.id.transcript_item);
+        if (transcriptItem != null) {
+            transcriptItem.setVisible(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O);
+        }
 
         ((CastEnabledActivity) getActivity()).requestCastButton(toolbar.getMenu());
     }

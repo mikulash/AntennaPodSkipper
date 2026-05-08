@@ -937,6 +937,8 @@
     <string name="notification_channel_downloading_description">Shown while currently downloading episodes.</string>
     <string name="notification_channel_refreshing">Refreshing podcasts</string>
     <string name="notification_channel_refreshing_description">Shown while checking for new episodes.</string>
+    <string name="notification_channel_ad_analysis">Ad analysis</string>
+    <string name="notification_channel_ad_analysis_description">Shown while analyzing episodes for ads.</string>
     <string name="notification_channel_playing">Currently playing</string>
     <string name="notification_channel_playing_description">Allows to control playback. This is the main notification you see while playing a podcast.</string>
     <string name="notification_channel_download_error">Download failed</string>
@@ -1012,4 +1014,106 @@
 
     <string name="echo_share_heading">My favorite podcasts</string>
     <string name="echo_share">My year %d in podcasts. #AntennaPodEcho</string>
+    <string name="pref_ai_label">AI &amp; Ad Skipping</string>
+    <string name="pref_ai_summary">Configure OpenAI analysis and automatic ad skipping</string>
+    <string name="pref_ad_skip_enabled_title">Enable AI Ad analysis</string>
+    <string name="pref_ad_skip_enabled_summary">Show transcription and ad analysis features in episode details</string>
+    <string name="pref_openai_api_key_title">OpenAI API key</string>
+    <string name="pref_openai_api_key_summary">Paste a valid OpenAI API key to enable ad analysis</string>
+    <string name="pref_openai_api_key_set">API key saved securely</string>
+    <string name="pref_openai_model_title">OpenAI model</string>
+    <string name="pref_openai_model_gpt51">gpt-5.1</string>
+    <string name="pref_openai_model_gpt5_mini">gpt-5-mini</string>
+    <string name="pref_openai_model_gpt54_mini">gpt-5.4-mini</string>
+    <string name="pref_openai_model_gpt5_nano">gpt-5-nano</string>
+    <string name="pref_openai_model_default">gpt-5-nano</string>
+    <string name="action_analyze_ads">Analyze ads</string>
+    <string name="ad_analysis_requires_download">Download the episode first to analyze ads.</string>
+    <string name="ad_analysis_missing_key">Add your OpenAI API key to run ad analysis.</string>
+    <string name="ad_analysis_invalid_key">Ad analysis failed: Your OpenAI API key is invalid. Update the key in settings.</string>
+    <string name="ad_analysis_requested">Ad analysis requested.</string>
+    <string name="ad_analysis_overwrite_title">Replace existing analysis?</string>
+    <string name="ad_analysis_overwrite_message">This episode already has ad detection results. Running analysis again will overwrite the existing data.</string>
+    <string name="ad_analysis_overwrite_confirm">Overwrite and analyze</string>
+    <string name="ad_analysis_again">Analyze again</string>
+    <string name="ad_segments_title">AI analysis</string>
+    <string name="ad_segments_total_length">Total ad length: %1$s</string>
+    <string name="ad_segments_empty">No ads detected.</string>
+    <string name="ad_segments_not_analyzed">Not analyzed yet.</string>
+    <string name="ad_segments_tab_ads">Ads</string>
+    <string name="ad_segments_tab_transcript">Transcript</string>
+    <string name="ad_analysis_transcribing">Transcribing</string>
+    <string name="ad_analysis_analyzing">Analyzing</string>
+    <string name="ad_analysis_notification_title">Analyzing ads</string>
+    <string name="ad_analysis_requires_transcript">Transcribe the episode first before analyzing ads.</string>
+    <string name="action_transcribe">Transcribe</string>
+    <string name="action_complete_analysis">Run ad analysis</string>
+    <string name="transcription_requires_download">Download the episode first to transcribe.</string>
+    <string name="transcription_requested">Transcription requested.</string>
+    <string name="transcription_overwrite_title">Replace existing transcript?</string>
+    <string name="transcription_overwrite_message">This episode already has a transcript. Running transcription again will overwrite it.</string>
+    <string name="transcription_overwrite_confirm">Overwrite and transcribe</string>
+
+    <string name="transcription_again">Transcribe again</string>
+
+    <string name="action_download_model_file">Download</string>
+    <string name="action_delete_model_file">Delete</string>
+    <string name="model_action_confirm">Confirm</string>
+    <string name="model_action_cancel">Cancel</string>
+
+    <!-- Local transcription settings -->
+    <string name="pref_local_transcription_category">On-Device Transcription</string>
+    <string name="pref_local_transcription_title">Use local transcription</string>
+    <string name="pref_local_transcription_summary">Transcribe audio on your device instead of using OpenAI Whisper API (saves cost, works offline)</string>
+    <string name="pref_local_transcription_model_title">Transcription model</string>
+    <string name="pref_local_transcription_model_small">Small</string>
+    <string name="pref_local_transcription_model_medium">Medium</string>
+    <string name="pref_local_transcription_model_large">Large</string>
+    <string name="download_type_extraction">Extracting...</string>
+    <string name="pref_local_transcription_download_complete">Model download complete</string>
+    <string name="pref_local_transcription_download_failed">Model download failed: %s</string>
+    <string name="pref_local_transcription_delete_confirm">Delete the downloaded transcription model \"%s\"?</string>
+    <string name="pref_local_transcription_info">On-device transcription uses the Vosk speech recognition engine. Transcription happens entirely on your phone - no audio is sent to the cloud. The OpenAI API is still used for ad segment analysis.</string>
+    <string name="pref_local_transcription_memory_error_title">Insufficient Memory</string>
+    <string name="pref_local_transcription_insufficient_memory">Not enough system RAM to download %1$s. Available: %2$d MB, Required: %3$d MB.</string>
+    <string name="pref_local_transcription_try_smaller_model">Try one of these smaller models instead:</string>
+    <string name="transcription_insufficient_memory_error">Transcription failed: Not enough memory. Please select a smaller model in AI Preferences.</string>
+
+    <string name="pref_manage_transcription_models_title">Manage Models</string>
+    <string name="pref_manage_transcription_models_summary">Download, delete, and view available transcription models</string>
+
+    <string name="download_starting">Starting…</string>
+
+    <!-- Transcription engine selection -->
+    <string name="transcription_section_local">Local Models</string>
+    <string name="transcription_section_cloud">Cloud Models</string>
+    <string name="transcription_cloud_openai_whisper">OpenAI Whisper</string>
+    <string name="pref_transcription_language_title">Transcription Language</string>
+    <string name="transcription_language_auto">Auto-detect</string>
+    <string name="not_downloaded">Not downloaded</string>
+    <string name="transcription_api_key_missing_title">API Key Required</string>
+    <string name="transcription_api_key_missing_message">Cloud transcription requires an OpenAI API key. Please configure your API key in settings.</string>
+    <string name="transcription_already_running_title">Transcription In Progress</string>
+    <string name="transcription_already_running_message">Another transcription is currently running. Only one local transcription can run at a time due to constraints of the transcription library. Please wait for the current transcription to complete.</string>
+
+    <!-- Ad Analysis -->
+    <string name="ad_analysis_model_missing_title">Model missing</string>
+    <string name="ad_analysis_model_missing_message">Local transcription model is missing. Download it or use cloud transcription?</string>
+    <string name="action_use_cloud">Use Cloud</string>
+    <string name="action_download_model">Download</string>
+    <string name="open_settings">Open settings</string>
+    <string name="ad_analysis_queued">Added to queue</string>
+    <string name="ad_analysis_in_queue">In queue</string>
+    <string name="ad_analysis_in_queue_position">In queue (#%1$d)</string>
+
+    <!-- Delete all models -->
+    <string name="pref_delete_all_models_title">Delete all downloaded models</string>
+    
+    <!-- Transcription delete -->
+    <string name="pref_delete_all_transcription_models_summary">Remove all downloaded transcription models to free up storage space</string>
+    <string name="pref_delete_all_transcription_models_confirm_title">Delete transcription models?</string>
+    <string name="pref_delete_all_transcription_models_confirm_message">This will delete all downloaded transcription models. You will need to re-download them to use local transcription again.</string>
+    <string name="pref_delete_all_transcription_models_success">Deleted %1$d transcription models.</string>
+    <string name="pref_delete_all_transcription_models_none">No downloaded transcription models found.</string>
+
 </resources>

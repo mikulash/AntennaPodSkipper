@@ -24,6 +24,12 @@
             android:icon="@drawable/ic_play_24dp" />
 
     <Preference
+            android:key="prefScreenAi"
+            android:title="@string/pref_ai_label"
+            android:summary="@string/pref_ai_summary"
+            android:icon="@drawable/ic_ai" />
+
+    <Preference
             android:key="prefScreenDownloads"
             android:title="@string/downloads_pref"
             android:summary="@string/downloads_pref_sum"

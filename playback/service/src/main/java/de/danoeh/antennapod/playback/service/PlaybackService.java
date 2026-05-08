@@ -54,22 +54,6 @@ import androidx.lifecycle.Observer;
 import androidx.media.MediaBrowserServiceCompat;
 import androidx.media.utils.MediaConstants;
 
-import de.danoeh.antennapod.event.PlayerStatusEvent;
-import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
-import de.danoeh.antennapod.playback.service.internal.ClockSleepTimer;
-import de.danoeh.antennapod.playback.service.internal.EpisodeSleepTimer;
-import de.danoeh.antennapod.playback.service.internal.LocalPSMP;
-import de.danoeh.antennapod.playback.service.internal.PlayableUtils;
-import de.danoeh.antennapod.playback.service.internal.PlaybackServiceNotificationBuilder;
-import de.danoeh.antennapod.playback.service.internal.PlaybackServiceStateManager;
-import de.danoeh.antennapod.playback.service.internal.PlaybackServiceTaskManager;
-import de.danoeh.antennapod.playback.service.internal.PlaybackVolumeUpdater;
-import de.danoeh.antennapod.model.playback.TimerValue;
-import de.danoeh.antennapod.playback.service.internal.WearMediaSession;
-import de.danoeh.antennapod.storage.preferences.SleepTimerType;
-import de.danoeh.antennapod.ui.notifications.NotificationUtils;
-import de.danoeh.antennapod.ui.widget.WidgetUpdater;
-import io.reactivex.rxjava3.disposables.CompositeDisposable;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
@@ -81,15 +65,9 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
-import de.danoeh.antennapod.storage.preferences.SleepTimerPreferences;
-import de.danoeh.antennapod.storage.database.DBReader;
-import de.danoeh.antennapod.storage.database.DBWriter;
-import de.danoeh.antennapod.playback.service.internal.SleepTimer;
-import de.danoeh.antennapod.ui.common.IntentUtils;
-import de.danoeh.antennapod.net.common.NetworkUtils;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.event.PlayerErrorEvent;
+import de.danoeh.antennapod.event.PlayerStatusEvent;
 import de.danoeh.antennapod.event.playback.BufferUpdateEvent;
 import de.danoeh.antennapod.event.playback.PlaybackPositionEvent;
 import de.danoeh.antennapod.event.playback.PlaybackServiceEvent;
@@ -105,17 +83,39 @@ import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.model.playback.MediaType;
 import de.danoeh.antennapod.model.playback.Playable;
+import de.danoeh.antennapod.model.playback.TimerValue;
+import de.danoeh.antennapod.net.common.NetworkUtils;
+import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
 import de.danoeh.antennapod.playback.base.PlaybackServiceMediaPlayer;
 import de.danoeh.antennapod.playback.base.PlayerStatus;
 import de.danoeh.antennapod.playback.cast.CastPsmp;
 import de.danoeh.antennapod.playback.cast.CastStateListener;
+import de.danoeh.antennapod.playback.service.internal.ClockSleepTimer;
+import de.danoeh.antennapod.playback.service.internal.EpisodeSleepTimer;
+import de.danoeh.antennapod.playback.service.internal.LocalPSMP;
+import de.danoeh.antennapod.playback.service.internal.PlayableUtils;
+import de.danoeh.antennapod.playback.service.internal.PlaybackServiceNotificationBuilder;
+import de.danoeh.antennapod.playback.service.internal.PlaybackServiceStateManager;
+import de.danoeh.antennapod.playback.service.internal.PlaybackServiceTaskManager;
+import de.danoeh.antennapod.playback.service.internal.PlaybackVolumeUpdater;
+import de.danoeh.antennapod.playback.service.internal.SleepTimer;
+import de.danoeh.antennapod.playback.service.internal.WearMediaSession;
+import de.danoeh.antennapod.storage.database.DBReader;
+import de.danoeh.antennapod.storage.database.DBWriter;
+import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
+import de.danoeh.antennapod.storage.preferences.SleepTimerPreferences;
+import de.danoeh.antennapod.storage.preferences.SleepTimerType;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.appstartintent.MainActivityStarter;
 import de.danoeh.antennapod.ui.appstartintent.VideoPlayerActivityStarter;
+import de.danoeh.antennapod.ui.common.IntentUtils;
+import de.danoeh.antennapod.ui.notifications.NotificationUtils;
+import de.danoeh.antennapod.ui.widget.WidgetUpdater;
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
-import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
+import io.reactivex.rxjava3.disposables.CompositeDisposable;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
@@ -166,6 +166,7 @@ public class PlaybackService extends MediaBrowserServiceCompat {
     private PlaybackServiceTaskManager taskManager;
     private SleepTimer sleepTimer;
     private PlaybackServiceStateManager stateManager;
+    private AdSkipController adSkipController;
     private Disposable positionEventTimer;
     private PlaybackServiceNotificationBuilder notificationBuilder;
     private CastStateListener castStateListener;
@@ -255,6 +256,9 @@ public class PlaybackService extends MediaBrowserServiceCompat {
         registerReceiver(audioBecomingNoisy, new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY));
         EventBus.getDefault().register(this);
         taskManager = new PlaybackServiceTaskManager(this, taskManagerCallback);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            adSkipController = new AdSkipController(this, this);
+        }
 
         recreateMediaSessionIfNeeded();
         castStateListener = new CastStateListener(this) {
@@ -852,6 +856,9 @@ public class PlaybackService extends MediaBrowserServiceCompat {
             }
 
             updateMediaSession(newInfo.getPlayerStatus());
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                adSkipController.onPlayableChanged(newInfo.getPlayable());
+            }
             switch (newInfo.getPlayerStatus()) {
                 case INITIALIZED:
                     if (mediaPlayer.getPSMPInfo().getPlayable() != null) {
@@ -1071,17 +1078,33 @@ public class PlaybackService extends MediaBrowserServiceCompat {
         }
         Log.d(TAG, "getNextInQueue()");
         FeedMedia media = (FeedMedia) currentMedia;
-        if (media.getItem() == null) {
-            media.setItem(DBReader.getFeedItem(media.getItemId()));
+
+        // Run DB operations on a background thread to avoid "I/O on main thread" crash.
+        // This method can be called from ExoPlayer's onPlaybackStateChanged callback
+        // which runs on the main thread.
+        FeedItem nextItem;
+        try {
+            nextItem = java.util.concurrent.Executors.newSingleThreadExecutor().submit(() -> {
+                if (media.getItem() == null) {
+                    media.setItem(DBReader.getFeedItem(media.getItemId()));
+                }
+                FeedItem item = media.getItem();
+                if (item == null) {
+                    return null;
+                }
+                return DBReader.getNextInQueue(item);
+            }).get();
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting next item in queue", e);
+            PlaybackPreferences.writeNoMediaPlaying();
+            return null;
         }
-        FeedItem item = media.getItem();
-        if (item == null) {
+
+        if (media.getItem() == null) {
             Log.w(TAG, "getNextInQueue() with FeedMedia object whose FeedItem is null");
             PlaybackPreferences.writeNoMediaPlaying();
             return null;
         }
-        FeedItem nextItem;
-        nextItem = DBReader.getNextInQueue(item);
 
         if (nextItem == null || nextItem.getMedia() == null) {
             PlaybackPreferences.writeNoMediaPlaying();
@@ -1859,6 +1882,9 @@ public class PlaybackService extends MediaBrowserServiceCompat {
         positionEventTimer = Observable.interval(1, TimeUnit.SECONDS)
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(number -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        adSkipController.onProgress(getPlayable(), getCurrentPosition());
+                    }
                     EventBus.getDefault().post(new PlaybackPositionEvent(getCurrentPosition(), getDuration()));
                     if (Build.VERSION.SDK_INT < 29) {
                         notificationBuilder.updatePosition(getCurrentPosition(), getCurrentPlaybackSpeed());

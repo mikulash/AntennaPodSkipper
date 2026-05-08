@@ -174,6 +174,61 @@
 
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/aiButtonsRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:baselineAligned="false"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/butActionComplete"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="?android:attr/selectableItemBackground"
+                android:gravity="center"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp">
+
+                <FrameLayout
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="4dp"
+                    android:layout_gravity="bottom|end">
+
+                    <de.danoeh.antennapod.ui.common.CircularProgressBar
+                        android:id="@+id/circularProgressComplete"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        app:foregroundColor="?android:attr/textColorPrimary" />
+
+                    <ImageView
+                        android:id="@+id/butActionCompleteIcon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        tools:src="@drawable/ic_ad_analysis" />
+
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/butActionCompleteText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Button"
+                    android:textColor="?android:attr/textColorPrimary"
+                    tools:text="Run ad analysis" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
         <TextView
             android:id="@+id/nonSubscribedWarningLabel"
             android:layout_width="wrap_content"
@@ -197,11 +252,6 @@
             android:background="?android:attr/dividerVertical"
             android:text="@string/no_media_label" />
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="?android:attr/dividerVertical" />
-
     </LinearLayout>
 
     <de.danoeh.antennapod.ui.view.NestedScrollableHost
@@ -210,11 +260,97 @@
         android:layout_below="@id/header"
         app:preferVertical="3">
 
-        <de.danoeh.antennapod.ui.view.ShownotesWebView
-            android:id="@+id/webvDescription"
+        <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:foreground="?android:windowContentOverlay" />
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <de.danoeh.antennapod.ui.view.ShownotesWebView
+                    android:id="@+id/webvDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:foreground="?android:windowContentOverlay" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="?android:attr/dividerVertical" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/adSegmentsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="16dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="8dp"
+                    android:visibility="gone"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="2dp"
+                    app:strokeColor="?attr/colorControlHighlight"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:id="@+id/adSegmentsTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/ad_segments_title"
+                            android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+                            android:textColor="?android:attr/textColorPrimary" />
+
+                        <com.google.android.material.tabs.TabLayout
+                            android:id="@+id/adTabLayout"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            app:tabIndicatorFullWidth="false"
+                            app:tabIndicatorColor="?attr/colorAccent"
+                            app:tabRippleColor="?attr/colorControlHighlight"
+                            app:tabMode="fixed" />
+
+                        <TextView
+                            android:id="@+id/adSegmentsContent"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:padding="12dp"
+                            android:lineSpacingExtra="4dp"
+                            android:typeface="monospace"
+                            android:background="?android:attr/colorBackground"
+                            android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                            android:textColor="?android:attr/textColorSecondary"
+                            tools:text="00:10 - 01:02\n12:15 - 13:00" />
+
+                        <TextView
+                            android:id="@+id/adTranscriptContent"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:padding="12dp"
+                            android:lineSpacingExtra="4dp"
+                            android:background="?android:attr/colorBackground"
+                            android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                            android:textColor="?android:attr/textColorSecondary"
+                            android:visibility="gone"
+                            tools:text="WEBVTT transcript text here..." />
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
+
+        </androidx.core.widget.NestedScrollView>
 
     </de.danoeh.antennapod.ui.view.NestedScrollableHost>
 
