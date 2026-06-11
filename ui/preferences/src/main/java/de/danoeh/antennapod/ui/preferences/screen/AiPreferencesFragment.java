@@ -23,14 +23,24 @@ import java.util.Locale;
 import de.danoeh.antennapod.event.ModelDownloadEvent;
 import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager;
 import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel;
+import de.danoeh.antennapod.storage.preferences.AzureOpenAiPreferences;
+import de.danoeh.antennapod.storage.preferences.CloudAiPreferences;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.ui.preferences.R;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class AiPreferencesFragment extends AnimatedPreferenceFragment {
+    private static final String PREF_CLOUD_AI_PROVIDER = "prefCloudAiProvider";
     private static final String PREF_OPENAI_API_KEY = "prefOpenAiApiKey";
     private static final String PREF_OPENAI_MODEL = "prefOpenAiModel";
+
+    // Azure OpenAI
+    private static final String PREF_AZURE_ENDPOINT = "prefAzureEndpoint";
+    private static final String PREF_AZURE_API_KEY = "prefAzureApiKey";
+    private static final String PREF_AZURE_CHAT_DEPLOYMENT = "prefAzureChatDeployment";
+    private static final String PREF_AZURE_WHISPER_DEPLOYMENT = "prefAzureWhisperDeployment";
+    private static final String PREF_AZURE_API_VERSION = "prefAzureApiVersion";
 
     // Local Transcription
     private static final String PREF_LOCAL_TRANSCRIPTION_ENABLED = "prefLocalTranscriptionEnabled";
@@ -46,10 +56,13 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
 
         transcriptionManager = new VoskTranscriptionManager(requireContext());
 
+        setupCloudProviderPreference();
         setupApiKeyPreference();
         setupModelPreference();
+        setupAzurePreferences();
         setupLocalTranscriptionPreferences();
         setupDeleteAllTranscriptionModels();
+        updateCloudProviderVisibility();
     }
 
     @Override
@@ -78,6 +91,124 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
         if (event.getStatus() == ModelDownloadEvent.Status.COMPLETED) {
             updateLocalTranscriptionUI();
             updateDeleteAllTranscriptionModelsSummary();
+        }
+    }
+
+    private void setupCloudProviderPreference() {
+        ListPreference providerPref = findPreference(PREF_CLOUD_AI_PROVIDER);
+        if (providerPref == null) {
+            return;
+        }
+        providerPref.setValue(CloudAiPreferences.getProvider(requireContext()));
+        providerPref.setOnPreferenceChangeListener((preference, newValue) -> {
+            CloudAiPreferences.setProvider(requireContext(), (String) newValue);
+            providerPref.setValue((String) newValue);
+            updateCloudProviderVisibility();
+            return false;
+        });
+    }
+
+    private void updateCloudProviderVisibility() {
+        boolean azure = CloudAiPreferences.isAzure(requireContext());
+        setPreferenceVisible(PREF_OPENAI_API_KEY, !azure);
+        setPreferenceVisible(PREF_OPENAI_MODEL, !azure);
+        setPreferenceVisible(PREF_AZURE_ENDPOINT, azure);
+        setPreferenceVisible(PREF_AZURE_API_KEY, azure);
+        setPreferenceVisible(PREF_AZURE_CHAT_DEPLOYMENT, azure);
+        setPreferenceVisible(PREF_AZURE_WHISPER_DEPLOYMENT, azure);
+        setPreferenceVisible(PREF_AZURE_API_VERSION, azure);
+    }
+
+    private void setPreferenceVisible(String key, boolean visible) {
+        Preference preference = findPreference(key);
+        if (preference != null) {
+            preference.setVisible(visible);
+        }
+    }
+
+    private void setupAzurePreferences() {
+        setupAzureTextPreference(PREF_AZURE_ENDPOINT,
+                () -> AzureOpenAiPreferences.getEndpoint(requireContext()),
+                value -> AzureOpenAiPreferences.setEndpoint(requireContext(), value),
+                R.string.pref_azure_endpoint_summary,
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        setupAzureApiKeyPreference();
+        setupAzureTextPreference(PREF_AZURE_CHAT_DEPLOYMENT,
+                () -> AzureOpenAiPreferences.getChatDeployment(requireContext()),
+                value -> AzureOpenAiPreferences.setChatDeployment(requireContext(), value),
+                R.string.pref_azure_chat_deployment_summary,
+                InputType.TYPE_CLASS_TEXT);
+        setupAzureTextPreference(PREF_AZURE_WHISPER_DEPLOYMENT,
+                () -> AzureOpenAiPreferences.getTranscriptionDeployment(requireContext()),
+                value -> AzureOpenAiPreferences.setTranscriptionDeployment(requireContext(), value),
+                R.string.pref_azure_whisper_deployment_summary,
+                InputType.TYPE_CLASS_TEXT);
+        setupAzureTextPreference(PREF_AZURE_API_VERSION,
+                () -> AzureOpenAiPreferences.getApiVersion(requireContext()),
+                value -> AzureOpenAiPreferences.setApiVersion(requireContext(), value),
+                R.string.pref_azure_api_version_summary,
+                InputType.TYPE_CLASS_TEXT);
+    }
+
+    private interface ValueReader {
+        String get();
+    }
+
+    private interface ValueWriter {
+        void set(String value);
+    }
+
+    private void setupAzureTextPreference(String prefKey, ValueReader reader, ValueWriter writer,
+            int emptySummaryRes, int inputType) {
+        EditTextPreference pref = findPreference(prefKey);
+        if (pref == null) {
+            return;
+        }
+        pref.setOnBindEditTextListener(editText -> {
+            editText.setInputType(inputType);
+            editText.setText(reader.get());
+        });
+        pref.setOnPreferenceChangeListener((preference, newValue) -> {
+            writer.set((String) newValue);
+            updateAzureTextSummary(pref, reader.get(), emptySummaryRes);
+            pref.setText("");
+            return false; // Stored via AzureOpenAiPreferences, not default shared preferences
+        });
+        updateAzureTextSummary(pref, reader.get(), emptySummaryRes);
+    }
+
+    private void updateAzureTextSummary(EditTextPreference pref, String value, int emptySummaryRes) {
+        if (TextUtils.isEmpty(value)) {
+            pref.setSummary(emptySummaryRes);
+        } else {
+            pref.setSummary(value);
+        }
+    }
+
+    private void setupAzureApiKeyPreference() {
+        EditTextPreference apiKeyPref = findPreference(PREF_AZURE_API_KEY);
+        if (apiKeyPref == null) {
+            return;
+        }
+        apiKeyPref.setOnBindEditTextListener(editText -> {
+            editText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            editText.setText(AzureOpenAiPreferences.getApiKey(requireContext()));
+        });
+        apiKeyPref.setOnPreferenceChangeListener((preference, newValue) -> {
+            AzureOpenAiPreferences.setApiKey(requireContext(), (String) newValue);
+            updateAzureApiKeySummary(apiKeyPref);
+            apiKeyPref.setText("");
+            return false; // Avoid storing in default shared preferences
+        });
+        updateAzureApiKeySummary(apiKeyPref);
+    }
+
+    private void updateAzureApiKeySummary(EditTextPreference apiKeyPref) {
+        String key = AzureOpenAiPreferences.getApiKey(requireContext());
+        if (TextUtils.isEmpty(key)) {
+            apiKeyPref.setSummary(R.string.pref_azure_api_key_summary);
+        } else {
+            apiKeyPref.setSummary(R.string.pref_openai_api_key_set);
         }
     }
 

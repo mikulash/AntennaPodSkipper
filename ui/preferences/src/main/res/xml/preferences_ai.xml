@@ -7,21 +7,64 @@
             android:title="@string/pref_ad_skip_enabled_title"
             android:summary="@string/pref_ad_skip_enabled_summary" />
 
-    <EditTextPreference
-            android:key="prefOpenAiApiKey"
-            android:persistent="false"
-            android:title="@string/pref_openai_api_key_title"
-            android:summary="@string/pref_openai_api_key_summary" />
+    <PreferenceCategory
+            android:key="prefCloudAiCategory"
+            android:title="@string/pref_cloud_ai_category">
 
-    <ListPreference
-            android:key="prefOpenAiModel"
-            android:defaultValue="@string/pref_openai_model_default"
-            android:title="@string/pref_openai_model_title"
-            android:entries="@array/pref_openai_model_entries"
-            android:entryValues="@array/pref_openai_model_values"
-            android:summary="%s" />
+        <ListPreference
+                android:key="prefCloudAiProvider"
+                android:persistent="false"
+                android:defaultValue="openai"
+                android:title="@string/pref_cloud_ai_provider_title"
+                android:entries="@array/pref_cloud_ai_provider_entries"
+                android:entryValues="@array/pref_cloud_ai_provider_values"
+                android:summary="%s" />
 
+        <EditTextPreference
+                android:key="prefOpenAiApiKey"
+                android:persistent="false"
+                android:title="@string/pref_openai_api_key_title"
+                android:summary="@string/pref_openai_api_key_summary" />
 
+        <ListPreference
+                android:key="prefOpenAiModel"
+                android:defaultValue="@string/pref_openai_model_default"
+                android:title="@string/pref_openai_model_title"
+                android:entries="@array/pref_openai_model_entries"
+                android:entryValues="@array/pref_openai_model_values"
+                android:summary="%s" />
+
+        <EditTextPreference
+                android:key="prefAzureEndpoint"
+                android:persistent="false"
+                android:title="@string/pref_azure_endpoint_title"
+                android:summary="@string/pref_azure_endpoint_summary" />
+
+        <EditTextPreference
+                android:key="prefAzureApiKey"
+                android:persistent="false"
+                android:title="@string/pref_azure_api_key_title"
+                android:summary="@string/pref_azure_api_key_summary" />
+
+        <EditTextPreference
+                android:key="prefAzureChatDeployment"
+                android:persistent="false"
+                android:title="@string/pref_azure_chat_deployment_title"
+                android:summary="@string/pref_azure_chat_deployment_summary" />
+
+        <EditTextPreference
+                android:key="prefAzureWhisperDeployment"
+                android:persistent="false"
+                android:title="@string/pref_azure_whisper_deployment_title"
+                android:summary="@string/pref_azure_whisper_deployment_summary" />
+
+        <EditTextPreference
+                android:key="prefAzureApiVersion"
+                android:persistent="false"
+                android:title="@string/pref_azure_api_version_title"
+                android:summary="@string/pref_azure_api_version_summary" />
+
+    </PreferenceCategory>
 
     <PreferenceCategory
             android:key="prefLocalTranscriptionCategory"

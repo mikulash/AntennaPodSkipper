@@ -8,7 +8,6 @@ import android.util.Log;
 import androidx.annotation.RequiresApi;
 
 import com.openai.client.OpenAIClient;
-import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.errors.BadRequestException;
 import com.openai.errors.OpenAIIoException;
 import com.openai.models.audio.AudioModel;
@@ -21,8 +20,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 
-import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
-
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class OpenAiTranscriptionProvider implements TranscriptionProvider {
     private static final String TAG = "OpenAiTranscriptionProv";
@@ -31,6 +28,7 @@ public class OpenAiTranscriptionProvider implements TranscriptionProvider {
 
     private final Context context;
     private final OpenAIClient client;
+    private final AudioModel audioModel;
     private final String languageOverride;
 
     public OpenAiTranscriptionProvider(Context context) {
@@ -40,13 +38,8 @@ public class OpenAiTranscriptionProvider implements TranscriptionProvider {
     public OpenAiTranscriptionProvider(Context context, String languageOverride) {
         this.context = context;
         this.languageOverride = languageOverride;
-        String apiKey = OpenAiPreferences.getApiKey(context);
-        if (TextUtils.isEmpty(apiKey)) {
-            throw new IllegalStateException("Missing OpenAI API key");
-        }
-        this.client = OpenAIOkHttpClient.builder()
-                .apiKey(apiKey)
-                .build();
+        this.client = CloudAiClientFactory.createClient(context);
+        this.audioModel = CloudAiClientFactory.getTranscriptionModel(context);
     }
 
     @Override
@@ -63,7 +56,7 @@ public class OpenAiTranscriptionProvider implements TranscriptionProvider {
                 throw new IOException("Chunk file missing: " + chunkPath);
             }
             TranscriptionCreateParams.Builder paramsBuilder = TranscriptionCreateParams.builder()
-                    .model(AudioModel.WHISPER_1)
+                    .model(audioModel)
                     .file(chunkPath)
                     .responseFormat(AudioResponseFormat.VTT);
 

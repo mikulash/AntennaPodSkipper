@@ -8,7 +8,6 @@ import android.util.Log;
 import androidx.annotation.RequiresApi;
 
 import com.openai.client.OpenAIClient;
-import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
@@ -16,7 +15,7 @@ import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
+import de.danoeh.antennapod.storage.preferences.CloudAiPreferences;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class OpenAiTranscriptAnalysisProvider implements TranscriptAnalysisProvider {
@@ -39,14 +38,8 @@ public class OpenAiTranscriptAnalysisProvider implements TranscriptAnalysisProvi
 
     public OpenAiTranscriptAnalysisProvider(Context context) {
         this.context = context;
-        String apiKey = OpenAiPreferences.getApiKey(context);
-        if (TextUtils.isEmpty(apiKey)) {
-            throw new IllegalStateException("Missing OpenAI API key");
-        }
-        this.client = OpenAIOkHttpClient.builder()
-                .apiKey(apiKey)
-                .build();
-        String storedModel = OpenAiPreferences.getModel(context);
+        this.client = CloudAiClientFactory.createClient(context);
+        String storedModel = CloudAiClientFactory.getAnalysisModelName(context);
         this.modelName = TextUtils.isEmpty(storedModel) ? DEFAULT_MODEL_NAME : storedModel;
     }
 
@@ -126,6 +119,10 @@ public class OpenAiTranscriptAnalysisProvider implements TranscriptAnalysisProvi
     }
 
     private ChatModel resolveChatModel(String selectedModel) {
+        if (CloudAiPreferences.isAzure(context)) {
+            // On Azure the value is a deployment name, so pass it through as-is.
+            return ChatModel.of(selectedModel);
+        }
         if (TextUtils.isEmpty(selectedModel)) {
             return ChatModel.GPT_5_NANO;
         }

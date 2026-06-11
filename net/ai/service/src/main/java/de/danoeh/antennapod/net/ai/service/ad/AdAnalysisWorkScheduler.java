@@ -14,6 +14,7 @@ import androidx.work.WorkManager;
 
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.storage.preferences.CloudAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 
 /**
@@ -39,7 +40,7 @@ public final class AdAnalysisWorkScheduler {
         }
         FeedItem item = media.getItem();
         if (OpenAiPreferences.isApiKeyRequired(context)
-                && TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))) {
+                && !CloudAiPreferences.hasCredentials(context)) {
             return;
         }
         if (TextUtils.isEmpty(media.getLocalFileUrl())) {

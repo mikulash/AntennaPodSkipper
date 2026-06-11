@@ -1015,9 +1015,23 @@
     <string name="echo_share_heading">My favorite podcasts</string>
     <string name="echo_share">My year %d in podcasts. #AntennaPodEcho</string>
     <string name="pref_ai_label">AI &amp; Ad Skipping</string>
-    <string name="pref_ai_summary">Configure OpenAI analysis and automatic ad skipping</string>
+    <string name="pref_ai_summary">Configure AI analysis and automatic ad skipping</string>
     <string name="pref_ad_skip_enabled_title">Enable AI Ad analysis</string>
     <string name="pref_ad_skip_enabled_summary">Show transcription and ad analysis features in episode details</string>
+    <string name="pref_cloud_ai_category">Cloud AI provider</string>
+    <string name="pref_cloud_ai_provider_title">Cloud provider</string>
+    <string name="pref_cloud_ai_provider_openai">OpenAI</string>
+    <string name="pref_cloud_ai_provider_azure">Azure OpenAI</string>
+    <string name="pref_azure_endpoint_title">Azure endpoint</string>
+    <string name="pref_azure_endpoint_summary">Endpoint URL of your Azure OpenAI resource, e.g. https://myresource.openai.azure.com</string>
+    <string name="pref_azure_api_key_title">Azure API key</string>
+    <string name="pref_azure_api_key_summary">Paste an API key of your Azure OpenAI resource</string>
+    <string name="pref_azure_chat_deployment_title">Ad analysis deployment</string>
+    <string name="pref_azure_chat_deployment_summary">Name of the chat model deployment used for ad analysis</string>
+    <string name="pref_azure_whisper_deployment_title">Transcription deployment</string>
+    <string name="pref_azure_whisper_deployment_summary">Name of the Whisper deployment used for cloud transcription</string>
+    <string name="pref_azure_api_version_title">Azure API version</string>
+    <string name="pref_azure_api_version_summary">Azure OpenAI REST API version</string>
     <string name="pref_openai_api_key_title">OpenAI API key</string>
     <string name="pref_openai_api_key_summary">Paste a valid OpenAI API key to enable ad analysis</string>
     <string name="pref_openai_api_key_set">API key saved securely</string>
@@ -1064,7 +1078,7 @@
     <!-- Local transcription settings -->
     <string name="pref_local_transcription_category">On-Device Transcription</string>
     <string name="pref_local_transcription_title">Use local transcription</string>
-    <string name="pref_local_transcription_summary">Transcribe audio on your device instead of using OpenAI Whisper API (saves cost, works offline)</string>
+    <string name="pref_local_transcription_summary">Transcribe audio on your device instead of using a cloud Whisper API (saves cost, works offline)</string>
     <string name="pref_local_transcription_model_title">Transcription model</string>
     <string name="pref_local_transcription_model_small">Small</string>
     <string name="pref_local_transcription_model_medium">Medium</string>
@@ -1073,7 +1087,7 @@
     <string name="pref_local_transcription_download_complete">Model download complete</string>
     <string name="pref_local_transcription_download_failed">Model download failed: %s</string>
     <string name="pref_local_transcription_delete_confirm">Delete the downloaded transcription model \"%s\"?</string>
-    <string name="pref_local_transcription_info">On-device transcription uses the Vosk speech recognition engine. Transcription happens entirely on your phone - no audio is sent to the cloud. The OpenAI API is still used for ad segment analysis.</string>
+    <string name="pref_local_transcription_info">On-device transcription uses the Vosk speech recognition engine. Transcription happens entirely on your phone - no audio is sent to the cloud. The configured cloud provider (OpenAI or Azure OpenAI) is still used for ad segment analysis.</string>
     <string name="pref_local_transcription_memory_error_title">Insufficient Memory</string>
     <string name="pref_local_transcription_insufficient_memory">Not enough system RAM to download %1$s. Available: %2$d MB, Required: %3$d MB.</string>
     <string name="pref_local_transcription_try_smaller_model">Try one of these smaller models instead:</string>
@@ -1092,7 +1106,7 @@
     <string name="transcription_language_auto">Auto-detect</string>
     <string name="not_downloaded">Not downloaded</string>
     <string name="transcription_api_key_missing_title">API Key Required</string>
-    <string name="transcription_api_key_missing_message">Cloud transcription requires an OpenAI API key. Please configure your API key in settings.</string>
+    <string name="transcription_api_key_missing_message">Cloud AI features require OpenAI or Azure OpenAI credentials. Please configure your cloud provider in settings.</string>
     <string name="transcription_already_running_title">Transcription In Progress</string>
     <string name="transcription_already_running_message">Another transcription is currently running. Only one local transcription can run at a time due to constraints of the transcription library. Please wait for the current transcription to complete.</string>
 

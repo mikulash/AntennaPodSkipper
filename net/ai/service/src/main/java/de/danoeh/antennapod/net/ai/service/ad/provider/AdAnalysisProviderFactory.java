@@ -13,7 +13,7 @@ import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 /**
  * Factory to construct providers for the ad analysis workflow.
  * Creates both transcription providers (audio → text) and transcript analysis providers (text → ads).
- * Supports cloud-based (OpenAI) and local (Vosk) providers.
+ * Supports cloud-based (OpenAI or Azure OpenAI) and local (Vosk) providers.
  */
 @RequiresApi(api = Build.VERSION_CODES.O)
 public final class AdAnalysisProviderFactory {

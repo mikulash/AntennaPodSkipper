@@ -20,8 +20,8 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.net.ai.service.ad.AdAnalysisWorkScheduler;
 import de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager;
+import de.danoeh.antennapod.storage.preferences.CloudAiPreferences;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
-import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
 import de.danoeh.antennapod.ui.screen.preferences.PreferenceActivity;
 
 /**
@@ -71,8 +71,8 @@ public class CompleteAnalysisActionButton extends ItemActionButton {
         }
         boolean feedUsesCloudModel = feedModelOverride != null && feedModelOverride.startsWith("cloud:");
 
-        // If feed uses cloud model, check for API key first
-        if (feedUsesCloudModel && TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))) {
+        // If feed uses cloud model, check for cloud credentials first
+        if (feedUsesCloudModel && !CloudAiPreferences.hasCredentials(context)) {
             showApiKeyMissingDialog(context);
             return;
         }
@@ -99,8 +99,8 @@ public class CompleteAnalysisActionButton extends ItemActionButton {
             }
         }
 
-        // Check API key for analysis (always required for ad analysis)
-        if (TextUtils.isEmpty(OpenAiPreferences.getApiKey(context))) {
+        // Check cloud credentials for analysis (always required for ad analysis)
+        if (!CloudAiPreferences.hasCredentials(context)) {
             showApiKeyMissingDialog(context);
             return;
         }
