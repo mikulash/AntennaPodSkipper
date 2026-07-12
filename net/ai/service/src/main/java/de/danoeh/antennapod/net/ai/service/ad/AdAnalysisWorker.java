@@ -346,6 +346,8 @@ public class AdAnalysisWorker extends Worker {
         long usedMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
         long availableMemory = maxMemory - usedMemory;
         int threadCount = TranscriptionThreadCountPolicy.chooseThreadCount(availableProcessors, maxMemory, usedMemory);
+        // Respect provider concurrency limits (cloud Whisper deployments rate-limit aggressively).
+        threadCount = Math.max(1, Math.min(threadCount, provider.getMaxConcurrency()));
 
         Log.i(TAG, "Memory stats: Max=" + (maxMemory / 1024 / 1024) + "MB, Used=" + (usedMemory / 1024 / 1024)
                 + "MB, Avail=" + (availableMemory / 1024 / 1024) + "MB. Threads: ByCPU=" + availableProcessors

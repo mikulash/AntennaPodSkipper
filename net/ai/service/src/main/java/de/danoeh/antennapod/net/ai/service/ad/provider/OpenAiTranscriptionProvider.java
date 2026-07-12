@@ -10,6 +10,7 @@ import androidx.annotation.RequiresApi;
 import com.openai.client.OpenAIClient;
 import com.openai.errors.BadRequestException;
 import com.openai.errors.OpenAIIoException;
+import com.openai.errors.RateLimitException;
 import com.openai.models.audio.AudioModel;
 import com.openai.models.audio.AudioResponseFormat;
 import com.openai.models.audio.transcriptions.TranscriptionCreateParams;
@@ -25,6 +26,9 @@ public class OpenAiTranscriptionProvider implements TranscriptionProvider {
     private static final String TAG = "OpenAiTranscriptionProv";
     private static final long MAX_OPENAI_AUDIO_BYTES = 25L * 1024L * 1024L; // 25 MiB hard limit
     private static final double PRICE_WHISPER_PER_MIN = 0.006;
+    private static final int MAX_RATE_LIMIT_RETRIES = 10;
+    private static final long DEFAULT_RATE_LIMIT_WAIT_SECONDS = 60L;
+    private static final long MAX_RATE_LIMIT_WAIT_SECONDS = 120L;
 
     private final Context context;
     private final OpenAIClient client;
@@ -48,8 +52,16 @@ public class OpenAiTranscriptionProvider implements TranscriptionProvider {
     }
 
     @Override
+    public int getMaxConcurrency() {
+        // Cloud Whisper deployments (especially Azure) enforce a low per-minute
+        // call-rate limit, so transcribe chunks serially to avoid bursts of 429s.
+        return 1;
+    }
+
+    @Override
     public String transcribeChunk(Path chunkPath, int chunkIndex, int totalChunks, int maxRetries) throws Exception {
         int attempt = 0;
+        int rateLimitRetries = 0;
         String chunkLabel = (chunkIndex + 1) + "/" + totalChunks;
         while (true) {
             if (chunkPath == null || !Files.exists(chunkPath)) {
@@ -75,6 +87,21 @@ public class OpenAiTranscriptionProvider implements TranscriptionProvider {
                 Log.d(TAG, "Transcription " + chunkLabel + " response received OK");
 
                 return response.asTranscription().text();
+            } catch (RateLimitException e) {
+                // Cloud Whisper deployments have a low per-minute call-rate limit.
+                // A 429 is expected under load, not fatal: honor Retry-After and keep trying.
+                // Rate-limit waits do not count against the normal I/O retry budget.
+                attempt--;
+                rateLimitRetries++;
+                if (rateLimitRetries > MAX_RATE_LIMIT_RETRIES) {
+                    Log.e(TAG, "Transcription " + chunkLabel + " gave up after "
+                            + MAX_RATE_LIMIT_RETRIES + " rate-limit retries", e);
+                    throw e;
+                }
+                long waitSeconds = parseRetryAfterSeconds(e);
+                Log.w(TAG, "Transcription " + chunkLabel + " rate limited (429); waiting " + waitSeconds
+                        + "s before retry " + rateLimitRetries + "/" + MAX_RATE_LIMIT_RETRIES);
+                Thread.sleep(waitSeconds * 1000L);
             } catch (OpenAIIoException e) {
                 boolean last = attempt > maxRetries;
                 Log.w(TAG, "Transcription attempt " + attempt + " failed (" + e.getMessage() + ")", e);
@@ -84,6 +111,24 @@ public class OpenAiTranscriptionProvider implements TranscriptionProvider {
                 Thread.sleep(500L * attempt);
             }
         }
+    }
+
+    /**
+     * Reads the {@code Retry-After} header (in seconds) from a 429 response,
+     * clamped to a sane range, falling back to a default when it is missing or
+     * unparseable.
+     */
+    private static long parseRetryAfterSeconds(RateLimitException e) {
+        try {
+            java.util.List<String> values = e.headers().values("retry-after");
+            if (values != null && !values.isEmpty()) {
+                long seconds = Long.parseLong(values.get(0).trim());
+                return Math.max(1L, Math.min(seconds, MAX_RATE_LIMIT_WAIT_SECONDS));
+            }
+        } catch (RuntimeException ignored) {
+            // Fall through to the default wait below.
+        }
+        return DEFAULT_RATE_LIMIT_WAIT_SECONDS;
     }
 
     @Override
