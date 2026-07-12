@@ -24,13 +24,42 @@ public class OpenAiTranscriptAnalysisProvider implements TranscriptAnalysisProvi
 
     // Base system message for ad classification
     private static final String SYSTEM_MESSAGE_BASE =
-            "You are a classifier that only finds advertisement or sponsor segments in podcasts. "
-            + "An advertisement is a sponsor read, mid-roll, pre-roll, post-roll, "
-            + "or explicit promotion (coupon codes, giveaways, discounts). "
-            + "Do not tag normal banter, housekeeping, or episode content as ads. "
-            + "Use seconds from start of episode for times. "
-            + "Respond ONLY with valid JSON matching {\"ads\":[{\"startSeconds\":number,\"endSeconds\":number,"
-            + "\"reason\":string,\"confidence\":number}]} and nothing else.";
+            "You are an expert at detecting advertisement and promotional segments in podcast transcripts. "
+            + "Locate every ad/sponsor segment with precise start and end times, and report nothing else.\n\n"
+            + "INPUT FORMAT\n"
+            + "- The transcript is WebVTT. Each cue is a time range \"HH:MM:SS.mmm --> HH:MM:SS.mmm\" "
+            + "followed by the spoken text on the next line(s).\n"
+            + "- All cue timestamps are absolute, measured from the start of the episode.\n"
+            + "- You may be given only a portion of a longer episode; judge solely from the text shown "
+            + "and use its timestamps exactly as they appear.\n\n"
+            + "COUNTS AS AN AD (include)\n"
+            + "- Host-read sponsor spots and dynamically inserted ads (pre-roll, mid-roll, post-roll).\n"
+            + "- Paid promotions, affiliate offers, discount or promo codes, coupon URLs, giveaways.\n"
+            + "- Cross-promotion of other shows and the host's own paid offerings "
+            + "(Patreon, memberships, merch, courses, live-show tickets).\n\n"
+            + "NOT AN AD (never include)\n"
+            + "- Normal episode content: interviews, discussion, storytelling, news.\n"
+            + "- Host banter, housekeeping, listener mail, credits, and intros/outros that do not promote an offer.\n"
+            + "- Incidental brand mentions that are part of the conversation rather than a promotion.\n\n"
+            + "BOUNDARIES (be precise)\n"
+            + "- startSeconds = start time of the FIRST cue where the ad read begins; "
+            + "endSeconds = end time of the LAST cue where it ends.\n"
+            + "- Merge consecutive cues belonging to the same ad break into ONE segment; "
+            + "never split one ad into pieces.\n"
+            + "- Exclude surrounding non-ad sentences. Anchor times to the actual cue timestamps; "
+            + "do not invent times.\n\n"
+            + "PRECISION OVER RECALL\n"
+            + "- Report a segment only when you are confident it is an ad or promotion. "
+            + "When unsure, leave it out: wrongly skipping real content is worse than missing a borderline ad.\n\n"
+            + "OUTPUT\n"
+            + "- Convert each timestamp to total seconds from episode start as a number "
+            + "(e.g. 00:12:30.500 becomes 750.5).\n"
+            + "- Respond with ONLY valid minified JSON, no prose and no markdown, matching:\n"
+            + "  {\"ads\":[{\"startSeconds\":number,\"endSeconds\":number,\"reason\":string,\"confidence\":number}]}\n"
+            + "- reason: a short phrase naming the advertiser or offer (e.g. \"Squarespace sponsor read\").\n"
+            + "- confidence: your certainty from 0.0 to 1.0 that the segment is truly an ad.\n"
+            + "- Sort segments by startSeconds, do not overlap them, and ensure endSeconds > startSeconds.\n"
+            + "- If there are no ads, respond exactly with {\"ads\":[]}.";
 
     private final Context context;
     private final OpenAIClient client;
@@ -92,7 +121,8 @@ public class OpenAiTranscriptAnalysisProvider implements TranscriptAnalysisProvi
     private String buildSystemMessage(int durationMs) {
         StringBuilder sb = new StringBuilder(SYSTEM_MESSAGE_BASE);
         if (durationMs > 0) {
-            sb.append("\n\nEpisode duration: ").append(durationMs / 1000f).append(" seconds.");
+            sb.append("\n\nCONTEXT\n- Episode duration: ").append(durationMs / 1000f)
+                    .append(" seconds. No ad may extend beyond this time.");
         }
         return sb.toString();
     }
@@ -101,7 +131,9 @@ public class OpenAiTranscriptAnalysisProvider implements TranscriptAnalysisProvi
      * Build the user message containing the transcript.
      */
     private String buildUserMessage(String transcript) {
-        return "Analyze this transcript for ads:\n\n" + transcript + "\n\nOutput only JSON.";
+        return "Find all advertisement and promotional segments in this WebVTT transcript. "
+                + "Return only the JSON object described in the instructions.\n\n"
+                + "Transcript (WebVTT):\n" + transcript;
     }
 
 
