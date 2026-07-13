@@ -331,6 +331,16 @@
                             android:textColor="?android:attr/textColorSecondary"
                             tools:text="00:10 - 01:02\n12:15 - 13:00" />
 
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnReanalyzeTranscript"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="@string/ad_analysis_reanalyze_transcript"
+                            android:textAllCaps="false"
+                            android:visibility="gone" />
+
                         <TextView
                             android:id="@+id/adTranscriptContent"
                             android:layout_width="match_parent"

@@ -1113,6 +1113,7 @@
     <string name="ad_analysis_battery_opt_message">To keep transcribing and analyzing episodes when the screen is off or you switch apps, allow this app to ignore battery optimizations. Otherwise the system may pause or stop the analysis in the background.</string>
     <string name="ad_analysis_battery_opt_allow">Allow</string>
     <string name="ad_analysis_battery_opt_later">Not now</string>
+    <string name="ad_analysis_reanalyze_transcript">Re-analyze transcript</string>
 
     <!-- Ad Analysis -->
     <string name="ad_analysis_model_missing_title">Model missing</string>

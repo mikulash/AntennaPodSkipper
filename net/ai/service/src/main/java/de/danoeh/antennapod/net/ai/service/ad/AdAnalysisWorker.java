@@ -23,8 +23,10 @@ import com.openai.errors.UnauthorizedException;
 
 import org.greenrobot.eventbus.EventBus;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -51,6 +53,8 @@ import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class AdAnalysisWorker extends Worker {
     public static final String DATA_FEED_ITEM_ID = "feedItemId";
+    /** When true, reuse an existing stored transcript and run only the ad-analysis step. */
+    public static final String DATA_ANALYSIS_ONLY = "analysisOnly";
     private static final String TAG = "AdAnalysisWorker";
     private static final int FOREGROUND_NOTIFICATION_ID = 0x0AD0A11;
 
@@ -83,14 +87,32 @@ public class AdAnalysisWorker extends Worker {
         }
 
         foregroundEpisodeTitle = item.getTitle();
-        startForegroundNotification(AdAnalysisStages.TRANSCRIBING, 0, 0, 0);
+
+        // Analysis-only mode reuses the transcript already stored for this episode and skips the
+        // (expensive) transcription step. Falls back to a full run if no transcript is available.
+        boolean analysisOnly = getInputData().getBoolean(DATA_ANALYSIS_ONLY, false);
+        String existingTranscript = analysisOnly ? loadExistingTranscript(media) : null;
+        boolean skipTranscription = !TextUtils.isEmpty(existingTranscript);
+
+        startForegroundNotification(skipTranscription
+                ? AdAnalysisStages.ANALYZING : AdAnalysisStages.TRANSCRIBING, 0, 0, 0);
 
         AdAnalysisProgressSink progressSink = new WorkManagerAdAnalysisProgressSink(this,
                 this::updateForegroundNotification);
 
-        String transcript = performTranscription(item, media, progressSink, runObserver);
+        String transcript;
+        if (skipTranscription) {
+            Log.i(TAG, "Analysis-only: reusing existing transcript for feedItemId=" + feedItemId
+                    + ", length=" + existingTranscript.length());
+            transcript = existingTranscript;
+        } else {
+            if (analysisOnly) {
+                Log.w(TAG, "Analysis-only requested but no transcript found; running full analysis");
+            }
+            transcript = performTranscription(item, media, progressSink, runObserver);
+        }
         if (TextUtils.isEmpty(transcript)) {
-            runObserver.finished("transcription_failed");
+            runObserver.finished(skipTranscription ? "analysis_failed" : "transcription_failed");
             return Result.failure();
         }
 
@@ -201,6 +223,27 @@ public class AdAnalysisWorker extends Worker {
             return label + " (" + Math.min(100, Math.max(0, percent)) + "%)";
         }
         return label;
+    }
+
+    /**
+     * Reads the transcript already stored for this episode, or null if none exists.
+     * Used by analysis-only runs so the transcription step can be skipped.
+     */
+    private String loadExistingTranscript(FeedMedia media) {
+        if (media == null || TextUtils.isEmpty(media.getTranscriptFileUrl())) {
+            return null;
+        }
+        try {
+            Path path = Paths.get(media.getTranscriptFileUrl());
+            if (!Files.exists(path)) {
+                return null;
+            }
+            String content = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+            return TextUtils.isEmpty(content) ? null : content;
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to read existing transcript", e);
+            return null;
+        }
     }
 
     private String performTranscription(FeedItem item, FeedMedia media, AdAnalysisProgressSink progressSink,

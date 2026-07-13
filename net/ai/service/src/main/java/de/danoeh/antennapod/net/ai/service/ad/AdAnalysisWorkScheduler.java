@@ -35,19 +35,32 @@ public final class AdAnalysisWorkScheduler {
     }
 
     public static void enqueueManual(Context context, FeedMedia media) {
+        enqueue(context, media, false);
+    }
+
+    /**
+     * Queues an analysis-only run that reuses the transcript already stored for the episode and
+     * skips transcription. Returns false if it could not be queued (missing media or credentials).
+     */
+    public static boolean enqueueAnalysisOnly(Context context, FeedMedia media) {
+        return enqueue(context, media, true);
+    }
+
+    private static boolean enqueue(Context context, FeedMedia media, boolean analysisOnly) {
         if (media == null || media.getItem() == null) {
-            return;
+            return false;
         }
         FeedItem item = media.getItem();
         if (OpenAiPreferences.isApiKeyRequired(context)
                 && !CloudAiPreferences.hasCredentials(context)) {
-            return;
+            return false;
         }
         if (TextUtils.isEmpty(media.getLocalFileUrl())) {
-            return;
+            return false;
         }
         Data input = new Data.Builder()
                 .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, item.getId())
+                .putBoolean(AdAnalysisWorker.DATA_ANALYSIS_ONLY, analysisOnly)
                 .build();
 
         // Only require network if not running in fully local mode
@@ -69,5 +82,6 @@ public final class AdAnalysisWorkScheduler {
                 QUEUE_NAME,
                 ExistingWorkPolicy.APPEND_OR_REPLACE,
                 request);
+        return true;
     }
 }

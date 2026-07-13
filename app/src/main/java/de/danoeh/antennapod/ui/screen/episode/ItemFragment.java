@@ -19,6 +19,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -132,6 +133,7 @@ public class ItemFragment extends Fragment {
     private boolean pendingEnqueue = false;
     private String analysisStageLabel = null;
     private int analysisPercent = -1;
+    private boolean canReanalyzeTranscript = false;
 
     private boolean isAdAnalysisSupported() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
@@ -494,6 +496,7 @@ public class ItemFragment extends Fragment {
     }
 
     private void updateAdSegmentsSummary() {
+        canReanalyzeTranscript = false;
         if (!isAdAnalysisSupported() || !UserPreferences.isAdSkipEnabled()) {
             viewBinding.adSegmentsContainer.setVisibility(View.GONE);
             return;
@@ -528,6 +531,8 @@ public class ItemFragment extends Fragment {
         if (result.getSegments().isEmpty()) {
             viewBinding.adSegmentsContent.setText(R.string.ad_segments_empty);
             viewBinding.adTranscriptContent.setText(loadTranscriptText(media, result));
+            // Transcript exists but no ads were found: offer to re-run just the analysis on it.
+            canReanalyzeTranscript = true;
             selectAdTab(0);
             return;
         }
@@ -578,6 +583,7 @@ public class ItemFragment extends Fragment {
                 int pos = tab.getPosition();
                 viewBinding.adSegmentsContent.setVisibility(pos == 0 ? View.VISIBLE : View.GONE);
                 viewBinding.adTranscriptContent.setVisibility(pos == 1 ? View.VISIBLE : View.GONE);
+                updateReanalyzeButtonVisibility(pos);
             }
 
             @Override
@@ -588,6 +594,7 @@ public class ItemFragment extends Fragment {
             public void onTabReselected(TabLayout.Tab tab) {
             }
         });
+        viewBinding.btnReanalyzeTranscript.setOnClickListener(v -> reanalyzeExistingTranscript());
         selectAdTab(0);
     }
 
@@ -601,6 +608,27 @@ public class ItemFragment extends Fragment {
         }
         viewBinding.adSegmentsContent.setVisibility(index == 0 ? View.VISIBLE : View.GONE);
         viewBinding.adTranscriptContent.setVisibility(index == 1 ? View.VISIBLE : View.GONE);
+        updateReanalyzeButtonVisibility(index);
+    }
+
+    /** The re-analyze button belongs to the "Ads" tab and only when a transcript is ready to reuse. */
+    private void updateReanalyzeButtonVisibility(int selectedTab) {
+        boolean show = canReanalyzeTranscript && !isAnalysisRunning && selectedTab == 0;
+        viewBinding.btnReanalyzeTranscript.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    private void reanalyzeExistingTranscript() {
+        if (item == null || item.getMedia() == null) {
+            return;
+        }
+        boolean queued = AdAnalysisWorkScheduler.enqueueAnalysisOnly(requireContext(), item.getMedia());
+        if (queued) {
+            viewBinding.btnReanalyzeTranscript.setVisibility(View.GONE);
+            Toast.makeText(requireContext(), R.string.ad_analysis_queued, Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(requireContext(),
+                    R.string.transcription_api_key_missing_message, Toast.LENGTH_LONG).show();
+        }
     }
 
     private String loadTranscriptText(@Nullable FeedMedia media, @Nullable AdAnalysisResult result) {
