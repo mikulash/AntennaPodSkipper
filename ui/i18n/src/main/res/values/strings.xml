@@ -1109,6 +1109,10 @@
     <string name="transcription_api_key_missing_message">Cloud AI features require OpenAI or Azure OpenAI credentials. Please configure your cloud provider in settings.</string>
     <string name="transcription_already_running_title">Transcription In Progress</string>
     <string name="transcription_already_running_message">Another transcription is currently running. Only one local transcription can run at a time due to constraints of the transcription library. Please wait for the current transcription to complete.</string>
+    <string name="ad_analysis_battery_opt_title">Keep analysis running</string>
+    <string name="ad_analysis_battery_opt_message">To keep transcribing and analyzing episodes when the screen is off or you switch apps, allow this app to ignore battery optimizations. Otherwise the system may pause or stop the analysis in the background.</string>
+    <string name="ad_analysis_battery_opt_allow">Allow</string>
+    <string name="ad_analysis_battery_opt_later">Not now</string>
 
     <!-- Ad Analysis -->
     <string name="ad_analysis_model_missing_title">Model missing</string>
