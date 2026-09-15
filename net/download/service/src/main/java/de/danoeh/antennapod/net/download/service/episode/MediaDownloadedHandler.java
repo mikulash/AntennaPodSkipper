@@ -6,7 +6,9 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import de.danoeh.antennapod.model.MediaMetadataRetrieverCompat;
 import de.danoeh.antennapod.model.feed.Feed;
+import de.danoeh.antennapod.net.ai.service.ad.AdAnalysisWorkScheduler;
 import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
+import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.chapters.ChapterUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.greenrobot.eventbus.EventBus;
@@ -87,6 +89,7 @@ public class MediaDownloadedHandler implements Runnable {
         }
 
         final FeedItem item = media.getItem();
+        boolean mediaSaved = false;
 
         try {
             DBWriter.setFeedMedia(media).get();
@@ -102,12 +105,19 @@ public class MediaDownloadedHandler implements Runnable {
                     EventBus.getDefault().post(new UnreadItemsUpdateEvent());
                 }
             }
+            mediaSaved = true;
         } catch (InterruptedException e) {
             Log.e(TAG, "MediaHandlerThread was interrupted");
         } catch (ExecutionException e) {
             Log.e(TAG, "ExecutionException in MediaHandlerThread: " + e.getMessage());
             updatedStatus = new DownloadResult(media.getEpisodeTitle(), media.getId(),
                     FeedMedia.FEEDFILETYPE_FEEDMEDIA, false, DownloadError.ERROR_DB_ACCESS_ERROR, e.getMessage());
+        }
+
+        if (mediaSaved && item != null && item.isTagged(FeedItem.TAG_QUEUE)
+                && UserPreferences.isAutoAnalyzeQueuedEpisodesEnabled()
+                && !AdAnalysisWorkScheduler.enqueueManual(context, media)) {
+            Log.w(TAG, "Could not schedule automatic analysis for queued episode " + item.getId());
         }
 
         if (item != null && item.getFeed().getState() != Feed.STATE_NOT_SUBSCRIBED) {

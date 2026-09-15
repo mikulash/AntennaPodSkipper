@@ -21,6 +21,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
+import de.danoeh.antennapod.storage.preferences.UserPreferences;
+
 /**
  * Unit tests for {@link AdAnalysisWorkScheduler}.
  * Tests focus on validation logic, constraint building, and input data
@@ -36,6 +38,23 @@ public class AdAnalysisWorkSchedulerTest {
         // Clear preferences
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         prefs.edit().clear().apply();
+        UserPreferences.init(context);
+    }
+
+    @Test
+    public void testAutoAnalyzeQueuedEpisodes_isDisabledByDefault() {
+        assertFalse(UserPreferences.isAutoAnalyzeQueuedEpisodesEnabled());
+    }
+
+    @Test
+    public void testAutoAnalyzeQueuedEpisodes_canBeEnabled() {
+        Context context = RuntimeEnvironment.getApplication();
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putBoolean(UserPreferences.PREF_AUTO_ANALYZE_QUEUED_EPISODES, true)
+                .apply();
+
+        assertTrue(UserPreferences.isAutoAnalyzeQueuedEpisodesEnabled());
     }
 
     // ==================== Unique Work Name Tests ====================

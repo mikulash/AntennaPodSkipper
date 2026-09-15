@@ -1018,6 +1018,8 @@
     <string name="pref_ai_summary">Configure AI analysis and automatic ad skipping</string>
     <string name="pref_ad_skip_enabled_title">Enable AI Ad analysis</string>
     <string name="pref_ad_skip_enabled_summary">Show transcription and ad analysis features in episode details</string>
+    <string name="pref_auto_analyze_queued_episodes_title">Analyze queued episodes automatically</string>
+    <string name="pref_auto_analyze_queued_episodes_summary">Run AI analysis after a queued episode finishes downloading</string>
     <string name="pref_analysis_queue_title_collapsed">Analysis queue \u25B8</string>
     <string name="pref_analysis_queue_title_expanded">Analysis queue \u25BE</string>
     <string name="pref_analysis_queue_loading">Loading queue\u2026</string>
