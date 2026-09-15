@@ -7,6 +7,12 @@
             android:title="@string/pref_ad_skip_enabled_title"
             android:summary="@string/pref_ad_skip_enabled_summary" />
 
+    <SwitchPreferenceCompat
+            android:key="prefAutoAnalyzeQueuedEpisodes"
+            android:defaultValue="false"
+            android:title="@string/pref_auto_analyze_queued_episodes_title"
+            android:summary="@string/pref_auto_analyze_queued_episodes_summary" />
+
     <PreferenceCategory
             android:key="prefAnalysisQueueCategory">
 
