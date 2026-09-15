@@ -15,6 +15,7 @@ public class NotificationUtils {
     public static final String CHANNEL_ID_USER_ACTION = "user_action";
     public static final String CHANNEL_ID_DOWNLOADING = "downloading";
     public static final String CHANNEL_ID_REFRESHING = "refreshing";
+    public static final String CHANNEL_ID_AD_ANALYSIS = "ad_analysis";
     public static final String CHANNEL_ID_PLAYING = "playing";
     public static final String CHANNEL_ID_DOWNLOAD_ERROR = "error";
     public static final String CHANNEL_ID_SYNC_ERROR = "sync_error";
@@ -35,6 +36,7 @@ public class NotificationUtils {
                 createChannelUserAction(context),
                 createChannelDownloading(context),
                 createChannelRefreshing(context),
+                createChannelAdAnalysis(context),
                 createChannelPlaying(context),
                 createChannelError(context),
                 createChannelSyncError(context),
@@ -65,6 +67,15 @@ public class NotificationUtils {
                         CHANNEL_ID_REFRESHING, NotificationManagerCompat.IMPORTANCE_LOW)
                 .setName(c.getString(R.string.notification_channel_refreshing))
                 .setDescription(c.getString(R.string.notification_channel_refreshing_description))
+                .setShowBadge(false)
+                .build();
+    }
+
+    private static NotificationChannelCompat createChannelAdAnalysis(final Context c) {
+        return new NotificationChannelCompat.Builder(
+                        CHANNEL_ID_AD_ANALYSIS, NotificationManagerCompat.IMPORTANCE_LOW)
+                .setName(c.getString(R.string.notification_channel_ad_analysis))
+                .setDescription(c.getString(R.string.notification_channel_ad_analysis_description))
                 .setShowBadge(false)
                 .build();
     }

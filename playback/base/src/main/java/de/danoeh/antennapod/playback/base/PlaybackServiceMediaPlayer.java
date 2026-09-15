@@ -350,7 +350,7 @@ public abstract class PlaybackServiceMediaPlayer {
 
         void onPlaybackPause(Playable playable, int position);
 
-        Playable getNextInQueue(Playable currentMedia);
+        void getNextInQueue(Playable currentMedia, NextInQueueCallback callback);
 
         @Nullable
         Playable findMedia(@NonNull String url);
@@ -358,6 +358,10 @@ public abstract class PlaybackServiceMediaPlayer {
         void onPlaybackEnded(MediaType mediaType, boolean stopPlaying);
 
         void ensureMediaInfoLoaded(@NonNull Playable media);
+    }
+
+    public interface NextInQueueCallback {
+        void onResult(@Nullable Playable nextMedia);
     }
 
     /**

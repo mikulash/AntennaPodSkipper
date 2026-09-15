@@ -3,20 +3,16 @@ package de.danoeh.antennapod.net.download.service.episode;
 import android.content.Context;
 import android.media.MediaMetadataRetriever;
 import android.util.Log;
-
 import androidx.annotation.NonNull;
-
 import de.danoeh.antennapod.model.MediaMetadataRetrieverCompat;
 import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
 import de.danoeh.antennapod.ui.chapters.ChapterUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.greenrobot.eventbus.EventBus;
-
 import java.io.File;
 import java.io.InterruptedIOException;
 import java.util.concurrent.ExecutionException;
-
 import de.danoeh.antennapod.event.UnreadItemsUpdateEvent;
 import de.danoeh.antennapod.model.download.DownloadRequest;
 import de.danoeh.antennapod.model.download.DownloadResult;

@@ -666,6 +666,9 @@ public class FeedItemlistFragment extends Fragment implements AdapterView.OnItem
         disposable = Observable.fromCallable(
                 () -> {
                     feed = DBReader.getFeed(feedID, true, 0, page * EPISODES_PER_PAGE);
+                    if (feed == null) {
+                        return new Pair<>(null, 0);
+                    }
                     int count = DBReader.getFeedEpisodeCount(feed.getId(), feed.getItemFilter());
                     return new Pair<>(feed, count);
                 })
@@ -673,6 +676,14 @@ public class FeedItemlistFragment extends Fragment implements AdapterView.OnItem
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
                     result -> {
+                        if (feed == null) {
+                            refreshHeaderView();
+                            viewBinding.progressBar.setVisibility(View.GONE);
+                            adapter.setDummyViews(0);
+                            adapter.updateItems(Collections.emptyList());
+                            updateToolbar();
+                            return;
+                        }
                         hasMoreItems = !(page == 1 && feed.getItems().size() < EPISODES_PER_PAGE);
                         swipeActions.setFilter(feed.getItemFilter());
                         refreshHeaderView();

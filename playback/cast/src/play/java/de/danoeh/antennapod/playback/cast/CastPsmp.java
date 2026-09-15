@@ -285,14 +285,11 @@ public class CastPsmp extends PlaybackServiceMediaPlayer {
         if (!CastUtils.isCastable(playable, castContext.getSessionManager().getCurrentCastSession())) {
             Log.d(TAG, "media provided is not compatible with cast device");
             EventBus.getDefault().postSticky(new PlayerErrorEvent("Media not compatible with cast device"));
-            Playable nextPlayable = playable;
-            do {
-                nextPlayable = callback.getNextInQueue(nextPlayable);
-            } while (nextPlayable != null && !CastUtils.isCastable(nextPlayable,
-                    castContext.getSessionManager().getCurrentCastSession()));
-            if (nextPlayable != null) {
-                playMediaObject(nextPlayable, forceReset, stream, startWhenPrepared, prepareImmediately);
-            }
+            getNextCastableInQueue(playable, nextPlayable -> {
+                if (nextPlayable != null) {
+                    playMediaObject(nextPlayable, forceReset, stream, startWhenPrepared, prepareImmediately);
+                }
+            });
             return;
         }
 
@@ -515,11 +512,31 @@ public class CastPsmp extends PlaybackServiceMediaPlayer {
             }
         }
         final Playable currentMedia = media;
-        Playable nextMedia = null;
         if (shouldContinue) {
-            nextMedia = callback.getNextInQueue(currentMedia);
+            getNextCastableInQueue(currentMedia, nextMedia -> finishEndPlayback(
+                    hasEnded, wasSkipped, true, toStoppedState, isPlaying, currentMedia, nextMedia));
+            return;
+        }
+        finishEndPlayback(hasEnded, wasSkipped, false, toStoppedState, isPlaying, currentMedia, null);
+    }
 
-            boolean playNextEpisode = isPlaying && nextMedia != null;
+    private void getNextCastableInQueue(Playable currentMedia,
+                                        NextInQueueCallback resultCallback) {
+        callback.getNextInQueue(currentMedia, nextMedia -> {
+            if (nextMedia == null
+                    || CastUtils.isCastable(nextMedia, castContext.getSessionManager().getCurrentCastSession())) {
+                resultCallback.onResult(nextMedia);
+            } else {
+                getNextCastableInQueue(nextMedia, resultCallback);
+            }
+        });
+    }
+
+    private void finishEndPlayback(boolean hasEnded, boolean wasSkipped, boolean shouldContinue,
+                                   boolean toStoppedState, boolean isPlaying, Playable currentMedia,
+                                   @Nullable Playable nextMedia) {
+        boolean playNextEpisode = isPlaying && nextMedia != null;
+        if (shouldContinue) {
             if (playNextEpisode) {
                 Log.d(TAG, "Playback of next episode will start immediately.");
             } else if (nextMedia == null) {
@@ -530,7 +547,7 @@ public class CastPsmp extends PlaybackServiceMediaPlayer {
 
             if (nextMedia != null) {
                 callback.onPlaybackEnded(nextMedia.getMediaType(), !playNextEpisode);
-                // setting media to null signals to playMediaObject() that we're taking care of post-playback processing
+                // Setting media to null signals that post-playback processing is handled here.
                 media = null;
                 playMediaObject(nextMedia, false, true, playNextEpisode, playNextEpisode);
             }

@@ -19,6 +19,18 @@ This is the official repository of AntennaPod, the easy-to-use, flexible and ope
 <img src="https://raw.githubusercontent.com/AntennaPod/StoreMetadata/main/listings/en-US/graphics/phone-screenshots/00.png" alt="Screenshot 0" height="200"> <img src="https://raw.githubusercontent.com/AntennaPod/StoreMetadata/main/listings/en-US/graphics/phone-screenshots/01.png" alt="Screenshot 1" height="200"> <img src="https://raw.githubusercontent.com/AntennaPod/StoreMetadata/main/listings/en-US/graphics/phone-screenshots/02.png" alt="Screenshot 2" height="200"> <img src="https://raw.githubusercontent.com/AntennaPod/StoreMetadata/main/listings/en-US/graphics/phone-screenshots/03.png" alt="Screenshot 3" height="200"> <img src="https://raw.githubusercontent.com/AntennaPod/StoreMetadata/main/listings/en-US/graphics/phone-screenshots/04.png" alt="Screenshot 4" height="200"> <img src="https://raw.githubusercontent.com/AntennaPod/StoreMetadata/main/listings/en-US/graphics/phone-screenshots/05.png" alt="Screenshot 5" height="200">
 
 
+## AI ad skipping
+
+This fork adds AI-powered transcription and ad analysis. Transcription can run fully
+on-device (Vosk) or via a cloud provider; ad analysis runs on a cloud provider. Both the
+public **OpenAI API** and your own **Azure AI Foundry** deployments are supported — select the
+provider under **Settings → AI & Ad Skipping → Cloud AI provider**.
+
+To host the models yourself on Azure, see
+[docs/AZURE_AI_FOUNDRY_SETUP.md](docs/AZURE_AI_FOUNDRY_SETUP.md) for a step-by-step guide on
+creating the Foundry resource, deploying transcription and chat models, and
+configuring the app.
+
 ## Feedback
 You can use the [AntennaPod Forum](https://forum.antennapod.org/) for discussions about the app or just podcasting in general.
 
@@ -41,4 +53,3 @@ If you want to translate AntennaPod into another language, you can visit our [We
 ## Building AntennaPod
 
 You can build AntennaPod just like any other Android project. Refer to the [instructions](https://github.com/AntennaPod/AntennaPod/blob/develop/CONTRIBUTING.md) for more details.
-

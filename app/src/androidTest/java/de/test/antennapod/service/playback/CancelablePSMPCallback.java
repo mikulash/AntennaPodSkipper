@@ -68,11 +68,17 @@ public class CancelablePSMPCallback implements PlaybackServiceMediaPlayer.PSMPCa
     }
 
     @Override
-    public Playable getNextInQueue(Playable currentMedia) {
+    public void getNextInQueue(Playable currentMedia,
+                               PlaybackServiceMediaPlayer.NextInQueueCallback callback) {
         if (isCancelled) {
-            return null;
+            callback.onResult(null);
+            return;
         }
-        return originalCallback.getNextInQueue(currentMedia);
+        originalCallback.getNextInQueue(currentMedia, nextMedia -> {
+            if (!isCancelled) {
+                callback.onResult(nextMedia);
+            }
+        });
     }
 
     @Nullable

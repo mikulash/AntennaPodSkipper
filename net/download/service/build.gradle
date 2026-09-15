@@ -12,6 +12,7 @@ android {
 dependencies {
     implementation project(':event')
     implementation project(':model')
+    implementation project(':net:ai:service')
     implementation project(':net:common')
     implementation project(':net:download:service-interface')
     implementation project(':net:sync:service-interface')
@@ -22,6 +23,7 @@ dependencies {
     implementation project(':storage:preferences')
     implementation project(':ui:app-start-intent')
     implementation project(':ui:chapters')
+    implementation project(':ui:i18n')
     implementation project(':ui:transcript')
 
     annotationProcessor "androidx.annotation:annotation:$annotationVersion"

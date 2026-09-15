@@ -937,6 +937,8 @@
     <string name="notification_channel_downloading_description">Shown while currently downloading episodes.</string>
     <string name="notification_channel_refreshing">Refreshing podcasts</string>
     <string name="notification_channel_refreshing_description">Shown while checking for new episodes.</string>
+    <string name="notification_channel_ad_analysis">Ad analysis</string>
+    <string name="notification_channel_ad_analysis_description">Shown while analyzing episodes for ads.</string>
     <string name="notification_channel_playing">Currently playing</string>
     <string name="notification_channel_playing_description">Allows to control playback. This is the main notification you see while playing a podcast.</string>
     <string name="notification_channel_download_error">Download failed</string>
@@ -1012,4 +1014,133 @@
 
     <string name="echo_share_heading">My favorite podcasts</string>
     <string name="echo_share">My year %d in podcasts. #AntennaPodEcho</string>
+    <string name="pref_ai_label">AI &amp; Ad Skipping</string>
+    <string name="pref_ai_summary">Configure AI analysis and automatic ad skipping</string>
+    <string name="pref_ad_skip_enabled_title">Enable AI Ad analysis</string>
+    <string name="pref_ad_skip_enabled_summary">Show transcription and ad analysis features in episode details</string>
+    <string name="pref_analysis_queue_title_collapsed">Analysis queue \u25B8</string>
+    <string name="pref_analysis_queue_title_expanded">Analysis queue \u25BE</string>
+    <string name="pref_analysis_queue_loading">Loading queue\u2026</string>
+    <string name="pref_analysis_queue_empty">No episodes waiting or being analyzed</string>
+    <plurals name="pref_analysis_queue_active_summary">
+        <item quantity="one">%1$s \u2022 %2$d episode waiting</item>
+        <item quantity="other">%1$s \u2022 %2$d episodes waiting</item>
+    </plurals>
+    <plurals name="pref_analysis_queue_waiting_summary">
+        <item quantity="one">%1$d episode waiting</item>
+        <item quantity="other">%1$d episodes waiting</item>
+    </plurals>
+    <string name="pref_analysis_queue_current_status">Current \u2022 %1$s</string>
+    <string name="pref_analysis_queue_waiting_position">Waiting \u2022 Position %1$d</string>
+    <string name="pref_analysis_queue_starting">Starting\u2026</string>
+    <string name="pref_analysis_queue_transcribing">Transcribing\u2026</string>
+    <string name="pref_analysis_queue_analyzing">Analyzing\u2026</string>
+    <string name="pref_analysis_queue_progress">%1$s %2$d%%</string>
+    <string name="pref_analysis_queue_chunk_progress">%1$s %2$d/%3$d chunks (%4$d%%)</string>
+    <string name="pref_analysis_queue_unknown_episode">Episode #%1$d</string>
+    <string name="pref_cloud_ai_category">Cloud AI provider</string>
+    <string name="pref_cloud_ai_provider_title">Cloud provider</string>
+    <string name="pref_cloud_ai_provider_openai">OpenAI</string>
+    <string name="pref_cloud_ai_provider_azure">Azure AI Foundry</string>
+    <string name="pref_cloud_transcription_parallelism_title">Parallel transcription chunks</string>
+    <string name="pref_cloud_transcription_parallelism_default_summary">Run up to 5 cloud transcription chunks at once</string>
+    <string name="pref_cloud_transcription_parallelism_summary">Run up to %1$d cloud transcription chunks at once</string>
+    <string name="pref_cloud_transcription_parallelism_invalid">Enter a number from 1 to 10</string>
+    <string name="pref_azure_endpoint_title">Foundry endpoint</string>
+    <string name="pref_azure_endpoint_summary">Resource endpoint, e.g. https://myresource.services.ai.azure.com</string>
+    <string name="pref_azure_api_key_title">Foundry API key</string>
+    <string name="pref_azure_api_key_summary">Paste an API key for your Azure AI Foundry resource</string>
+    <string name="pref_azure_chat_deployment_title">Ad analysis deployment</string>
+    <string name="pref_azure_chat_deployment_summary">Any Chat Completions-compatible Foundry deployment name</string>
+    <string name="pref_azure_whisper_deployment_title">Transcription deployment</string>
+    <string name="pref_azure_whisper_deployment_summary">An Audio Transcriptions-compatible Foundry deployment name</string>
+    <string name="pref_azure_api_version_title">Transcription API version</string>
+    <string name="pref_azure_api_version_summary">Version used by Azure audio transcription deployments</string>
+    <string name="pref_openai_api_key_title">OpenAI API key</string>
+    <string name="pref_openai_api_key_summary">Paste a valid OpenAI API key to enable ad analysis</string>
+    <string name="pref_openai_api_key_set">API key saved securely</string>
+    <string name="pref_openai_analysis_model_title">Ad analysis model</string>
+    <string name="pref_openai_analysis_model_summary">OpenAI model ID used for ad analysis</string>
+    <string name="pref_openai_transcription_model_title">Transcription model</string>
+    <string name="pref_openai_transcription_model_summary">OpenAI audio transcription model ID</string>
+    <string name="ad_analysis_invalid_key">Ad analysis failed: Your cloud AI credentials are invalid. Update them in settings.</string>
+    <string name="ad_analysis_again">Analyze again</string>
+    <string name="ad_segments_title">AI analysis</string>
+    <string name="ad_segments_total_length">Total ad length: %1$s</string>
+    <string name="ad_segments_empty">No ads detected.</string>
+    <string name="ad_segments_not_analyzed">Not analyzed yet.</string>
+    <string name="ad_segments_tab_ads">Ads</string>
+    <string name="ad_segments_tab_transcript">Transcript</string>
+    <string name="ad_analysis_transcribing">Transcribing</string>
+    <string name="ad_analysis_analyzing">Analyzing</string>
+    <string name="ad_analysis_notification_title">Analyzing ads</string>
+    <string name="action_complete_analysis">Run ad analysis</string>
+    <string name="transcription_requires_download">Download the episode first to transcribe.</string>
+
+    <string name="action_download_model_file">Download</string>
+    <string name="action_delete_model_file">Delete</string>
+    <string name="model_action_confirm">Confirm</string>
+    <string name="model_action_cancel">Cancel</string>
+
+    <!-- Local transcription settings -->
+    <string name="pref_local_transcription_category">On-Device Transcription</string>
+    <string name="pref_local_transcription_title">Use local transcription</string>
+    <string name="pref_local_transcription_summary">Transcribe audio on your device instead of using a cloud Whisper API (saves cost, works offline)</string>
+    <string name="pref_local_transcription_model_title">Transcription model</string>
+    <string name="pref_local_transcription_model_small">Small</string>
+    <string name="pref_local_transcription_model_medium">Medium</string>
+    <string name="pref_local_transcription_model_large">Large</string>
+    <string name="download_type_extraction">Extracting...</string>
+    <string name="pref_local_transcription_download_complete">Model download complete</string>
+    <string name="pref_local_transcription_download_failed">Model download failed: %s</string>
+    <string name="pref_local_transcription_delete_confirm">Delete the downloaded transcription model \"%s\"?</string>
+    <string name="pref_local_transcription_info">On-device transcription uses the Vosk speech recognition engine. Transcription happens entirely on your phone - no audio is sent to the cloud. The configured cloud provider (OpenAI or Azure AI Foundry) is still used for ad segment analysis.</string>
+    <string name="pref_local_transcription_memory_error_title">Insufficient Memory</string>
+    <string name="pref_local_transcription_insufficient_memory">Not enough system RAM to download %1$s. Available: %2$d MB, Required: %3$d MB.</string>
+    <string name="pref_local_transcription_try_smaller_model">Try one of these smaller models instead:</string>
+    <string name="transcription_insufficient_memory_error">Transcription failed: Not enough memory. Please select a smaller model in AI Preferences.</string>
+
+    <string name="pref_manage_transcription_models_title">Manage Models</string>
+    <string name="pref_manage_transcription_models_summary">Download, delete, and view available transcription models</string>
+
+    <string name="download_starting">Starting…</string>
+
+    <!-- Transcription engine selection -->
+    <string name="transcription_section_local">Local Models</string>
+    <string name="transcription_section_cloud">Cloud Models</string>
+    <string name="pref_transcription_method_title">Transcription method</string>
+    <string name="transcription_cloud_configured_provider">Cloud transcription (configured provider)</string>
+    <string name="transcription_global_local">local transcription</string>
+    <string name="transcription_global_cloud">cloud transcription</string>
+    <string name="pref_transcription_language_title">Transcription Language</string>
+    <string name="transcription_language_auto">Auto-detect</string>
+    <string name="not_downloaded">Not downloaded</string>
+    <string name="transcription_api_key_missing_title">API Key Required</string>
+    <string name="transcription_api_key_missing_message">Cloud AI features require OpenAI or Azure AI Foundry credentials. Please configure your cloud provider in settings.</string>
+    <string name="ad_analysis_battery_opt_title">Keep analysis running</string>
+    <string name="ad_analysis_battery_opt_message">To keep transcribing and analyzing episodes when the screen is off or you switch apps, exclude this app from battery optimization in system settings. Otherwise the system may pause or stop the analysis in the background.</string>
+    <string name="ad_analysis_battery_opt_allow">Open settings</string>
+    <string name="ad_analysis_battery_opt_later">Not now</string>
+    <string name="ad_analysis_reanalyze_transcript">Re-analyze transcript</string>
+
+    <!-- Ad Analysis -->
+    <string name="ad_analysis_model_missing_title">Model missing</string>
+    <string name="ad_analysis_model_missing_message">Local transcription model is missing. Download it or use cloud transcription?</string>
+    <string name="action_use_cloud">Use Cloud</string>
+    <string name="action_download_model">Download</string>
+    <string name="open_settings">Open settings</string>
+    <string name="ad_analysis_queued">Added to queue</string>
+    <string name="ad_analysis_in_queue">In queue</string>
+    <string name="ad_analysis_in_queue_position">In queue (#%1$d)</string>
+
+    <!-- Delete all models -->
+    <string name="pref_delete_all_models_title">Delete all downloaded models</string>
+    
+    <!-- Transcription delete -->
+    <string name="pref_delete_all_transcription_models_summary">Remove all downloaded transcription models to free up storage space</string>
+    <string name="pref_delete_all_transcription_models_confirm_title">Delete transcription models?</string>
+    <string name="pref_delete_all_transcription_models_confirm_message">This will delete all downloaded transcription models. You will need to re-download them to use local transcription again.</string>
+    <string name="pref_delete_all_transcription_models_success">Deleted %1$d transcription models.</string>
+    <string name="pref_delete_all_transcription_models_none">No downloaded transcription models found.</string>
+
 </resources>
