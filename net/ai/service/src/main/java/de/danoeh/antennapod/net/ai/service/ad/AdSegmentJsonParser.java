@@ -1,8 +1,5 @@
 package de.danoeh.antennapod.net.ai.service.ad;
 
-import android.text.TextUtils;
-import android.util.Log;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -16,15 +13,13 @@ import de.danoeh.antennapod.model.ad.AdSegment;
  * Converts model JSON responses into validated ad segments.
  */
 public final class AdSegmentJsonParser {
-    private static final String TAG = "AdSegmentJsonParser";
-
     private AdSegmentJsonParser() {
     }
 
     public static List<AdSegment> parse(String rawJson) {
         List<AdSegment> segments = new ArrayList<>();
         String sanitized = sanitize(rawJson);
-        if (TextUtils.isEmpty(sanitized)) {
+        if (sanitized == null || sanitized.isEmpty()) {
             return segments;
         }
         try {
@@ -46,14 +41,14 @@ public final class AdSegmentJsonParser {
                     segments.add(new AdSegment(start, end, reason, confidence));
                 }
             }
-        } catch (JSONException e) {
-            Log.w(TAG, "Ignoring invalid ad analysis JSON", e);
+        } catch (JSONException ignored) {
+            // Invalid model output produces no segments.
         }
         return segments;
     }
 
     public static String sanitize(String raw) {
-        if (TextUtils.isEmpty(raw)) {
+        if (raw == null || raw.isEmpty()) {
             return raw;
         }
         String cleaned = raw.trim();
