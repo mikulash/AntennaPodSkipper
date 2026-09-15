@@ -115,6 +115,7 @@ public class MediaDownloadedHandler implements Runnable {
         }
 
         if (mediaSaved && item != null && item.isTagged(FeedItem.TAG_QUEUE)
+                && UserPreferences.isAdSkipEnabled()
                 && UserPreferences.isAutoAnalyzeQueuedEpisodesEnabled()
                 && !AdAnalysisWorkScheduler.enqueueManual(context, media)) {
             Log.w(TAG, "Could not schedule automatic analysis for queued episode " + item.getId());
