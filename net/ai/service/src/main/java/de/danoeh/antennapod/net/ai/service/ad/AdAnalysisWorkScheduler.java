@@ -6,7 +6,6 @@ import android.text.TextUtils;
 import android.util.Base64;
 
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.work.Constraints;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
@@ -28,7 +27,6 @@ import de.danoeh.antennapod.storage.preferences.CloudAiPreferences;
  * currently running work, while retries recover from a failed or cancelled
  * queue chain.
  */
-@RequiresApi(api = Build.VERSION_CODES.O)
 public final class AdAnalysisWorkScheduler {
     /** Shared queue name — all episodes share this so they execute serially. */
     public static final String QUEUE_NAME = "ad-analysis-queue";
@@ -93,6 +91,9 @@ public final class AdAnalysisWorkScheduler {
      * @return true only when work was actually added to WorkManager
      */
     public static boolean enqueueManual(Context context, FeedMedia media) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return false;
+        }
         return enqueue(context, media, false);
     }
 
@@ -101,6 +102,9 @@ public final class AdAnalysisWorkScheduler {
      * skips transcription. Returns false if it could not be queued (missing media or credentials).
      */
     public static boolean enqueueAnalysisOnly(Context context, FeedMedia media) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return false;
+        }
         return enqueue(context, media, true);
     }
 
@@ -116,8 +120,8 @@ public final class AdAnalysisWorkScheduler {
             return false;
         }
         Data input = new Data.Builder()
-                .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, item.getId())
-                .putBoolean(AdAnalysisWorker.DATA_ANALYSIS_ONLY, analysisOnly)
+                .putLong(AdAnalysisWorkData.FEED_ITEM_ID, item.getId())
+                .putBoolean(AdAnalysisWorkData.ANALYSIS_ONLY, analysisOnly)
                 .build();
 
         // Only require network if not running in fully local mode

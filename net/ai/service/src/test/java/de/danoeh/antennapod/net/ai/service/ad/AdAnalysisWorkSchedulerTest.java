@@ -103,40 +103,40 @@ public class AdAnalysisWorkSchedulerTest {
     public void testDataBuilder_containsFeedItemId() {
         long feedItemId = 54321L;
         Data input = new Data.Builder()
-                .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, feedItemId)
+                .putLong(AdAnalysisWorkData.FEED_ITEM_ID, feedItemId)
                 .build();
 
-        assertEquals(feedItemId, input.getLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, -1));
+        assertEquals(feedItemId, input.getLong(AdAnalysisWorkData.FEED_ITEM_ID, -1));
     }
 
     @Test
     public void testDataBuilder_zeroId() {
         long feedItemId = 0L;
         Data input = new Data.Builder()
-                .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, feedItemId)
+                .putLong(AdAnalysisWorkData.FEED_ITEM_ID, feedItemId)
                 .build();
 
-        assertEquals(0L, input.getLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, -1));
+        assertEquals(0L, input.getLong(AdAnalysisWorkData.FEED_ITEM_ID, -1));
     }
 
     @Test
     public void testDataBuilder_negativeId() {
         long feedItemId = -1L;
         Data input = new Data.Builder()
-                .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, feedItemId)
+                .putLong(AdAnalysisWorkData.FEED_ITEM_ID, feedItemId)
                 .build();
 
-        assertEquals(-1L, input.getLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, 0));
+        assertEquals(-1L, input.getLong(AdAnalysisWorkData.FEED_ITEM_ID, 0));
     }
 
     @Test
     public void testDataBuilder_largeId() {
         long feedItemId = 9999999999L;
         Data input = new Data.Builder()
-                .putLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, feedItemId)
+                .putLong(AdAnalysisWorkData.FEED_ITEM_ID, feedItemId)
                 .build();
 
-        assertEquals(9999999999L, input.getLong(AdAnalysisWorker.DATA_FEED_ITEM_ID, -1));
+        assertEquals(9999999999L, input.getLong(AdAnalysisWorkData.FEED_ITEM_ID, -1));
     }
 
     // ==================== Network Requirement Tests ====================

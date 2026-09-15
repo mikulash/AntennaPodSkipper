@@ -322,7 +322,6 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
             de.danoeh.antennapod.net.ai.service.ad.vosk.VoskTranscriptionManager tm,
             String initialModel) {
 
-        java.util.List<de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel> models = tm.getAvailableModels();
         // Find current selection
         String currentModel = feedPreferences.getTranscriptionModel();
         if (currentModel == null) {
@@ -356,6 +355,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
         radioGroup.addView(globalDefault);
 
         // Local models section
+        java.util.List<de.danoeh.antennapod.net.ai.service.ad.vosk.VoskModel> models = tm.getAvailableModels();
         if (!models.isEmpty()) {
             android.widget.TextView localHeader = new android.widget.TextView(requireContext());
             localHeader.setText(getString(R.string.transcription_section_local));

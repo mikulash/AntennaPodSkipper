@@ -3,7 +3,6 @@ package de.danoeh.antennapod.actionbutton;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
 import android.provider.Settings;
@@ -165,18 +164,11 @@ public class CompleteAnalysisActionButton extends ItemActionButton {
 
     private void openBatteryOptimizationSettings(Context context) {
         try {
-            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                    Uri.parse("package:" + context.getPackageName()));
+            Intent intent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(intent);
-        } catch (Exception e) {
-            try {
-                Intent intent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                context.startActivity(intent);
-            } catch (Exception ignored) {
-                // No battery optimization settings screen available on this device.
-            }
+        } catch (Exception ignored) {
+            // No battery optimization settings screen available on this device.
         }
     }
 

@@ -15,7 +15,6 @@ import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
  * Creates both transcription providers (audio → text) and transcript analysis providers (text → ads).
  * Supports cloud-based (OpenAI or Azure AI Foundry) and local (Vosk) providers.
  */
-@RequiresApi(api = Build.VERSION_CODES.O)
 public final class AdAnalysisProviderFactory {
     private static final String TAG = "AdAnalysisProvFactory";
     public static final String CLOUD_TRANSCRIPTION_OVERRIDE = "cloud:configured_provider";
@@ -29,6 +28,7 @@ public final class AdAnalysisProviderFactory {
      * @param modelOverride Optional model ID to override global preference
      * @param languageOverride Optional language code for cloud transcription
      */
+    @RequiresApi(api = Build.VERSION_CODES.O)
     public static TranscriptionProvider createTranscriptionProvider(Context context, String modelOverride,
             String languageOverride) {
         if (usesCloudTranscription(context, modelOverride)) {
@@ -64,6 +64,7 @@ public final class AdAnalysisProviderFactory {
      * Creates the configured cloud transcript analysis provider.
      * Local ad analysis has been removed - always use cloud-based analysis.
      */
+    @RequiresApi(api = Build.VERSION_CODES.O)
     public static TranscriptAnalysisProvider createAnalysisProvider(Context context) {
         Log.i(TAG, "Creating CloudTranscriptAnalysisProvider");
         return new CloudTranscriptAnalysisProvider(context);

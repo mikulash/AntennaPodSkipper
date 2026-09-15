@@ -505,8 +505,9 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
                             .setMessage(
                                     "The selected model is not downloaded. "
                                             + "Please download it in 'Manage Models' first.")
-                            .setPositiveButton("Go to Manage Models", (d, w) -> ((de.danoeh.antennapod.ui.preferences.PreferenceController) requireActivity())
-                                    .openScreen(new TranscriptionModelManagerFragment()))
+                            .setPositiveButton("Go to Manage Models", (d, w) ->
+                                    ((de.danoeh.antennapod.ui.preferences.PreferenceController) requireActivity())
+                                            .openScreen(new TranscriptionModelManagerFragment()))
                             .setNegativeButton(android.R.string.cancel, null)
                             .show();
                 }

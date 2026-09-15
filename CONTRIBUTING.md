@@ -42,6 +42,8 @@ Submit a pull request
   - If possible, add unit tests for your pull request and make sure that they pass.
   - Please do not upgrade dependencies or build tools unless you have a good reason for it. Doing so can easily introduce bugs that are hard to track down.
   - Please follow our code style. You can use Checkstyle within Android Studio using our [configuration file](https://github.com/AntennaPod/AntennaPod/blob/develop/config/checkstyle/checkstyle.xml).
+    The project configures the CheckStyle-IDEA plugin automatically and formats Java plus layout XML on save.
+    If Android Studio asks, install the recommended CheckStyle-IDEA and File Watchers plugins.
   - To check the code style locally, run `./gradlew checkstyle spotbugsPlayDebug spotbugsDebug :app:lintPlayDebug`
   - Please only change the English string resources. Translations are handled on [Transifex](https://www.transifex.com/antennapod/antennapod/).
 - Open the PR

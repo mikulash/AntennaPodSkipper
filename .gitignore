@@ -27,8 +27,13 @@ build.xml
 #eclipse project files
 .metadata
 .settings
-#IntelliJ project files
-.idea
+# IntelliJ/Android Studio project files
+.idea/*
+!.idea/checkstyle-idea.xml
+!.idea/codeStyles/
+!.idea/codeStyles/**
+!.idea/externalDependencies.xml
+!.idea/watcherTasks.xml
 *.iml
 gen-external-apklibs
 out

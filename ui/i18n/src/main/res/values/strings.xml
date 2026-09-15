@@ -1063,14 +1063,7 @@
     <string name="pref_openai_analysis_model_summary">OpenAI model ID used for ad analysis</string>
     <string name="pref_openai_transcription_model_title">Transcription model</string>
     <string name="pref_openai_transcription_model_summary">OpenAI audio transcription model ID</string>
-    <string name="action_analyze_ads">Analyze ads</string>
-    <string name="ad_analysis_requires_download">Download the episode first to analyze ads.</string>
-    <string name="ad_analysis_missing_key">Configure cloud AI credentials to run ad analysis.</string>
     <string name="ad_analysis_invalid_key">Ad analysis failed: Your cloud AI credentials are invalid. Update them in settings.</string>
-    <string name="ad_analysis_requested">Ad analysis requested.</string>
-    <string name="ad_analysis_overwrite_title">Replace existing analysis?</string>
-    <string name="ad_analysis_overwrite_message">This episode already has ad detection results. Running analysis again will overwrite the existing data.</string>
-    <string name="ad_analysis_overwrite_confirm">Overwrite and analyze</string>
     <string name="ad_analysis_again">Analyze again</string>
     <string name="ad_segments_title">AI analysis</string>
     <string name="ad_segments_total_length">Total ad length: %1$s</string>
@@ -1081,16 +1074,8 @@
     <string name="ad_analysis_transcribing">Transcribing</string>
     <string name="ad_analysis_analyzing">Analyzing</string>
     <string name="ad_analysis_notification_title">Analyzing ads</string>
-    <string name="ad_analysis_requires_transcript">Transcribe the episode first before analyzing ads.</string>
-    <string name="action_transcribe">Transcribe</string>
     <string name="action_complete_analysis">Run ad analysis</string>
     <string name="transcription_requires_download">Download the episode first to transcribe.</string>
-    <string name="transcription_requested">Transcription requested.</string>
-    <string name="transcription_overwrite_title">Replace existing transcript?</string>
-    <string name="transcription_overwrite_message">This episode already has a transcript. Running transcription again will overwrite it.</string>
-    <string name="transcription_overwrite_confirm">Overwrite and transcribe</string>
-
-    <string name="transcription_again">Transcribe again</string>
 
     <string name="action_download_model_file">Download</string>
     <string name="action_delete_model_file">Delete</string>
@@ -1132,11 +1117,9 @@
     <string name="not_downloaded">Not downloaded</string>
     <string name="transcription_api_key_missing_title">API Key Required</string>
     <string name="transcription_api_key_missing_message">Cloud AI features require OpenAI or Azure AI Foundry credentials. Please configure your cloud provider in settings.</string>
-    <string name="transcription_already_running_title">Transcription In Progress</string>
-    <string name="transcription_already_running_message">Another transcription is currently running. Only one local transcription can run at a time due to constraints of the transcription library. Please wait for the current transcription to complete.</string>
     <string name="ad_analysis_battery_opt_title">Keep analysis running</string>
-    <string name="ad_analysis_battery_opt_message">To keep transcribing and analyzing episodes when the screen is off or you switch apps, allow this app to ignore battery optimizations. Otherwise the system may pause or stop the analysis in the background.</string>
-    <string name="ad_analysis_battery_opt_allow">Allow</string>
+    <string name="ad_analysis_battery_opt_message">To keep transcribing and analyzing episodes when the screen is off or you switch apps, exclude this app from battery optimization in system settings. Otherwise the system may pause or stop the analysis in the background.</string>
+    <string name="ad_analysis_battery_opt_allow">Open settings</string>
     <string name="ad_analysis_battery_opt_later">Not now</string>
     <string name="ad_analysis_reanalyze_transcript">Re-analyze transcript</string>
 

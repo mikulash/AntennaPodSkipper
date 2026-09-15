@@ -52,9 +52,6 @@ import de.danoeh.antennapod.ui.transcript.TranscriptUtils;
  */
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class AdAnalysisWorker extends Worker {
-    public static final String DATA_FEED_ITEM_ID = "feedItemId";
-    /** When true, reuse an existing stored transcript and run only the ad-analysis step. */
-    public static final String DATA_ANALYSIS_ONLY = "analysisOnly";
     private static final String TAG = "AdAnalysisWorker";
     private static final int FOREGROUND_NOTIFICATION_ID = 0x0AD0A11;
 
@@ -67,7 +64,7 @@ public class AdAnalysisWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
-        long feedItemId = getInputData().getLong(DATA_FEED_ITEM_ID, -1);
+        long feedItemId = getInputData().getLong(AdAnalysisWorkData.FEED_ITEM_ID, -1);
         AdAnalysisRunObserver runObserver = new AdAnalysisRunObserver(feedItemId);
 
         if (feedItemId <= 0) {
@@ -90,7 +87,7 @@ public class AdAnalysisWorker extends Worker {
 
         // Analysis-only mode reuses the transcript already stored for this episode and skips the
         // (expensive) transcription step. Falls back to a full run if no transcript is available.
-        boolean analysisOnly = getInputData().getBoolean(DATA_ANALYSIS_ONLY, false);
+        boolean analysisOnly = getInputData().getBoolean(AdAnalysisWorkData.ANALYSIS_ONLY, false);
         String existingTranscript = analysisOnly ? loadExistingTranscript(media) : null;
         boolean skipTranscription = !TextUtils.isEmpty(existingTranscript);
 
