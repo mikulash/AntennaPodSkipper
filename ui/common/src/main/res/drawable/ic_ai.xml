@@ -7,8 +7,8 @@
     android:viewportHeight="24">
 
     <path
-        android:fillColor="#FFFFFFFF"
-        android:strokeColor="#FFFFFFFF"
+        android:fillColor="?attr/action_icon_color"
+        android:strokeColor="?attr/action_icon_color"
         android:strokeWidth="1.4"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
