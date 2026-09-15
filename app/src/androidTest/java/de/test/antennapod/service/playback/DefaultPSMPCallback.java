@@ -38,8 +38,9 @@ public class DefaultPSMPCallback implements PlaybackServiceMediaPlayer.PSMPCallb
     }
 
     @Override
-    public Playable getNextInQueue(Playable currentMedia) {
-        return null;
+    public void getNextInQueue(Playable currentMedia,
+                               PlaybackServiceMediaPlayer.NextInQueueCallback callback) {
+        callback.onResult(null);
     }
 
     @Nullable

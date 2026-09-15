@@ -1,7 +1,5 @@
 package de.danoeh.antennapod.net.ai.service.ad;
 
-import android.text.TextUtils;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -44,9 +42,34 @@ public final class AdSegmentMerger {
         return merged;
     }
 
+    public static List<AdSegment> expandAndMerge(List<AdSegment> segments, double paddingSeconds,
+                                                  double episodeDurationSeconds) {
+        if (segments == null || segments.isEmpty()) {
+            return new ArrayList<>();
+        }
+        double safePadding = Math.max(0, paddingSeconds);
+        boolean clampToDuration = episodeDurationSeconds > 0 && Double.isFinite(episodeDurationSeconds);
+        List<AdSegment> expanded = new ArrayList<>(segments.size());
+        for (AdSegment segment : segments) {
+            if (segment == null) {
+                continue;
+            }
+            double start = Math.max(0, segment.getStartSeconds() - safePadding);
+            double end = segment.getEndSeconds() + safePadding;
+            if (clampToDuration) {
+                end = Math.min(end, episodeDurationSeconds);
+            }
+            if (end > start) {
+                expanded.add(new AdSegment(start, end, segment.getReason(), segment.getConfidence()));
+            }
+        }
+        return merge(expanded);
+    }
+
     private static AdSegment mergePair(AdSegment first, AdSegment second) {
         double end = Math.max(first.getEndSeconds(), second.getEndSeconds());
-        String reason = TextUtils.isEmpty(first.getReason()) ? second.getReason() : first.getReason();
+        String reason = first.getReason() == null || first.getReason().isEmpty()
+                ? second.getReason() : first.getReason();
         double confidence = Math.max(first.getConfidence(), second.getConfidence());
         return new AdSegment(first.getStartSeconds(), end, reason, confidence);
     }

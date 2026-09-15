@@ -78,7 +78,6 @@ public class LocalTranscriptionProvider implements TranscriptionProvider {
                 File audioFile = chunkPath.toFile();
                 // Keep provider output relative to the chunk. The worker applies the episode offset once.
                 String vttResult = transcriptionManager.transcribeChunk(audioFile, 0);
-                Log.d(TAG, "Local transcription result: " + vttResult);
                 Log.d(TAG, "Local transcription " + chunkLabel + " complete, length=" + vttResult.length());
 
                 return vttResult;

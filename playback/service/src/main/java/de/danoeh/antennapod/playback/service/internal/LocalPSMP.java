@@ -721,16 +721,8 @@ public class LocalPSMP extends PlaybackServiceMediaPlayer {
         final boolean shouldContinueFinal = shouldContinue && callback.shouldContinueToNextEpisode();
 
         if (shouldContinueFinal) {
-            // Load next episode if previous episode was in the queue and if there
-            // is an episode in the queue left.
-            // Start playback immediately if continuous playback is enabled
-            // Fetch next item on background thread to avoid DB I/O on main thread
-            executor.execute(() -> {
-                final Playable nextMedia = callback.getNextInQueue(currentMedia);
-                // Post back to main thread for player operations
-                mainHandler.post(() -> onEndPlaybackAfterFetch(
-                        hasEnded, wasSkipped, true, toStoppedState, isPlaying, currentMedia, nextMedia));
-            });
+            callback.getNextInQueue(currentMedia, nextMedia -> onEndPlaybackAfterFetch(
+                    hasEnded, wasSkipped, true, toStoppedState, isPlaying, currentMedia, nextMedia));
         } else {
             // No need to fetch next item, finish immediately
             onEndPlaybackAfterFetch(hasEnded, wasSkipped, false, toStoppedState, isPlaying, currentMedia, null);

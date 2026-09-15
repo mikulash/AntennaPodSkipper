@@ -2,7 +2,11 @@ package de.danoeh.antennapod.net.ai.service.ad;
 
 import org.junit.Test;
 
-import java.util.Locale;
+import java.io.File;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.file.Files;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -22,73 +26,85 @@ public class AudioChunkUtilsTest {
     private static final String MIME_WEBM = "audio/webm";
     private static final String MIME_WAV = "audio/wav";
     private static final String MIME_WAVE = "audio/x-wav";
+    private static final String MIME_OPUS = "audio/opus";
+    private static final String MIME_RAW = "audio/raw";
 
     // ==================== MIME Type Validation Tests ====================
 
     @Test
     public void testIsOpenAiSupportedMime_mp3() {
-        assertTrue(isOpenAiSupportedMime(MIME_MP3));
+        assertTrue(AudioChunkUtils.isSupportedTrackMime(MIME_MP3));
     }
 
     @Test
     public void testIsOpenAiSupportedMime_aac() {
-        assertTrue(isOpenAiSupportedMime(MIME_AAC));
+        assertTrue(AudioChunkUtils.isSupportedTrackMime(MIME_AAC));
     }
 
     @Test
     public void testIsOpenAiSupportedMime_mp4() {
-        assertTrue(isOpenAiSupportedMime(MIME_MP4));
+        assertTrue(AudioChunkUtils.isSupportedTrackMime(MIME_MP4));
     }
 
     @Test
     public void testIsOpenAiSupportedMime_webm() {
-        assertTrue(isOpenAiSupportedMime(MIME_WEBM));
+        assertTrue(AudioChunkUtils.isSupportedTrackMime(MIME_WEBM));
     }
 
     @Test
     public void testIsOpenAiSupportedMime_wav() {
-        assertTrue(isOpenAiSupportedMime(MIME_WAV));
+        assertTrue(AudioChunkUtils.isSupportedTrackMime(MIME_WAV));
     }
 
     @Test
     public void testIsOpenAiSupportedMime_xwav() {
-        assertTrue(isOpenAiSupportedMime(MIME_WAVE));
+        assertTrue(AudioChunkUtils.isSupportedTrackMime(MIME_WAVE));
+    }
+
+    @Test
+    public void testIsOpenAiSupportedMime_opusCodec() {
+        assertTrue(AudioChunkUtils.isSupportedTrackMime(MIME_OPUS));
+    }
+
+    @Test
+    public void testIsOpenAiSupportedMime_rawPcmCodec() {
+        assertTrue(AudioChunkUtils.isSupportedTrackMime(MIME_RAW));
     }
 
     @Test
     public void testIsOpenAiSupportedMime_uppercase() {
-        assertTrue(isOpenAiSupportedMime("AUDIO/MPEG"));
-        assertTrue(isOpenAiSupportedMime("AUDIO/MP4A-LATM"));
+        assertTrue(AudioChunkUtils.isSupportedTrackMime("AUDIO/MPEG"));
+        assertTrue(AudioChunkUtils.isSupportedTrackMime("AUDIO/MP4A-LATM"));
     }
 
     @Test
     public void testIsOpenAiSupportedMime_mixedCase() {
-        assertTrue(isOpenAiSupportedMime("Audio/Mpeg"));
-        assertTrue(isOpenAiSupportedMime("Audio/Mp4"));
+        assertTrue(AudioChunkUtils.isSupportedTrackMime("Audio/Mpeg"));
+        assertTrue(AudioChunkUtils.isSupportedTrackMime("Audio/Mp4"));
     }
 
     @Test
     public void testIsOpenAiSupportedMime_unsupported() {
-        assertFalse(isOpenAiSupportedMime("audio/ogg"));
-        assertFalse(isOpenAiSupportedMime("audio/flac"));
-        assertFalse(isOpenAiSupportedMime("audio/vorbis"));
-        assertFalse(isOpenAiSupportedMime("video/mp4"));
+        assertFalse(AudioChunkUtils.isSupportedTrackMime("audio/ogg"));
+        assertFalse(AudioChunkUtils.isSupportedTrackMime("audio/flac"));
+        assertFalse(AudioChunkUtils.isSupportedTrackMime("audio/vorbis"));
+        assertFalse(AudioChunkUtils.isSupportedTrackMime("video/mp4"));
     }
 
     @Test
     public void testIsOpenAiSupportedMime_null() {
-        assertFalse(isOpenAiSupportedMime(null));
+        assertFalse(AudioChunkUtils.isSupportedTrackMime(null));
     }
 
     @Test
     public void testIsOpenAiSupportedMime_empty() {
-        assertFalse(isOpenAiSupportedMime(""));
+        assertFalse(AudioChunkUtils.isSupportedTrackMime(""));
     }
 
     @Test
     public void testIsOpenAiSupportedMime_withSuffix() {
         // OpenAI accepts various audio/mpeg subtypes
-        assertTrue(isOpenAiSupportedMime("audio/mpeg; codecs=mp3"));
+        assertTrue(AudioChunkUtils.isSupportedTrackMime("audio/mpeg; codecs=mp3"));
     }
 
     // ==================== Chunk Calculation Tests ====================
@@ -219,14 +235,40 @@ public class AudioChunkUtilsTest {
 
     @Test
     public void testFileExtension_mp3() {
-        String extension = getExtensionForMime(MIME_MP3);
+        String extension = AudioChunkUtils.getChunkFileExtension(MIME_MP3);
         assertEquals(".mp3", extension);
     }
 
     @Test
-    public void testFileExtension_default() {
-        String extension = getExtensionForMime(MIME_AAC);
-        assertEquals(".m4a", extension);
+    public void testFileExtension_matchesChunkContainer() {
+        assertEquals(".m4a", AudioChunkUtils.getChunkFileExtension(MIME_AAC));
+        assertEquals(".webm", AudioChunkUtils.getChunkFileExtension(MIME_OPUS));
+        assertEquals(".webm", AudioChunkUtils.getChunkFileExtension(MIME_WEBM));
+        assertEquals(".wav", AudioChunkUtils.getChunkFileExtension(MIME_RAW));
+        assertEquals(".wav", AudioChunkUtils.getChunkFileExtension(MIME_WAV));
+    }
+
+    @Test
+    public void testWavHeader_containsPcmMetadataAndDataLength() throws Exception {
+        File output = File.createTempFile("audio_chunk_test", ".wav");
+        try {
+            try (RandomAccessFile wav = new RandomAccessFile(output, "rw")) {
+                AudioChunkUtils.writeWavHeader(wav, 1, 2, 48_000, 16, 96_000);
+            }
+            byte[] header = Files.readAllBytes(output.toPath());
+            ByteBuffer values = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN);
+
+            assertEquals("RIFF", new String(header, 0, 4, java.nio.charset.StandardCharsets.US_ASCII));
+            assertEquals(96_036, values.getInt(4));
+            assertEquals("WAVE", new String(header, 8, 4, java.nio.charset.StandardCharsets.US_ASCII));
+            assertEquals(2, values.getShort(22));
+            assertEquals(48_000, values.getInt(24));
+            assertEquals(192_000, values.getInt(28));
+            assertEquals(16, values.getShort(34));
+            assertEquals(96_000, values.getInt(40));
+        } finally {
+            assertTrue(output.delete() || !output.exists());
+        }
     }
 
     // ==================== Audio Track Selection Logic Tests ====================
@@ -244,29 +286,7 @@ public class AudioChunkUtilsTest {
         assertFalse("text/plain".startsWith("audio/"));
     }
 
-    // ==================== Helper Methods (mirrors AudioChunkUtils logic) ====================
-
-    private boolean isOpenAiSupportedMime(String mime) {
-        if (mime == null) {
-            return false;
-        }
-        String normalized = mime.toLowerCase(Locale.US);
-        return normalized.startsWith(MIME_MP3)
-                || normalized.startsWith(MIME_AAC)
-                || normalized.startsWith(MIME_MP4)
-                || normalized.startsWith(MIME_WEBM)
-                || normalized.startsWith(MIME_WAV)
-                || normalized.startsWith(MIME_WAVE);
-    }
-
     private int calculateExpectedChunks(long durationSeconds, long chunkDurationSeconds) {
         return (int) Math.ceil((double) durationSeconds / chunkDurationSeconds);
-    }
-
-    private String getExtensionForMime(String mime) {
-        if (MIME_MP3.equalsIgnoreCase(mime)) {
-            return ".mp3";
-        }
-        return ".m4a"; // Default for muxed output
     }
 }

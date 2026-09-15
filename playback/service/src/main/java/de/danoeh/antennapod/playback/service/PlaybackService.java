@@ -989,8 +989,9 @@ public class PlaybackService extends MediaBrowserServiceCompat {
         }
 
         @Override
-        public Playable getNextInQueue(Playable currentMedia) {
-            return PlaybackService.this.getNextInQueue(currentMedia);
+        public void getNextInQueue(Playable currentMedia,
+                                   PlaybackServiceMediaPlayer.NextInQueueCallback callback) {
+            PlaybackService.this.getNextInQueue(currentMedia, callback);
         }
 
         @Override
@@ -1070,36 +1071,41 @@ public class PlaybackService extends MediaBrowserServiceCompat {
         }
     }
 
-    private Playable getNextInQueue(final Playable currentMedia) {
+    private void getNextInQueue(final Playable currentMedia,
+                                PlaybackServiceMediaPlayer.NextInQueueCallback callback) {
         if (!(currentMedia instanceof FeedMedia)) {
             Log.d(TAG, "getNextInQueue(), but playable not an instance of FeedMedia, so not proceeding");
             PlaybackPreferences.writeNoMediaPlaying();
-            return null;
+            callback.onResult(null);
+            return;
         }
         Log.d(TAG, "getNextInQueue()");
         FeedMedia media = (FeedMedia) currentMedia;
 
-        // Run DB operations on a background thread to avoid "I/O on main thread" crash.
-        // This method can be called from ExoPlayer's onPlaybackStateChanged callback
-        // which runs on the main thread.
-        FeedItem nextItem;
-        try {
-            nextItem = java.util.concurrent.Executors.newSingleThreadExecutor().submit(() -> {
-                if (media.getItem() == null) {
-                    media.setItem(DBReader.getFeedItem(media.getItemId()));
-                }
-                FeedItem item = media.getItem();
-                if (item == null) {
-                    return null;
-                }
-                return DBReader.getNextInQueue(item);
-            }).get();
-        } catch (Exception e) {
-            Log.e(TAG, "Error getting next item in queue", e);
-            PlaybackPreferences.writeNoMediaPlaying();
-            return null;
-        }
+        Disposable disposable = io.reactivex.rxjava3.core.Maybe.fromCallable(() -> {
+            if (media.getItem() == null) {
+                media.setItem(DBReader.getFeedItem(media.getItemId()));
+            }
+            FeedItem item = media.getItem();
+            if (item == null) {
+                return null;
+            }
+            return DBReader.getNextInQueue(item);
+        })
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                        nextItem -> callback.onResult(prepareNextInQueue(media, nextItem)),
+                        error -> {
+                            Log.e(TAG, "Error getting next item in queue", error);
+                            PlaybackPreferences.writeNoMediaPlaying();
+                            callback.onResult(null);
+                        },
+                        () -> callback.onResult(prepareNextInQueue(media, null)));
+        singleShotDisposables.add(disposable);
+    }
 
+    private Playable prepareNextInQueue(FeedMedia media, @Nullable FeedItem nextItem) {
         if (media.getItem() == null) {
             Log.w(TAG, "getNextInQueue() with FeedMedia object whose FeedItem is null");
             PlaybackPreferences.writeNoMediaPlaying();

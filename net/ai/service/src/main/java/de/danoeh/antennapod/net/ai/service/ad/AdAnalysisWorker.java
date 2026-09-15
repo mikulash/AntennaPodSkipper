@@ -345,7 +345,11 @@ public class AdAnalysisWorker extends Worker {
                 allSegments = analyzeChunksInParallel(analysisProvider, transcriptChunks, progressSink);
             }
 
-            List<AdSegment> mergedSegments = AdSegmentMerger.merge(allSegments);
+            double episodeDurationSeconds = item.getMedia() != null && item.getMedia().getDuration() > 0
+                    ? item.getMedia().getDuration() / 1000.0
+                    : Double.POSITIVE_INFINITY;
+            List<AdSegment> mergedSegments = AdSegmentMerger.expandAndMerge(
+                    allSegments, AdAnalysisConfig.AD_SEGMENT_PADDING_SECONDS, episodeDurationSeconds);
             Log.i(TAG, "Ad analysis finished: " + mergedSegments.size() + " segment(s) detected");
             AdSegmentStore.save(getApplicationContext(), feedItemId,
                     new AdAnalysisResult(mergedSegments, System.currentTimeMillis(),
