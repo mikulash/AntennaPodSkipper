@@ -7,7 +7,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,6 +21,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.activity.result.contract.ActivityResultContracts.GetContent;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import androidx.core.widget.NestedScrollView;
@@ -29,11 +33,12 @@ import de.danoeh.antennapod.activity.MainActivity;
 import de.danoeh.antennapod.activity.OpmlImportActivity;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.feed.Feed;
+import de.danoeh.antennapod.net.common.UrlChecker;
 import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
 import de.danoeh.antennapod.storage.database.FeedDatabaseWriter;
 import de.danoeh.antennapod.model.feed.SortOrder;
 import de.danoeh.antennapod.databinding.AddfeedBinding;
-import de.danoeh.antennapod.databinding.EditTextDialogBinding;
+import de.danoeh.antennapod.ui.common.databinding.EditTextDialogBinding;
 import de.danoeh.antennapod.net.discovery.CombinedSearcher;
 import de.danoeh.antennapod.net.discovery.FyydPodcastSearcher;
 import de.danoeh.antennapod.net.discovery.ItunesPodcastSearcher;
@@ -42,9 +47,10 @@ import de.danoeh.antennapod.ui.appstartintent.OnlineFeedviewActivityStarter;
 import de.danoeh.antennapod.ui.common.Keyboard;
 import de.danoeh.antennapod.ui.discovery.OnlineSearchFragment;
 import de.danoeh.antennapod.ui.screen.feed.FeedItemlistFragment;
-import de.danoeh.antennapod.ui.view.LiftOnScrollListener;
+import de.danoeh.antennapod.ui.common.LiftOnScrollListener;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
+import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import org.greenrobot.eventbus.EventBus;
 
@@ -59,6 +65,7 @@ public class AddFeedFragment extends Fragment {
     private static final String KEY_UP_ARROW = "up_arrow";
 
     private AddfeedBinding viewBinding;
+    private Disposable disposable;
     private MainActivity activity;
     private boolean displayUpArrow;
 
@@ -128,6 +135,15 @@ public class AddFeedFragment extends Fragment {
         super.onSaveInstanceState(outState);
     }
 
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (disposable != null) {
+            disposable.dispose();
+        }
+        viewBinding = null;
+    }
+
     private void showAddViaUrlDialog() {
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(getContext());
         builder.setTitle(R.string.add_podcast_by_url);
@@ -135,6 +151,23 @@ public class AddFeedFragment extends Fragment {
         dialogBinding.textInput.setHint(R.string.rss_address);
         dialogBinding.textInput.setInputType(InputType.TYPE_CLASS_TEXT
                 | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_VARIATION_URI);
+        dialogBinding.textInput.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void afterTextChanged(Editable editable) {
+                if (!TextUtils.isEmpty(dialogBinding.textInputLayout.getError())
+                        && UrlChecker.isValidUrl(editable.toString())) {
+                    dialogBinding.textInputLayout.setError(null);
+                }
+            }
+
+            @Override
+            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+            }
+        });
 
         ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
         final ClipData clipData = clipboard.getPrimaryClip();
@@ -145,10 +178,20 @@ public class AddFeedFragment extends Fragment {
             }
         }
         builder.setView(dialogBinding.getRoot());
-        builder.setPositiveButton(R.string.confirm_label,
-                (dialog, which) -> addUrl(dialogBinding.textInput.getText().toString()));
+        builder.setPositiveButton(R.string.confirm_label, null);
         builder.setNegativeButton(R.string.cancel_label, null);
-        builder.show();
+        AlertDialog alertDialog = builder.create();
+        alertDialog.show();
+
+        alertDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener((view) -> {
+            Editable inputText = dialogBinding.textInput.getText();
+            if (!UrlChecker.isValidUrl(inputText.toString())) {
+                dialogBinding.textInputLayout.setError(getText(R.string.rss_address_invalid));
+                return;
+            }
+            addUrl(inputText.toString());
+            alertDialog.dismiss();
+        });
     }
 
     private void addUrl(String url) {
@@ -180,8 +223,8 @@ public class AddFeedFragment extends Fragment {
         if (uri == null) {
             return;
         }
-        Observable.fromCallable(() -> addLocalFolder(uri))
-                .subscribeOn(Schedulers.io())
+        disposable = Observable.fromCallable(() -> addLocalFolder(uri))
+                .subscribeOn(Schedulers.computation())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
                         feed -> {

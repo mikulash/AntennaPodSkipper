@@ -11,11 +11,9 @@ import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.chapters.ChapterUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.greenrobot.eventbus.EventBus;
 import java.io.File;
 import java.io.InterruptedIOException;
 import java.util.concurrent.ExecutionException;
-import de.danoeh.antennapod.event.UnreadItemsUpdateEvent;
 import de.danoeh.antennapod.model.download.DownloadRequest;
 import de.danoeh.antennapod.model.download.DownloadResult;
 import de.danoeh.antennapod.storage.database.DBReader;
@@ -100,10 +98,7 @@ public class MediaDownloadedHandler implements Runnable {
                 // setFeedItem() signals (via EventBus) that the item has been updated,
                 // so we do it after the enclosing media has been updated above,
                 // to ensure subscribers will get the updated FeedMedia as well
-                DBWriter.setFeedItem(item).get();
-                if (broadcastUnreadStateUpdate) {
-                    EventBus.getDefault().post(new UnreadItemsUpdateEvent());
-                }
+                DBWriter.setFeedItem(item, broadcastUnreadStateUpdate).get();
             }
             mediaSaved = true;
         } catch (InterruptedException e) {

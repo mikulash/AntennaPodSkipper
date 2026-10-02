@@ -1,6 +1,5 @@
 package de.danoeh.antennapod.model.feed;
 
-import android.content.Context;
 import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -397,7 +396,7 @@ public class FeedMedia implements Playable {
     }
 
     public boolean isDownloaded() {
-        return downloadDate > 0;
+        return downloadDate > 0 || (item != null && item.getFeed() != null && item.getFeed().isLocalFeed());
     }
 
     public long getItemId() {
@@ -412,20 +411,6 @@ public class FeedMedia implements Playable {
     public void onPlaybackStart() {
         startPosition = Math.max(position, 0);
         playedDurationWhenStarted = playedDuration;
-    }
-
-    @Override
-    public void onPlaybackPause(Context context) {
-        if (position > startPosition) {
-            playedDuration = playedDurationWhenStarted + position - startPosition;
-            playedDurationWhenStarted = playedDuration;
-        }
-        startPosition = position;
-    }
-
-    @Override
-    public void onPlaybackCompleted(Context context) {
-        startPosition = -1;
     }
 
     @Override
@@ -506,6 +491,11 @@ public class FeedMedia implements Playable {
             e.printStackTrace();
             hasEmbeddedPicture = Boolean.FALSE;
         }
+    }
+
+    @Override
+    public int hashCode() {
+        return Long.hashCode(id);
     }
 
     @Override

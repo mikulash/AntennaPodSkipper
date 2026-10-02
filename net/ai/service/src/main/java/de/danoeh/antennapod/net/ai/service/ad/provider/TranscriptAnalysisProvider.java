@@ -33,4 +33,7 @@ public interface TranscriptAnalysisProvider extends AutoCloseable {
     default String analyzeTranscript(String prompt, ProgressListener listener) throws Exception {
         return analyzeTranscript(prompt);
     }
+
+    @Override
+    void close();
 }
