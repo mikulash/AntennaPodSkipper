@@ -458,7 +458,8 @@ public class Media3PlaybackService extends MediaLibraryService {
                                 }
                                 if (SkipUtils.skipEndingIfNecessary(this, currentPlayable, position, duration, speed)) {
                                     player.seekTo(player.getDuration());
-                                } else if (adSkipController != null) {
+                                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                                        && adSkipController != null) {
                                     adSkipController.onProgress(currentPlayable, (int) position);
                                 }
                             }
@@ -533,7 +534,7 @@ public class Media3PlaybackService extends MediaLibraryService {
     private void switchToPlayable(FeedMedia media) {
         currentPlayable = media;
         currentPlayable.onPlaybackStart();
-        if (adSkipController != null) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && adSkipController != null) {
             adSkipController.onPlayableChanged(currentPlayable);
         }
 
