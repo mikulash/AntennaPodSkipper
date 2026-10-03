@@ -15,7 +15,7 @@
         android:id="@android:id/title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Model Settings"
+        android:text="@string/pref_manual_model_settings_title"
         android:textAppearance="?android:attr/textAppearanceListItem"
         android:textSize="16sp"
         android:layout_marginBottom="8dp" />
@@ -39,7 +39,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Backend"
+                android:text="@string/pref_manual_model_backend"
                 android:textSize="12sp"
                 android:alpha="0.7"
                 android:layout_marginBottom="4dp" />
@@ -54,7 +54,7 @@
                     android:id="@+id/btn_gpu"
                     android:layout_width="wrap_content"
                     android:layout_height="40dp"
-                    android:text="GPU"
+                    android:text="@string/pref_manual_model_backend_gpu"
                     android:textSize="12sp"
                     android:minWidth="60dp"
                     style="?attr/materialButtonOutlinedStyle" />
@@ -63,7 +63,7 @@
                     android:id="@+id/btn_cpu"
                     android:layout_width="wrap_content"
                     android:layout_height="40dp"
-                    android:text="CPU"
+                    android:text="@string/pref_manual_model_backend_cpu"
                     android:textSize="12sp"
                     android:minWidth="60dp"
                     style="?attr/materialButtonOutlinedStyle" />
@@ -82,7 +82,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Max Tokens"
+                android:text="@string/pref_manual_model_max_tokens"
                 android:textSize="12sp"
                 android:alpha="0.7"
                 android:layout_marginBottom="4dp" />
@@ -97,7 +97,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="number"
-                    android:hint="512"
+                    android:hint="@string/pref_manual_model_max_tokens_hint"
                     android:maxLines="1" />
 
             </com.google.android.material.textfield.TextInputLayout>

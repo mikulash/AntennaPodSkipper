@@ -1148,6 +1148,13 @@
 
     <string name="pref_manage_transcription_models_title">Manage Models</string>
     <string name="pref_manage_transcription_models_summary">Download, delete, and view available transcription models</string>
+    <string name="pref_transcription_models_empty">No models available</string>
+    <string name="pref_manual_model_settings_title">Model Settings</string>
+    <string name="pref_manual_model_backend">Backend</string>
+    <string name="pref_manual_model_backend_gpu">GPU</string>
+    <string name="pref_manual_model_backend_cpu">CPU</string>
+    <string name="pref_manual_model_max_tokens">Max Tokens</string>
+    <string name="pref_manual_model_max_tokens_hint">512</string>
 
     <string name="download_starting">Starting…</string>
 
