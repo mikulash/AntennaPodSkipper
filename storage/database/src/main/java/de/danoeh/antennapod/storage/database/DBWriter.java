@@ -35,12 +35,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 
-import de.danoeh.antennapod.event.FavoritesEvent;
 import de.danoeh.antennapod.event.FeedItemEvent;
 import de.danoeh.antennapod.event.FeedListUpdateEvent;
 import de.danoeh.antennapod.event.playback.PlaybackHistoryEvent;
 import de.danoeh.antennapod.event.QueueEvent;
-import de.danoeh.antennapod.event.UnreadItemsUpdateEvent;
 import de.danoeh.antennapod.event.FeedEvent;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
@@ -108,14 +106,16 @@ public class DBWriter {
             if (media == null) {
                 return;
             }
-            boolean result = deleteFeedMediaSynchronous(context, media);
-            if (result && UserPreferences.shouldDeleteRemoveFromQueue()) {
+            deleteFeedMediaSynchronous(context, media);
+            EventBus.getDefault().post(new FeedItemEvent(media.getItem() != null
+                    ? Collections.singletonList(media.getItem()) : Collections.emptyList(), false));
+            if (UserPreferences.shouldDeleteRemoveFromQueue()) {
                 DBWriter.removeQueueItemSynchronous(context, false, media.getItemId());
             }
         });
     }
 
-    private static boolean deleteFeedMediaSynchronous(@NonNull Context context, @NonNull FeedMedia media) {
+    private static void deleteFeedMediaSynchronous(@NonNull Context context, @NonNull FeedMedia media) {
         Log.i(TAG, String.format(Locale.US, "Requested to delete FeedMedia [id=%d, title=%s, downloaded=%s",
                 media.getId(), media.getEpisodeTitle(), media.isDownloaded()));
         boolean localDelete = false;
@@ -146,7 +146,7 @@ public class DBWriter {
             media.setHasEmbeddedPicture(false);
             PodDBAdapter adapter = PodDBAdapter.getInstance();
             adapter.open();
-            adapter.setMedia(media);
+            adapter.setMediaDownloadInformation(media);
             adapter.close();
         }
 
@@ -169,10 +169,7 @@ public class DBWriter {
                                 .currentTimestamp()
                                 .build());
             }
-
-            EventBus.getDefault().post(FeedItemEvent.updated(media.getItem()));
         }
-        return true;
     }
 
     /**
@@ -219,6 +216,7 @@ public class DBWriter {
     private static void deleteFeedItemsSynchronous(@NonNull Context context, @NonNull List<FeedItem> items) {
         List<FeedItem> queue = DBReader.getQueue();
         List<FeedItem> removedFromQueue = new ArrayList<>();
+        List<FeedItem> deleted = new ArrayList<>();
         for (FeedItem item : items) {
             if (queue.remove(item)) {
                 removedFromQueue.add(item);
@@ -235,6 +233,7 @@ public class DBWriter {
                     }
                     if (item.getMedia().isDownloaded()) {
                         deleteFeedMediaSynchronous(context, item.getMedia());
+                        deleted.add(item);
                     }
                 }
             }
@@ -252,6 +251,7 @@ public class DBWriter {
         for (FeedItem item : removedFromQueue) {
             EventBus.getDefault().post(QueueEvent.irreversibleRemoved(item));
         }
+        EventBus.getDefault().post(new FeedItemEvent(deleted, false));
 
         // we assume we also removed download log entries for the feed or its media files.
         // especially important if download or refresh failed, as the user should not be able
@@ -327,16 +327,14 @@ public class DBWriter {
      * @param date  LastPlayedTimeHistory for <code>media</code>
      */
     public static Future<?> addItemToPlaybackHistory(final FeedMedia media, Date date) {
+        media.setLastPlayedTimeHistory(date);
         return runOnDbThread(() -> {
             Log.d(TAG, "Adding item to playback history");
-            media.setLastPlayedTimeHistory(date);
-
             PodDBAdapter adapter = PodDBAdapter.getInstance();
             adapter.open();
             adapter.setFeedMediaLastPlayedTimeHistory(media);
             adapter.close();
             EventBus.getDefault().post(PlaybackHistoryEvent.listUpdated());
-
         });
     }
 
@@ -378,9 +376,9 @@ public class DBWriter {
                     adapter.setQueue(queue);
                     item.addTag(FeedItem.TAG_QUEUE);
                     EventBus.getDefault().post(QueueEvent.added(item, index));
-                    EventBus.getDefault().post(FeedItemEvent.updated(item));
+                    EventBus.getDefault().post(new FeedItemEvent(Collections.singletonList(item), false));
                     if (item.isNew()) {
-                        DBWriter.markItemPlayed(FeedItem.UNPLAYED, item.getId());
+                        DBWriter.markItemsPlayed(FeedItem.UNPLAYED, false, Collections.singletonList(item));
                     }
                 }
             }
@@ -407,7 +405,7 @@ public class DBWriter {
             adapter.open();
             final List<FeedItem> queue = DBReader.getQueue();
 
-            LongList markAsUnplayedIds = new LongList();
+            List<FeedItem>  markAsUnplayed = new ArrayList<>();
             List<QueueEvent> events = new ArrayList<>();
             List<FeedItem> updatedItems = new ArrayList<>();
             ItemEnqueuePositionCalculator positionCalculator =
@@ -426,7 +424,7 @@ public class DBWriter {
                 item.addTag(FeedItem.TAG_QUEUE);
                 updatedItems.add(item);
                 if (item.isNew()) {
-                    markAsUnplayedIds.add(item.getId());
+                    markAsUnplayed.add(item);
                 }
                 insertPosition++;
             }
@@ -436,10 +434,8 @@ public class DBWriter {
                 for (QueueEvent event : events) {
                     EventBus.getDefault().post(event);
                 }
-                EventBus.getDefault().post(FeedItemEvent.updated(updatedItems));
-                if (markAsUnplayedIds.size() > 0) {
-                    DBWriter.markItemPlayed(FeedItem.UNPLAYED, markAsUnplayedIds.toArray());
-                }
+                EventBus.getDefault().post(new FeedItemEvent(updatedItems, false));
+                DBWriter.markItemsPlayed(FeedItem.UNPLAYED, false, markAsUnplayed);
             }
             adapter.close();
             AutoDownloadManager.getInstance().autodownloadUndownloadedItems(context);
@@ -482,7 +478,6 @@ public class DBWriter {
             adapter.open();
             adapter.clearQueue();
             adapter.close();
-
             EventBus.getDefault().post(QueueEvent.cleared());
         });
     }
@@ -540,7 +535,7 @@ public class DBWriter {
             for (QueueEvent event : events) {
                 EventBus.getDefault().post(event);
             }
-            EventBus.getDefault().post(FeedItemEvent.updated(updatedItems));
+            EventBus.getDefault().post(new FeedItemEvent(updatedItems, false));
         } else {
             Log.w(TAG, "Queue was not modified by call to removeQueueItem");
         }
@@ -552,31 +547,33 @@ public class DBWriter {
 
     public static Future<?> toggleFavoriteItem(final FeedItem item) {
         if (item.isTagged(FeedItem.TAG_FAVORITE)) {
-            return removeFavoriteItem(item);
+            return removeFavoriteItems(Collections.singletonList(item));
         } else {
-            return addFavoriteItem(item);
+            return addFavoriteItems(Collections.singletonList(item));
         }
     }
 
-    public static Future<?> addFavoriteItem(final FeedItem item) {
+    public static Future<?> addFavoriteItems(final List<FeedItem> items) {
+        for (FeedItem item : items) {
+            item.addTag(FeedItem.TAG_FAVORITE);
+        }
         return runOnDbThread(() -> {
             final PodDBAdapter adapter = PodDBAdapter.getInstance().open();
-            adapter.addFavoriteItem(item);
+            adapter.addFavoriteItems(items);
             adapter.close();
-            item.addTag(FeedItem.TAG_FAVORITE);
-            EventBus.getDefault().post(new FavoritesEvent());
-            EventBus.getDefault().post(FeedItemEvent.updated(item));
+            EventBus.getDefault().post(new FeedItemEvent(items, false));
         });
     }
 
-    public static Future<?> removeFavoriteItem(final FeedItem item) {
+    public static Future<?> removeFavoriteItems(final List<FeedItem> items) {
+        for (FeedItem item : items) {
+            item.removeTag(FeedItem.TAG_FAVORITE);
+        }
         return runOnDbThread(() -> {
             final PodDBAdapter adapter = PodDBAdapter.getInstance().open();
-            adapter.removeFavoriteItem(item);
+            adapter.removeFavoriteItems(items);
             adapter.close();
-            item.removeTag(FeedItem.TAG_FAVORITE);
-            EventBus.getDefault().post(new FavoritesEvent());
-            EventBus.getDefault().post(FeedItemEvent.updated(item));
+            EventBus.getDefault().post(new FeedItemEvent(items, false));
         });
     }
 
@@ -664,55 +661,27 @@ public class DBWriter {
     }
 
     /**
-     * Sets the 'read'-attribute of all specified FeedItems
-     *
-     * @param played  New value of the 'read'-attribute, one of FeedItem.PLAYED, FeedItem.NEW,
-     *                FeedItem.UNPLAYED
-     * @param itemIds IDs of the FeedItems.
-     */
-    public static Future<?> markItemPlayed(final int played, final long... itemIds) {
-        return markItemPlayed(played, true, itemIds);
-    }
-
-    /**
-     * Sets the 'read'-attribute of all specified FeedItems
-     *
-     * @param played          New value of the 'read'-attribute, one of FeedItem.PLAYED, FeedItem.NEW,
-     *                        FeedItem.UNPLAYED
-     * @param broadcastUpdate true if this operation should trigger a UnreadItemsUpdate broadcast.
-     *                        This option is usually set to true
-     * @param itemIds         IDs of the FeedItems.
-     */
-    public static Future<?> markItemPlayed(final int played, final boolean broadcastUpdate,
-                                           final long... itemIds) {
-        return runOnDbThread(() -> {
-            final PodDBAdapter adapter = PodDBAdapter.getInstance();
-            adapter.open();
-            adapter.setFeedItemRead(played, itemIds);
-            adapter.close();
-            if (broadcastUpdate) {
-                EventBus.getDefault().post(new UnreadItemsUpdateEvent());
-            }
-        });
-    }
-
-    /**
      * Sets the 'read'-attribute of a FeedItem to the specified value.
      *
-     * @param item               The FeedItem object
      * @param played             New value of the 'read'-attribute one of FeedItem.PLAYED,
      *                           FeedItem.NEW, FeedItem.UNPLAYED
      * @param resetMediaPosition true if this method should also reset the position of the FeedItem's FeedMedia object.
+     * @param items              The FeedItem objects to be updated
      */
     @NonNull
-    public static Future<?> markItemPlayed(FeedItem item, int played, boolean resetMediaPosition) {
+    public static Future<?> markItemsPlayed(int played, boolean resetMediaPosition, List<FeedItem> items) {
+        for (FeedItem item : items) {
+            if (item.hasMedia() && resetMediaPosition) {
+                item.getMedia().setPosition(0);
+            }
+            item.setPlayState(played);
+        }
         return runOnDbThread(() -> {
             final PodDBAdapter adapter = PodDBAdapter.getInstance();
             adapter.open();
-            adapter.setFeedItemRead(item, played, resetMediaPosition);
+            adapter.setFeedItemsRead(played, resetMediaPosition, items);
             adapter.close();
-
-            EventBus.getDefault().post(new UnreadItemsUpdateEvent());
+            EventBus.getDefault().post(new FeedItemEvent(items, true));
         });
     }
 
@@ -727,8 +696,7 @@ public class DBWriter {
             adapter.open();
             adapter.setFeedItems(FeedItem.NEW, FeedItem.UNPLAYED, feedId);
             adapter.close();
-
-            EventBus.getDefault().post(new UnreadItemsUpdateEvent());
+            EventBus.getDefault().post(new FeedItemEvent(Collections.emptyList(), true));
         });
     }
 
@@ -741,8 +709,7 @@ public class DBWriter {
             adapter.open();
             adapter.setFeedItems(FeedItem.NEW, FeedItem.UNPLAYED);
             adapter.close();
-
-            EventBus.getDefault().post(new UnreadItemsUpdateEvent());
+            EventBus.getDefault().post(new FeedItemEvent(Collections.emptyList(), true));
         });
     }
 
@@ -779,13 +746,14 @@ public class DBWriter {
             adapter.open();
             adapter.storeFeedItemlist(items);
             adapter.close();
-            EventBus.getDefault().post(FeedItemEvent.updated(items));
+            EventBus.getDefault().post(new FeedItemEvent(items, false));
         });
     }
 
     /**
      * Saves a FeedMedia object in the database. This method will save all attributes of the FeedMedia object. The
      * contents of FeedComponent-attributes (e.g. the FeedMedia's 'item'-attribute) will not be saved.
+     * Use carefully to avoid overwriting properties with stale data.
      *
      * @param media The FeedMedia object.
      */
@@ -794,6 +762,20 @@ public class DBWriter {
             PodDBAdapter adapter = PodDBAdapter.getInstance();
             adapter.open();
             adapter.setMedia(media);
+            adapter.close();
+        });
+    }
+
+    /**
+     * Saves the downloaded file url and download state of a FeedMedia object
+     *
+     * @param media The FeedMedia object.
+     */
+    public static Future<?> setMediaDownloadInformation(final FeedMedia media) {
+        return runOnDbThread(() -> {
+            PodDBAdapter adapter = PodDBAdapter.getInstance();
+            adapter.open();
+            adapter.setMediaDownloadInformation(media);
             adapter.close();
         });
     }
@@ -817,14 +799,15 @@ public class DBWriter {
      * the content of FeedComponent-attributes.
      *
      * @param item The FeedItem object.
+     * @param unreadStatusChanged Whether the unread status of this item or related items has changed.
      */
-    public static Future<?> setFeedItem(final FeedItem item) {
+    public static Future<?> setFeedItem(final FeedItem item, final boolean unreadStatusChanged) {
         return runOnDbThread(() -> {
             PodDBAdapter adapter = PodDBAdapter.getInstance();
             adapter.open();
             adapter.setSingleFeedItem(item);
             adapter.close();
-            EventBus.getDefault().post(FeedItemEvent.updated(item));
+            EventBus.getDefault().post(new FeedItemEvent(Collections.singletonList(item), unreadStatusChanged));
         });
     }
 
@@ -1002,16 +985,16 @@ public class DBWriter {
     public static void removeFeedWithDownloadUrl(Context context, String downloadUrl) {
         PodDBAdapter adapter = PodDBAdapter.getInstance();
         adapter.open();
-        Cursor cursor = adapter.getFeedCursorDownloadUrls();
         long feedId = 0;
-        if (cursor.moveToFirst()) {
-            do {
-                if (cursor.getString(1).equals(downloadUrl)) {
-                    feedId = cursor.getLong(0);
-                }
-            } while (cursor.moveToNext());
+        try (Cursor cursor = adapter.getFeedCursorDownloadUrls(false)) {
+            if (cursor.moveToFirst()) {
+                do {
+                    if (cursor.getString(1).equals(downloadUrl)) {
+                        feedId = cursor.getLong(0);
+                    }
+                } while (cursor.moveToNext());
+            }
         }
-        cursor.close();
         adapter.close();
 
         if (feedId != 0) {

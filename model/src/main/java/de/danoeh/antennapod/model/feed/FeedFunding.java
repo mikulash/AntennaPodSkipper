@@ -2,9 +2,10 @@ package de.danoeh.antennapod.model.feed;
 
 import org.apache.commons.lang3.StringUtils;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 
-public class FeedFunding {
+public class FeedFunding implements Serializable {
     public static final String FUNDING_ENTRIES_SEPARATOR = "\u001e";
     public static final String FUNDING_TITLE_SEPARATOR = "\u001f";
 
@@ -22,27 +23,6 @@ public class FeedFunding {
 
     public void setUrl(String url) {
         this.url = url;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == null || !obj.getClass().equals(this.getClass())) {
-            return false;
-        }
-
-        FeedFunding funding = (FeedFunding) obj;
-        if (url == null && funding.url == null && content == null && funding.content == null) {
-            return true;
-        }
-        if (url != null && url.equals(funding.url) && content != null && content.equals(funding.content)) {
-            return true;
-        }
-        return false;
-    }
-
-    @Override
-    public int hashCode() {
-        return (url + FUNDING_TITLE_SEPARATOR + content).hashCode();
     }
 
     public static ArrayList<FeedFunding> extractPaymentLinks(String payLinks) {

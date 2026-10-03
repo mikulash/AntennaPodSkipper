@@ -40,4 +40,7 @@ public interface TranscriptionProvider extends AutoCloseable {
      * Human-readable error message to persist when transcription fails.
      */
     String buildErrorMessage(Throwable throwable);
+
+    @Override
+    void close();
 }

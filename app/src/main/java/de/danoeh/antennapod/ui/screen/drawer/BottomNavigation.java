@@ -14,8 +14,8 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.internal.ViewUtils;
 import com.google.android.material.navigation.NavigationBarView;
 import de.danoeh.antennapod.R;
+import de.danoeh.antennapod.event.FeedItemEvent;
 import de.danoeh.antennapod.event.FeedListUpdateEvent;
-import de.danoeh.antennapod.event.UnreadItemsUpdateEvent;
 import de.danoeh.antennapod.model.feed.FeedItemFilter;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
@@ -74,7 +74,7 @@ public class BottomNavigation {
         }
         bottomNavigationBadgeLoader = Observable.fromCallable(
                         () -> DBReader.getTotalEpisodeCount(new FeedItemFilter(FeedItemFilter.NEW)))
-                .subscribeOn(Schedulers.io())
+                .subscribeOn(Schedulers.computation())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(result -> {
                     BadgeDrawable badge = bottomNavigationView.getOrCreateBadge(R.id.bottom_navigation_inbox);
@@ -98,7 +98,8 @@ public class BottomNavigation {
         drawerItems.remove(NavListAdapter.SUBSCRIPTION_LIST_TAG);
 
         final List<MenuItem> popupMenuItems = new ArrayList<>();
-        for (int i = bottomNavigationView.getMaxItemCount() - 1; i < drawerItems.size(); i++) {
+        int maxItems = Math.min(5, bottomNavigationView.getMaxItemCount());
+        for (int i = maxItems - 1; i < drawerItems.size(); i++) {
             String tag = drawerItems.get(i);
             MenuItem item = new MenuBuilder(context).add(0, NavigationNames.getBottomNavigationItemId(tag),
                     0, context.getString(NavigationNames.getLabel(tag)));
@@ -163,8 +164,10 @@ public class BottomNavigation {
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
-    public void onUnreadItemsChanged(UnreadItemsUpdateEvent event) {
-        updateBottomNavigationBadgeIfNeeded();
+    public void onUnreadItemsChanged(FeedItemEvent event) {
+        if (event.unreadStatusChanged) {
+            updateBottomNavigationBadgeIfNeeded();
+        }
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)

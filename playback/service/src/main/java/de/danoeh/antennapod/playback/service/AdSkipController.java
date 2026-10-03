@@ -19,14 +19,18 @@ import de.danoeh.antennapod.storage.preferences.UserPreferences;
 @RequiresApi(api = Build.VERSION_CODES.O)
 class AdSkipController {
     private final Context context;
-    private final PlaybackService playbackService;
+    private final Seeker seeker;
     private String cachedPlayableId;
     private AdAnalysisResult cachedResult;
     private double lastSkipTarget = -1;
 
-    AdSkipController(Context context, PlaybackService playbackService) {
+    interface Seeker {
+        void seekTo(int positionMs);
+    }
+
+    AdSkipController(Context context, Seeker seeker) {
         this.context = context;
-        this.playbackService = playbackService;
+        this.seeker = seeker;
     }
 
     void onProgress(@Nullable Playable playable, int positionMs) {
@@ -46,7 +50,7 @@ class AdSkipController {
             if (positionSec >= segment.getStartSeconds() && positionSec < segment.getEndSeconds()) {
                 int target = (int) Math.round(segment.getEndSeconds() * 1000);
                 if (lastSkipTarget != target) {
-                    playbackService.seekTo(target);
+                    seeker.seekTo(target);
                     lastSkipTarget = target;
                 }
                 break;

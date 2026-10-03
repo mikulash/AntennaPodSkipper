@@ -1,5 +1,6 @@
 package de.danoeh.antennapod.ui.screen.playback;
 
+import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -17,10 +18,13 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.snackbar.Snackbar;
 import de.danoeh.antennapod.R;
+import de.danoeh.antennapod.ui.common.ThemeUtils;
 import de.danoeh.antennapod.event.playback.SpeedChangedEvent;
+import de.danoeh.antennapod.playback.base.BuildConfig;
 import de.danoeh.antennapod.playback.service.PlaybackController;
+import de.danoeh.antennapod.playback.service.internal.MediaLibrarySessionCallback;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
-import de.danoeh.antennapod.ui.view.ItemOffsetDecoration;
+import de.danoeh.antennapod.ui.common.ItemOffsetDecoration;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.disposables.Disposable;
@@ -40,6 +44,7 @@ public class VariableSpeedDialog extends BottomSheetDialogFragment {
     private SpeedSelectionAdapter adapter;
     private PlaybackController controller;
     private final List<Float> selectedSpeeds;
+    private float pendingDeleteSpeed = -1;
     private PlaybackSpeedSeekBar speedSeekBar;
     private Chip addCurrentSpeedChip;
     private CheckBox skipSilenceCheckbox;
@@ -87,7 +92,7 @@ public class VariableSpeedDialog extends BottomSheetDialogFragment {
             // Make sure the media is loaded in case getCurrentPlaybackSpeedMultiplier has to access it
             return controller.getMedia();
         })
-                .subscribeOn(Schedulers.io())
+                .subscribeOn(Schedulers.computation())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(pair -> {
                     if (controller == null) {
@@ -117,7 +122,10 @@ public class VariableSpeedDialog extends BottomSheetDialogFragment {
         speedSeekBar = root.findViewById(R.id.speed_seek_bar);
         speedSeekBar.setProgressChangedListener(multiplier -> {
             UserPreferences.setPlaybackSpeed(multiplier);
-            if (controller != null) {
+            if (BuildConfig.USE_MEDIA3_PLAYBACK_SERVICE) {
+                PlaybackController.bindToMedia3Service(getContext(),
+                        controller -> controller.setPlaybackSpeed(multiplier));
+            } else if (controller != null) {
                 controller.setPlaybackSpeed(multiplier);
             }
         });
@@ -139,7 +147,13 @@ public class VariableSpeedDialog extends BottomSheetDialogFragment {
         skipSilenceCheckbox.setChecked(UserPreferences.isSkipSilence());
         skipSilenceCheckbox.setOnCheckedChangeListener((buttonView, isChecked) -> {
             UserPreferences.setSkipSilence(isChecked);
-            controller.setSkipSilence(isChecked);
+            if (BuildConfig.USE_MEDIA3_PLAYBACK_SERVICE) {
+                PlaybackController.bindToMedia3Service(getContext(), mediaController ->
+                        mediaController.sendCustomCommand(MediaLibrarySessionCallback.SESSION_COMMAND_SKIP_SILENCE,
+                                MediaLibrarySessionCallback.createBundle(isChecked)));
+            } else if (controller != null) {
+                controller.setSkipSilence(isChecked);
+            }
         });
         return root;
     }
@@ -172,20 +186,43 @@ public class VariableSpeedDialog extends BottomSheetDialogFragment {
             float speed = selectedSpeeds.get(position);
 
             holder.chip.setText(String.format(Locale.getDefault(), "%1$.2f", speed));
+            if (pendingDeleteSpeed == speed) {
+                holder.chip.setChipBackgroundColor(ColorStateList.valueOf(
+                        ThemeUtils.getColorFromAttr(holder.chip.getContext(), R.attr.icon_red)));
+                holder.chip.setTextColor(0xffffffff);
+                holder.chip.setChipIconResource(R.drawable.ic_delete);
+                holder.chip.setChipIconTintResource(R.color.white);
+            } else {
+                holder.chip.setChipBackgroundColor(null);
+                holder.chip.setChipIcon(null);
+                holder.chip.setTextColor(ThemeUtils.getColorFromAttr(
+                        holder.chip.getContext(), android.R.attr.textColorPrimary));
+            }
             holder.chip.setOnLongClickListener(v -> {
-                selectedSpeeds.remove(speed);
-                UserPreferences.setPlaybackSpeedArray(selectedSpeeds);
+                if (pendingDeleteSpeed == speed) {
+                    pendingDeleteSpeed = -1;
+                } else {
+                    pendingDeleteSpeed = speed;
+                }
                 notifyDataSetChanged();
                 return true;
             });
             holder.chip.setOnClickListener(v -> {
+                if (pendingDeleteSpeed == speed) {
+                    selectedSpeeds.remove(speed);
+                    UserPreferences.setPlaybackSpeedArray(selectedSpeeds);
+                    pendingDeleteSpeed = -1;
+                    notifyDataSetChanged();
+                    return;
+                }
                 UserPreferences.setPlaybackSpeed(speed);
-                new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    if (controller != null) {
-                        controller.setPlaybackSpeed(speed);
-                        dismiss();
-                    }
-                }, 200);
+                if (BuildConfig.USE_MEDIA3_PLAYBACK_SERVICE) {
+                    PlaybackController.bindToMedia3Service(getContext(),
+                            controller -> controller.setPlaybackSpeed(speed));
+                } else if (controller != null) {
+                    controller.setPlaybackSpeed(speed);
+                }
+                new Handler(Looper.getMainLooper()).postDelayed(() -> dismiss(), 200);
             });
         }
 

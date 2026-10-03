@@ -20,6 +20,7 @@ import de.danoeh.antennapod.ui.common.Keyboard;
 import de.danoeh.antennapod.ui.common.ToolbarActivity;
 import de.danoeh.antennapod.ui.preferences.databinding.SettingsActivityBinding;
 import de.danoeh.antennapod.ui.preferences.screen.AutoDownloadPreferencesFragment;
+import de.danoeh.antennapod.ui.preferences.screen.AutomaticDeletionPreferencesFragment;
 import de.danoeh.antennapod.ui.preferences.screen.NotificationPreferencesFragment;
 import de.danoeh.antennapod.ui.preferences.screen.AiPreferencesFragment;
 import de.danoeh.antennapod.ui.preferences.screen.synchronization.SynchronizationPreferencesFragment;
@@ -97,6 +98,8 @@ public class PreferenceActivity extends ToolbarActivity
             prefFragment = new SwipePreferencesFragment();
         } else if (screen == R.xml.preferences_auto_deletion) {
             prefFragment = new AutomaticDeletionPreferencesFragment();
+        } else if (screen == R.xml.preferences_parental_control) {
+            prefFragment = new ParentalControlPreferencesFragment();
         }
         return prefFragment;
     }
@@ -124,6 +127,8 @@ public class PreferenceActivity extends ToolbarActivity
             return R.string.swipeactions_label;
         } else if (preferences == R.xml.preferences_auto_deletion) {
             return R.string.pref_auto_delete_title;
+        } else if (preferences == R.xml.preferences_parental_control) {
+            return R.string.pref_parental_control_title;
         }
         return R.string.settings_label;
     }

@@ -1,6 +1,8 @@
 package de.danoeh.antennapod.ui.screen.feed.preferences;
 
 import android.Manifest;
+import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -14,6 +16,9 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.documentfile.provider.DocumentFile;
 import androidx.core.content.ContextCompat;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
@@ -24,6 +29,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.databinding.PlaybackSpeedFeedSettingDialogBinding;
+import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.event.settings.SkipIntroEndingChangedEvent;
 import de.danoeh.antennapod.event.settings.SpeedPresetChangedEvent;
 import de.danoeh.antennapod.event.settings.VolumeAdaptionChangedEvent;
@@ -35,9 +41,11 @@ import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.DBWriter;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
+import de.danoeh.antennapod.storage.database.FeedDatabaseWriter;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.preferences.screen.synchronization.AuthenticationDialog;
 import de.danoeh.antennapod.ui.screen.feed.RenameFeedDialog;
+import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.MaybeOnSubscribe;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
@@ -70,6 +78,8 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     // Values are recognized by prefix, so older cloud selections remain compatible.
     private static final String CLOUD_TRANSCRIPTION =
             de.danoeh.antennapod.net.ai.service.ad.provider.AdAnalysisProviderFactory.CLOUD_TRANSCRIPTION_OVERRIDE;
+    private static final String PREF_EDIT_FEED_URL = "editFeedUrl";
+    private static final String PREF_RECONNECT_LOCAL_FOLDER = "reconnectLocalFolder";
 
     private Feed feed;
     private Disposable disposable;
@@ -82,6 +92,9 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
         fragment.setArguments(arguments);
         return fragment;
     }
+
+    private final ActivityResultLauncher<Uri> addLocalFolderLauncher =
+            registerForActivityResult(new AddLocalFolder(), this::addLocalFolderResult);
 
     boolean notificationPermissionDenied = false;
     private final ActivityResultLauncher<String> enableNotificationsRequestPermissionLauncher =
@@ -127,7 +140,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
                 emitter.onComplete();
             }
         })
-                .subscribeOn(Schedulers.io())
+                .subscribeOn(Schedulers.computation())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(result -> {
                     feed = result;
@@ -138,10 +151,12 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
                     updateAutoDownloadEnabledSummary();
                     updateNewEpisodesActionSummary();
 
+                    findPreference(PREF_RECONNECT_LOCAL_FOLDER).setVisible(feed.isLocalFeed());
                     if (feed.isLocalFeed()) {
                         findPreference(PREF_AUTHENTICATION).setVisible(false);
                         findPreference(PREF_AUTODOWNLOAD).setVisible(false);
                         findPreference(PREF_EPISODE_FILTER).setVisible(false);
+                        findPreference(PREF_EDIT_FEED_URL).setVisible(false);
                     }
 
                     // Show AI category only if AI analysis is enabled in settings
@@ -226,6 +241,14 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
             EventBus.getDefault().post(new VolumeAdaptionChangedEvent(newSetting, feed.getId()));
             return false;
         });
+        findPreference(PREF_NEW_EPISODES_ACTION).setOnPreferenceClickListener(preference -> {
+            boolean isAutoDownload = feed.getPreferences().isAutoDownload(UserPreferences.isEnableAutodownloadGlobal());
+            if (isAutoDownload && !feed.isLocalFeed()) {
+                EventBus.getDefault().post(new MessageEvent(getString(R.string.feed_new_episodes_action_snackbar)));
+                return true;
+            }
+            return false;
+        });
         findPreference(PREF_NEW_EPISODES_ACTION).setOnPreferenceChangeListener((preference, newValue) -> {
             int code = Integer.parseInt((String) newValue);
             feedPreferences.setNewEpisodesAction(FeedPreferences.NewEpisodesAction.fromCode(code));
@@ -271,6 +294,29 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
         });
         findPreference(PREF_RENAME).setOnPreferenceClickListener(preference -> {
             new RenameFeedDialog(getActivity(), feed).show();
+            return true;
+        });
+        findPreference(PREF_EDIT_FEED_URL).setOnPreferenceClickListener(preference -> {
+            new EditUrlSettingsDialog(getActivity(), feed) {
+                @Override
+                protected void setUrl(String url) {
+                    feed.setDownloadUrl(url);
+                }
+            }.show();
+            return true;
+        });
+        findPreference(PREF_RECONNECT_LOCAL_FOLDER).setOnPreferenceClickListener(preference -> {
+            MaterialAlertDialogBuilder alert = new MaterialAlertDialogBuilder(getContext());
+            alert.setMessage(R.string.reconnect_local_folder_warning);
+            alert.setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                try {
+                    addLocalFolderLauncher.launch(null);
+                } catch (ActivityNotFoundException e) {
+                    Log.e(TAG, "No activity found. Should never happen...");
+                }
+            });
+            alert.setNegativeButton(android.R.string.cancel, null);
+            alert.show();
             return true;
         });
 
@@ -548,7 +594,6 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
         ListPreference newEpisodesAction = findPreference(PREF_NEW_EPISODES_ACTION);
         boolean isAutoDownload = feed.getPreferences().isAutoDownload(UserPreferences.isEnableAutodownloadGlobal());
         if (isAutoDownload && !feed.isLocalFeed()) {
-            newEpisodesAction.setEnabled(false);
             newEpisodesAction.setSummary(R.string.feed_new_episodes_action_summary_autodownload);
             return;
         }
@@ -585,6 +630,42 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
         autoDownloadPreference.setValue("" + feedPreferences.getAutoDownload().code);
     }
 
+    private void addLocalFolderResult(final Uri uri) {
+        if (uri == null) {
+            return;
+        }
+        if (feed == null) {
+            return;
+        }
+        Completable.fromAction(() -> {
+            getActivity().getContentResolver()
+                    .takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            DocumentFile documentFile = DocumentFile.fromTreeUri(getContext(), uri);
+            if (documentFile == null) {
+                throw new IllegalArgumentException("Unable to retrieve document tree");
+            }
+            feed.setDownloadUrl(Feed.PREFIX_LOCAL_FOLDER + uri.toString());
+            FeedDatabaseWriter.updateFeed(getContext(), feed, false);
+        })
+                .subscribeOn(Schedulers.computation())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                        () -> EventBus.getDefault().post(new MessageEvent(getString(android.R.string.ok))),
+                        error -> EventBus.getDefault().post(new MessageEvent(error.getLocalizedMessage())));
+    }
+
+    private static class AddLocalFolder extends ActivityResultContracts.OpenDocumentTree {
+        @NonNull
+        @Override
+        public Intent createIntent(@NonNull final Context context, @Nullable final Uri input) {
+            return super.createIntent(context, input)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                            | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        }
+    }
+
     private boolean showPlaybackSpeedDialog(Preference preference) {
         PlaybackSpeedFeedSettingDialogBinding viewBinding =
                 PlaybackSpeedFeedSettingDialogBinding.inflate(getLayoutInflater());
@@ -599,10 +680,11 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
             viewBinding.skipSilenceFeed.setAlpha(isChecked ? 0.4f : 1f);
         });
         float speed = feedPreferences.getFeedPlaybackSpeed();
-        FeedPreferences.SkipSilence skipSilence = feedPreferences.getFeedSkipSilence();
         boolean isGlobal = speed == FeedPreferences.SPEED_USE_GLOBAL;
         viewBinding.useGlobalCheckbox.setChecked(isGlobal);
         viewBinding.seekBar.updateSpeed(isGlobal ? 1 : speed);
+        viewBinding.currentSpeedLabel.setText(String.format(Locale.getDefault(), "%.2fx", isGlobal ? 1 : speed));
+        FeedPreferences.SkipSilence skipSilence = feedPreferences.getFeedSkipSilence();
         viewBinding.skipSilenceFeed.setChecked(!isGlobal
                 && skipSilence == FeedPreferences.SkipSilence.AGGRESSIVE);
         new MaterialAlertDialogBuilder(getContext())
