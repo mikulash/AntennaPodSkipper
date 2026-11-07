@@ -41,7 +41,8 @@ public class SwipeActions extends ItemTouchHelper.SimpleCallback implements Life
                     new RemoveFromFavoritesSwipeAction(), new TogglePlaybackStateSwipeAction(),
                     new RemoveFromQueueSwipeAction(), new DeleteSwipeAction(),
                     new RemoveFromHistorySwipeAction(), new MoveToTopSwipeAction(),
-                    new MoveToBottomSwipeAction(), new ShareSwipeAction()));
+                    new MoveToBottomSwipeAction(), new ShareSwipeAction(),
+                    new AdAnalysisSwipeAction()));
 
     private final Fragment fragment;
     private final String tag;
@@ -109,7 +110,7 @@ public class SwipeActions extends ItemTouchHelper.SimpleCallback implements Life
                 defaultActions = SwipeAction.ADD_TO_QUEUE + "," + SwipeAction.REMOVE_FROM_INBOX;
                 break;
             case QueueFragment.TAG:
-                defaultActions = SwipeAction.REMOVE_FROM_QUEUE + "," + SwipeAction.REMOVE_FROM_QUEUE;
+                defaultActions = SwipeAction.AD_ANALYSIS + "," + SwipeAction.REMOVE_FROM_QUEUE;
                 break;
             case CompletedDownloadsFragment.TAG:
                 defaultActions = SwipeAction.DELETE + "," + SwipeAction.DELETE;

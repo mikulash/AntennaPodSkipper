@@ -59,6 +59,7 @@ public class SwipeActionsDialog {
             keys.add(new MoveToTopSwipeAction());
             keys.add(new MoveToBottomSwipeAction());
             keys.add(new RemoveFromQueueSwipeAction());
+            keys.add(new AdAnalysisSwipeAction());
         } else {
             keys.add(new AddToQueueSwipeAction());
         }

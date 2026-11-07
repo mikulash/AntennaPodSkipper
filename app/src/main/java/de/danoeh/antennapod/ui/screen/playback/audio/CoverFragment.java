@@ -39,6 +39,7 @@ import de.danoeh.antennapod.playback.service.PlaybackService;
 import de.danoeh.antennapod.playback.service.PlaybackServiceStarter;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
+import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.appstartintent.MainActivityStarter;
 import de.danoeh.antennapod.ui.appstartintent.MediaButtonStarter;
 import de.danoeh.antennapod.ui.appstartintent.OnlineFeedviewActivityStarter;
@@ -102,11 +103,15 @@ public class CoverFragment extends Fragment {
         });
         viewBinding.openDescription.setOnClickListener(view -> ((AudioPlayerFragment) requireParentFragment())
                 .scrollToPage(AudioPlayerFragment.POS_DESCRIPTION, true));
+        viewBinding.openAdAnalysis.setOnClickListener(view -> ((AudioPlayerFragment) requireParentFragment())
+                .scrollToPage(AudioPlayerFragment.POS_AD_ANALYSIS, true));
         ColorFilter colorFilter = BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
                 viewBinding.txtvPodcastTitle.getCurrentTextColor(), BlendModeCompat.SRC_IN);
         viewBinding.butNextChapter.setColorFilter(colorFilter);
         viewBinding.butPrevChapter.setColorFilter(colorFilter);
         viewBinding.descriptionIcon.setColorFilter(colorFilter);
+        viewBinding.adAnalysisIcon.setColorFilter(colorFilter);
+        updateAdAnalysisButtonVisibility();
         viewBinding.chapterButton.setOnClickListener(v ->
                 new ChaptersFragment().show(getChildFragmentManager(), ChaptersFragment.TAG));
         viewBinding.butPrevChapter.setOnClickListener(v -> seekToPrevChapter());
@@ -190,6 +195,12 @@ public class CoverFragment extends Fragment {
         displayedChapterIndex = -1;
         refreshChapterData(Chapter.getAfterPosition(media.getChapters(), media.getPosition()));
         updateChapterControlVisibility();
+        updateAdAnalysisButtonVisibility();
+    }
+
+    private void updateAdAnalysisButtonVisibility() {
+        boolean visible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && UserPreferences.isAdSkipEnabled();
+        viewBinding.openAdAnalysis.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
     private void openFeed(Feed feed) {

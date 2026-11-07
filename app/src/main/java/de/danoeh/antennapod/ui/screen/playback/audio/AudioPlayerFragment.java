@@ -87,7 +87,8 @@ public class AudioPlayerFragment extends Fragment implements
     public static final String TAG = "AudioPlayerFragment";
     public static final int POS_COVER = 0;
     public static final int POS_DESCRIPTION = 1;
-    private static final int NUM_CONTENT_FRAGMENTS = 2;
+    public static final int POS_AD_ANALYSIS = 2;
+    private static final int NUM_CONTENT_FRAGMENTS = 3;
 
     private TextView txtvPlaybackSpeed;
     private ViewPager2 pager;
@@ -208,10 +209,11 @@ public class AudioPlayerFragment extends Fragment implements
             return;
         }
         float[][] normalized = new float[result.getSegments().size()][];
+        double offsetSeconds = UserPreferences.getAdSkipOffset();
         for (int i = 0; i < result.getSegments().size(); i++) {
             AdSegment seg = result.getSegments().get(i);
-            float start = (float) (seg.getStartSeconds() * 1000 / (double) duration);
-            float end = (float) (seg.getEndSeconds() * 1000 / (double) duration);
+            float start = (float) ((seg.getStartSeconds() - offsetSeconds) * 1000 / (double) duration);
+            float end = (float) ((seg.getEndSeconds() + offsetSeconds) * 1000 / (double) duration);
             start = Math.max(0f, Math.min(1f, start));
             end = Math.max(0f, Math.min(1f, end));
             normalized[i] = new float[]{start, end};
@@ -595,6 +597,11 @@ public class AudioPlayerFragment extends Fragment implements
             switch (position) {
                 case POS_COVER:
                     return new CoverFragment();
+                case POS_AD_ANALYSIS:
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        return new ItemAdAnalysisFragment();
+                    }
+                    return new ItemDescriptionFragment();
                 default:
                 case POS_DESCRIPTION:
                     return new ItemDescriptionFragment();
@@ -603,7 +610,8 @@ public class AudioPlayerFragment extends Fragment implements
 
         @Override
         public int getItemCount() {
-            return NUM_CONTENT_FRAGMENTS;
+            return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && UserPreferences.isAdSkipEnabled()
+                    ? NUM_CONTENT_FRAGMENTS : NUM_CONTENT_FRAGMENTS - 1;
         }
     }
 

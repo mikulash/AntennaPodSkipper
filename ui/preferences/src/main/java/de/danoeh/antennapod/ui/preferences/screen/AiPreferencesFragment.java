@@ -36,10 +36,12 @@ import de.danoeh.antennapod.storage.preferences.AzureAiPreferences;
 import de.danoeh.antennapod.storage.preferences.CloudAiPreferences;
 import de.danoeh.antennapod.storage.preferences.LocalAiPreferences;
 import de.danoeh.antennapod.storage.preferences.OpenAiPreferences;
+import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.preferences.R;
 
 @RequiresApi(api = Build.VERSION_CODES.O)
 public class AiPreferencesFragment extends AnimatedPreferenceFragment {
+    private static final String PREF_AD_SKIP_OFFSET = "prefAdSkipOffset";
     private static final String PREF_ANALYSIS_QUEUE_CATEGORY = "prefAnalysisQueueCategory";
     private static final String PREF_ANALYSIS_QUEUE = "prefAnalysisQueue";
     private static final String PREF_CLOUD_AI_PROVIDER = "prefCloudAiProvider";
@@ -72,6 +74,7 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
 
         transcriptionManager = new VoskTranscriptionManager(requireContext());
 
+        setupAdSkipOffsetPreference();
         setupAnalysisQueuePreference();
         setupCloudProviderPreference();
         setupApiKeyPreference();
@@ -401,6 +404,43 @@ public class AiPreferencesFragment extends AnimatedPreferenceFragment {
     private void updateCloudTranscriptionParallelismSummary(EditTextPreference preference) {
         preference.setSummary(getString(R.string.pref_cloud_transcription_parallelism_summary,
                 CloudAiPreferences.getTranscriptionParallelism(requireContext())));
+    }
+
+    private void setupAdSkipOffsetPreference() {
+        EditTextPreference preference = findPreference(PREF_AD_SKIP_OFFSET);
+        if (preference == null) {
+            return;
+        }
+        preference.setOnBindEditTextListener(editText -> {
+            editText.setInputType(InputType.TYPE_CLASS_NUMBER);
+            editText.setText(String.valueOf(UserPreferences.getAdSkipOffset()));
+            editText.selectAll();
+        });
+        preference.setOnPreferenceChangeListener((ignored, newValue) -> {
+            int value;
+            try {
+                value = Integer.parseInt(((String) newValue).trim());
+            } catch (NumberFormatException e) {
+                Toast.makeText(requireContext(),
+                        R.string.pref_ad_skip_offset_invalid, Toast.LENGTH_LONG).show();
+                return false;
+            }
+            if (value < 0) {
+                Toast.makeText(requireContext(),
+                        R.string.pref_ad_skip_offset_invalid, Toast.LENGTH_LONG).show();
+                return false;
+            }
+            UserPreferences.setAdSkipOffset(value);
+            updateAdSkipOffsetSummary(preference);
+            preference.setText("");
+            return false;
+        });
+        updateAdSkipOffsetSummary(preference);
+    }
+
+    private void updateAdSkipOffsetSummary(EditTextPreference preference) {
+        preference.setSummary(getString(R.string.pref_ad_skip_offset_summary,
+                UserPreferences.getAdSkipOffset()));
     }
 
     private void setupAzureApiKeyPreference() {

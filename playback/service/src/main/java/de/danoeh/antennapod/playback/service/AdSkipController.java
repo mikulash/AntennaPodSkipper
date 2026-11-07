@@ -46,7 +46,10 @@ class AdSkipController {
             return;
         }
         double positionSec = positionMs / 1000.0;
-        for (AdSegment segment : cachedResult.getSegments()) {
+        double offsetSec = Math.max(0, UserPreferences.getAdSkipOffset());
+        double durationSec = media.getDuration() > 0
+                ? media.getDuration() / 1000.0 : Double.POSITIVE_INFINITY;
+        for (AdSegment segment : getEffectiveSegments(cachedResult.getSegments(), offsetSec, durationSec)) {
             if (positionSec >= segment.getStartSeconds() && positionSec < segment.getEndSeconds()) {
                 int target = (int) Math.round(segment.getEndSeconds() * 1000);
                 if (lastSkipTarget != target) {
@@ -56,6 +59,31 @@ class AdSkipController {
                 break;
             }
         }
+    }
+
+    static List<AdSegment> getEffectiveSegments(List<AdSegment> segments,
+            double offsetSeconds, double durationSeconds) {
+        List<AdSegment> expanded = new ArrayList<>(segments.size());
+        double safeOffset = Math.max(0, offsetSeconds);
+        boolean clampEnd = durationSeconds > 0 && Double.isFinite(durationSeconds);
+        for (AdSegment segment : segments) {
+            double start = Math.max(0, segment.getStartSeconds() - safeOffset);
+            double end = segment.getEndSeconds() + safeOffset;
+            if (clampEnd) {
+                end = Math.min(end, durationSeconds);
+            }
+            if (end > start) {
+                if (!expanded.isEmpty() && start <= expanded.get(expanded.size() - 1).getEndSeconds()) {
+                    AdSegment prev = expanded.get(expanded.size() - 1);
+                    expanded.set(expanded.size() - 1, new AdSegment(
+                            prev.getStartSeconds(), Math.max(prev.getEndSeconds(), end),
+                            prev.getReason(), Math.max(prev.getConfidence(), segment.getConfidence())));
+                } else {
+                    expanded.add(new AdSegment(start, end, segment.getReason(), segment.getConfidence()));
+                }
+            }
+        }
+        return expanded;
     }
 
     void onPlayableChanged(@Nullable Playable playable) {

@@ -23,6 +23,7 @@ public interface SwipeAction {
     String DELETE = "DELETE";
     String REMOVE_FROM_HISTORY = "REMOVE_FROM_HISTORY";
     String SHARE = "SHARE";
+    String AD_ANALYSIS = "AD_ANALYSIS";
 
     String getId();
 

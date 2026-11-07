@@ -7,6 +7,12 @@
             android:title="@string/pref_ad_skip_enabled_title"
             android:summary="@string/pref_ad_skip_enabled_summary" />
 
+    <EditTextPreference
+            android:key="prefAdSkipOffset"
+            android:persistent="false"
+            android:title="@string/pref_ad_skip_offset_title"
+            android:summary="@string/pref_ad_skip_offset_summary" />
+
     <SwitchPreferenceCompat
             android:key="prefAutoAnalyzeQueuedEpisodes"
             android:defaultValue="false"

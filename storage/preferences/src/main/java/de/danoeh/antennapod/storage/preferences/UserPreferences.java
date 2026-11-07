@@ -86,6 +86,7 @@ public abstract class UserPreferences {
     public static final String PREF_FOLLOW_QUEUE = "prefFollowQueue";
     public static final String PREF_SKIP_KEEPS_EPISODE = "prefSkipKeepsEpisode";
     public static final String PREF_AD_SKIP_ENABLED = "prefAdSkipEnabled";
+    public static final String PREF_AD_SKIP_OFFSET = "prefAdSkipOffset";
     public static final String PREF_AUTO_ANALYZE_QUEUED_EPISODES = "prefAutoAnalyzeQueuedEpisodes";
     public static final String PREF_FAVORITE_KEEPS_EPISODE = "prefFavoriteKeepsEpisode";
     public static final String PREF_AUTO_DELETE = "prefAutoDelete";
@@ -425,6 +426,14 @@ public abstract class UserPreferences {
 
     public static boolean isAdSkipEnabled() {
         return prefs.getBoolean(PREF_AD_SKIP_ENABLED, true);
+    }
+
+    public static int getAdSkipOffset() {
+        return Math.max(0, prefs.getInt(PREF_AD_SKIP_OFFSET, 1));
+    }
+
+    public static void setAdSkipOffset(int seconds) {
+        prefs.edit().putInt(PREF_AD_SKIP_OFFSET, Math.max(0, seconds)).apply();
     }
 
     public static boolean isAutoAnalyzeQueuedEpisodesEnabled() {
