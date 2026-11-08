@@ -3,6 +3,7 @@ package de.danoeh.antennapod.ui.swipeactions;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Canvas;
+import android.os.Build;
 
 import androidx.annotation.NonNull;
 import androidx.core.graphics.ColorUtils;
@@ -110,7 +111,9 @@ public class SwipeActions extends ItemTouchHelper.SimpleCallback implements Life
                 defaultActions = SwipeAction.ADD_TO_QUEUE + "," + SwipeAction.REMOVE_FROM_INBOX;
                 break;
             case QueueFragment.TAG:
-                defaultActions = SwipeAction.AD_ANALYSIS + "," + SwipeAction.REMOVE_FROM_QUEUE;
+                defaultActions = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                        ? SwipeAction.AD_ANALYSIS : SwipeAction.REMOVE_FROM_QUEUE)
+                        + "," + SwipeAction.REMOVE_FROM_QUEUE;
                 break;
             case CompletedDownloadsFragment.TAG:
                 defaultActions = SwipeAction.DELETE + "," + SwipeAction.DELETE;

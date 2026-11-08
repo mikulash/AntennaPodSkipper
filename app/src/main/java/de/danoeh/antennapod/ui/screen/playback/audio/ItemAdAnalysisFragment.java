@@ -118,6 +118,8 @@ public class ItemAdAnalysisFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         viewBinding = null;
+        item = null;
+        analysisWorkLiveData = null;
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -170,6 +172,8 @@ public class ItemAdAnalysisFragment extends Fragment {
             viewBinding.adSegmentsContent.setText(R.string.transcription_requires_download);
         } else if (result == null) {
             viewBinding.adSegmentsContent.setText(R.string.ad_segments_not_analyzed);
+        } else if (!result.isSuccess()) {
+            viewBinding.adSegmentsContent.setText(getString(R.string.ad_analysis_failed, result.getError()));
         } else if (result.getSegments().isEmpty()) {
             viewBinding.adSegmentsContent.setText(R.string.ad_segments_empty);
             canReanalyzeTranscript = downloaded && !TextUtils.isEmpty(data.transcript);

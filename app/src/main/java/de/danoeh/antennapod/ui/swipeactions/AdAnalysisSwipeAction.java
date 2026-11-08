@@ -2,12 +2,18 @@ package de.danoeh.antennapod.ui.swipeactions;
 
 import android.content.Context;
 import android.os.Build;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.work.WorkInfo;
+import androidx.work.WorkManager;
+import com.google.common.util.concurrent.ListenableFuture;
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.actionbutton.CompleteAnalysisActionButton;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedItemFilter;
+import de.danoeh.antennapod.net.ai.service.ad.AdAnalysisWorkScheduler;
+import java.util.List;
 import org.greenrobot.eventbus.EventBus;
 
 public class AdAnalysisSwipeAction implements SwipeAction {
@@ -38,9 +44,35 @@ public class AdAnalysisSwipeAction implements SwipeAction {
             EventBus.getDefault().post(new MessageEvent(fragment.getString(R.string.no_media_label)));
             return;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            new CompleteAnalysisActionButton(item).onClick(fragment.requireContext());
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return;
         }
+        Context context = fragment.requireContext();
+        ListenableFuture<List<WorkInfo>> future = WorkManager.getInstance(context)
+                .getWorkInfosByTag(AdAnalysisWorkScheduler.TAG_PREFIX + item.getId());
+        future.addListener(() -> {
+            if (!fragment.isAdded()) {
+                return;
+            }
+            if (isAnalysisActive(future)) {
+                EventBus.getDefault().post(new MessageEvent(context.getString(R.string.ad_analysis_in_queue)));
+            } else {
+                new CompleteAnalysisActionButton(item).onClick(context);
+            }
+        }, ContextCompat.getMainExecutor(context));
+    }
+
+    private static boolean isAnalysisActive(ListenableFuture<List<WorkInfo>> future) {
+        try {
+            for (WorkInfo info : future.get()) {
+                if (!info.getState().isFinished()) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            return false;
+        }
+        return false;
     }
 
     @Override

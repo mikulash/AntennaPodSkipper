@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.view.LayoutInflater;
 import android.view.View;
 
@@ -59,7 +60,9 @@ public class SwipeActionsDialog {
             keys.add(new MoveToTopSwipeAction());
             keys.add(new MoveToBottomSwipeAction());
             keys.add(new RemoveFromQueueSwipeAction());
-            keys.add(new AdAnalysisSwipeAction());
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                keys.add(new AdAnalysisSwipeAction());
+            }
         } else {
             keys.add(new AddToQueueSwipeAction());
         }

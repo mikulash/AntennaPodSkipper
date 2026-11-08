@@ -1118,6 +1118,7 @@
     <string name="ad_segments_total_length">Total ad length: %1$s</string>
     <string name="ad_segments_empty">No ads detected.</string>
     <string name="ad_segments_not_analyzed">Not analyzed yet.</string>
+    <string name="ad_analysis_failed">Analysis failed: %1$s</string>
     <string name="ad_segments_tab_ads">Ads</string>
     <string name="ad_segments_tab_transcript">Transcript</string>
     <string name="ad_analysis_transcribing">Transcribing</string>

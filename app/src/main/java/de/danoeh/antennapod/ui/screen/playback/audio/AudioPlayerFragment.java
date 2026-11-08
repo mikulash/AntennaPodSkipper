@@ -111,6 +111,7 @@ public class AudioPlayerFragment extends Fragment implements
     private boolean showTimeLeft;
     private boolean seekedToChapterStart = false;
     private int currentChapterIndex = -1;
+    private int pagerItemCount;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -153,6 +154,7 @@ public class AudioPlayerFragment extends Fragment implements
 
         pager = root.findViewById(R.id.pager);
         pager.setAdapter(new AudioPlayerPagerAdapter(this));
+        pagerItemCount = pager.getAdapter().getItemCount();
         //noinspection WrongConstant
         pager.setOffscreenPageLimit(NUM_CONTENT_FRAGMENTS);
         pager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
@@ -374,6 +376,14 @@ public class AudioPlayerFragment extends Fragment implements
     @Override
     public void onStart() {
         super.onStart();
+        int itemCount = pager.getAdapter().getItemCount();
+        if (itemCount != pagerItemCount) {
+            if (pager.getCurrentItem() >= itemCount) {
+                pager.setCurrentItem(POS_COVER, false);
+            }
+            pagerItemCount = itemCount;
+            pager.getAdapter().notifyDataSetChanged();
+        }
         loadMediaInfo(false);
         EventBus.getDefault().register(this);
         txtvRev.setText(NumberFormat.getInstance().format(UserPreferences.getRewindSecs()));
