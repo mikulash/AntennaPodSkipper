@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import androidx.core.util.Predicate;
 
 import de.danoeh.antennapod.event.FeedItemEvent;
 import de.danoeh.antennapod.event.FeedListUpdateEvent;
@@ -102,15 +103,24 @@ public class DBWriter {
      */
     public static Future<?> deleteFeedMediaOfItem(@NonNull final Context context,
                                                   final FeedMedia media) {
+        return deleteFeedMediaOfItem(context, media, null);
+    }
+
+    public static Future<?> deleteFeedMediaOfItem(@NonNull final Context context, final FeedMedia media,
+                                                  @Nullable Predicate<FeedMedia> deletionAllowed) {
         return runOnDbThread(() -> {
             if (media == null) {
                 return;
             }
-            deleteFeedMediaSynchronous(context, media);
-            EventBus.getDefault().post(new FeedItemEvent(media.getItem() != null
-                    ? Collections.singletonList(media.getItem()) : Collections.emptyList(), false));
+            FeedMedia currentMedia = deletionAllowed == null ? media : DBReader.getFeedMedia(media.getId());
+            if (currentMedia == null || (deletionAllowed != null && !deletionAllowed.test(currentMedia))) {
+                return;
+            }
+            deleteFeedMediaSynchronous(context, currentMedia);
+            EventBus.getDefault().post(new FeedItemEvent(currentMedia.getItem() != null
+                    ? Collections.singletonList(currentMedia.getItem()) : Collections.emptyList(), false));
             if (UserPreferences.shouldDeleteRemoveFromQueue()) {
-                DBWriter.removeQueueItemSynchronous(context, false, media.getItemId());
+                DBWriter.removeQueueItemSynchronous(context, false, currentMedia.getItemId());
             }
         });
     }

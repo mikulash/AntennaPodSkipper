@@ -318,6 +318,38 @@ public class FeedDatabaseWriterTest {
         }
     }
 
+    @Test
+    public void guardedDeletionReloadsFavoriteUpdate() throws ExecutionException, InterruptedException {
+        Feed feed = createFeed();
+        feed.getItems().add(createItem("id", "Item", feed));
+        FeedItem item = FeedDatabaseWriter.updateFeed(context, feed, false).getItems().get(0);
+        FeedMedia snapshot = DBReader.getFeedMedia(item.getMedia().getId());
+        DBWriter.addFavoriteItems(Collections.singletonList(item));
+        DBWriter.deleteFeedMediaOfItem(context, snapshot, currentMedia -> {
+            assertEquals("DatabaseExecutor", Thread.currentThread().getName());
+            assertTrue(currentMedia.getItem().isTagged(FeedItem.TAG_FAVORITE));
+            return !currentMedia.getItem().isTagged(FeedItem.TAG_FAVORITE);
+        }).get();
+        assertTrue(DBReader.getFeedMedia(snapshot.getId()).getItem().isTagged(FeedItem.TAG_FAVORITE));
+    }
+
+    @Test
+    public void guardedDeletionReloadsReplayUpdate() throws ExecutionException, InterruptedException {
+        Feed feed = createFeed();
+        feed.getItems().add(createItem("id", "Item", feed));
+        FeedMedia media = FeedDatabaseWriter.updateFeed(context, feed, false).getItems().get(0).getMedia();
+        FeedMedia snapshot = DBReader.getFeedMedia(media.getId());
+        media.setLastPlayedTimeStatistics(123456);
+        media.setLastPlayedTimeHistory(new Date(123456));
+        DBWriter.setFeedMediaPlaybackInformation(media);
+        DBWriter.deleteFeedMediaOfItem(context, snapshot, currentMedia -> {
+            assertEquals("DatabaseExecutor", Thread.currentThread().getName());
+            assertEquals(123456, currentMedia.getLastPlayedTimeStatistics());
+            return currentMedia.getLastPlayedTimeStatistics() == snapshot.getLastPlayedTimeStatistics();
+        }).get();
+        assertEquals(123456, DBReader.getFeedMedia(media.getId()).getLastPlayedTimeStatistics());
+    }
+
     private Feed createFeed() {
         Feed feed = new Feed("url", null, null);
         feed.setItems(new ArrayList<>());

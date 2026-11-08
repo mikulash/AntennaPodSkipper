@@ -8,6 +8,8 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
+import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,12 +35,34 @@ public class DelayedEpisodeDeletionWorkerTest {
         UserPreferences.init(ApplicationProvider.getApplicationContext());
         preferences = PreferenceManager.getDefaultSharedPreferences(ApplicationProvider.getApplicationContext());
         preferences.edit().clear().commit();
+        PlaybackPreferences.init(ApplicationProvider.getApplicationContext());
+        PlaybackService.isRunning = false;
         item = mock(FeedItem.class);
         feed = mock(Feed.class);
         feedPreferences = mock(FeedPreferences.class);
         when(item.getFeed()).thenReturn(feed);
         when(feed.getPreferences()).thenReturn(feedPreferences);
         when(feedPreferences.getCurrentAutoDelete()).thenReturn(FeedPreferences.AutoDeleteAction.GLOBAL);
+    }
+
+    @After
+    public void tearDown() {
+        PlaybackService.isRunning = false;
+    }
+
+    @Test
+    public void stalePlaybackStatusDoesNotPostponeDeletion() {
+        FeedMedia media = mock(FeedMedia.class);
+        when(media.getId()).thenReturn(42L);
+        when(media.getItem()).thenReturn(item);
+        PlaybackPreferences.writeMediaPlaying(media);
+        PlaybackPreferences.setCurrentPlayerStatus(PlaybackPreferences.PLAYER_STATUS_PLAYING);
+        assertFalse(DelayedEpisodeDeletionWorker.isCurrentlyPlaying(42));
+        PlaybackService.isRunning = true;
+        assertTrue(DelayedEpisodeDeletionWorker.isCurrentlyPlaying(42));
+        assertFalse(DelayedEpisodeDeletionWorker.isCurrentlyPlaying(43));
+        PlaybackPreferences.setCurrentPlayerStatus(PlaybackPreferences.PLAYER_STATUS_PAUSED);
+        assertFalse(DelayedEpisodeDeletionWorker.isCurrentlyPlaying(42));
     }
 
     @Test

@@ -19,6 +19,7 @@ import de.danoeh.antennapod.storage.preferences.UserPreferences;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class DelayedEpisodeDeletionWorker extends Worker {
     private static final String TAG = "DelayedEpisodeDeletion";
@@ -66,6 +67,11 @@ public class DelayedEpisodeDeletionWorker extends Worker {
                 && (!item.isTagged(FeedItem.TAG_FAVORITE) || !UserPreferences.shouldFavoriteKeepEpisode());
     }
 
+    static boolean isCurrentlyPlaying(long mediaId) {
+        return PlaybackService.isRunning && PlaybackPreferences.getCurrentlyPlayingFeedMediaId() == mediaId
+                && PlaybackPreferences.getCurrentPlayerStatus() == PlaybackPreferences.PLAYER_STATUS_PLAYING;
+    }
+
     @NonNull
     @Override
     public Result doWork() {
@@ -76,23 +82,25 @@ public class DelayedEpisodeDeletionWorker extends Worker {
             return Result.failure();
         }
         FeedMedia media = DBReader.getFeedMedia(mediaId);
-        long delay = UserPreferences.getAutoDeleteDelayMillis();
-        if (media == null || media.getLocalFileUrl() == null || delay == 0
-                || media.getDownloadDate() != getInputData().getLong(DOWNLOAD_DATE, 0)
-                || !isDeletionAllowed(media.getItem())) {
+        if (media == null) {
             return Result.success();
         }
-        long remaining = getRemainingDelay(media, completedAt, System.currentTimeMillis(), delay);
-        if (PlaybackPreferences.getCurrentlyPlayingFeedMediaId() == mediaId
-                && PlaybackPreferences.getCurrentPlayerStatus() == PlaybackPreferences.PLAYER_STATUS_PLAYING) {
-            remaining = delay;
-        }
-        if (remaining > 0) {
-            enqueue(getApplicationContext(), getInputData(), remaining, ExistingWorkPolicy.APPEND_OR_REPLACE);
-            return Result.success();
-        }
+        AtomicLong remaining = new AtomicLong();
         try {
-            DBWriter.deleteFeedMediaOfItem(getApplicationContext(), media).get();
+            DBWriter.deleteFeedMediaOfItem(getApplicationContext(), media, currentMedia -> {
+                long delay = UserPreferences.getAutoDeleteDelayMillis();
+                if (currentMedia.getLocalFileUrl() == null || delay == 0
+                        || currentMedia.getDownloadDate() != getInputData().getLong(DOWNLOAD_DATE, 0)
+                        || !isDeletionAllowed(currentMedia.getItem())) {
+                    return false;
+                }
+                remaining.set(isCurrentlyPlaying(mediaId) ? delay
+                        : getRemainingDelay(currentMedia, completedAt, System.currentTimeMillis(), delay));
+                return remaining.get() <= 0;
+            }).get();
+            if (remaining.get() > 0) {
+                enqueue(getApplicationContext(), getInputData(), remaining.get(), ExistingWorkPolicy.APPEND_OR_REPLACE);
+            }
             return Result.success();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
