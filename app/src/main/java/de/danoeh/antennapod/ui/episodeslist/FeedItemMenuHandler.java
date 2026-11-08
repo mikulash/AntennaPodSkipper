@@ -22,6 +22,7 @@ import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.playback.service.PlaybackController;
+import de.danoeh.antennapod.playback.service.DelayedEpisodeDeletionWorker;
 import de.danoeh.antennapod.storage.database.DBWriter;
 import de.danoeh.antennapod.ui.common.IntentUtils;
 import de.danoeh.antennapod.playback.service.PlaybackStatus;
@@ -266,7 +267,7 @@ public class FeedItemMenuHandler {
             boolean almostEnded = media.getDuration() > 0
                     && media.getPosition() >= media.getDuration() - smartMarkAsPlayedSecs * 1000;
             if (almostEnded && shouldAutoDelete) {
-                DBWriter.deleteFeedMediaOfItem(context, media);
+                DelayedEpisodeDeletionWorker.deleteAfterPlayback(context, media);
             }
         };
 

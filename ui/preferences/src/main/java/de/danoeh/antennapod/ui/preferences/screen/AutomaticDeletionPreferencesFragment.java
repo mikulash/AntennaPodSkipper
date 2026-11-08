@@ -29,6 +29,7 @@ public class AutomaticDeletionPreferencesFragment extends AnimatedPreferenceFrag
     }
 
     private void checkItemVisibility(boolean autoDeleteEnabled) {
+        findPreference(UserPreferences.PREF_AUTO_DELETE_DELAY_ENABLED).setEnabled(autoDeleteEnabled);
         findPreference(UserPreferences.PREF_FAVORITE_KEEPS_EPISODE).setEnabled(autoDeleteEnabled);
         findPreference(PREF_AUTO_DELETE_LOCAL).setEnabled(autoDeleteEnabled);
     }

@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import de.danoeh.antennapod.model.download.ProxyConfig;
 import de.danoeh.antennapod.model.feed.FeedCounter;
@@ -89,6 +90,8 @@ public abstract class UserPreferences {
     public static final String PREF_AUTO_ANALYZE_QUEUED_EPISODES = "prefAutoAnalyzeQueuedEpisodes";
     public static final String PREF_FAVORITE_KEEPS_EPISODE = "prefFavoriteKeepsEpisode";
     public static final String PREF_AUTO_DELETE = "prefAutoDelete";
+    public static final String PREF_AUTO_DELETE_DELAY_ENABLED = "prefAutoDeleteDelayEnabled";
+    public static final String PREF_AUTO_DELETE_DELAY = "prefAutoDeleteDelay";
     private static final String PREF_AUTO_DELETE_LOCAL = "prefAutoDeleteLocal";
     public static final String PREF_SMART_MARK_AS_PLAYED_SECS = "prefSmartMarkAsPlayedSecs";
     private static final String PREF_PLAYBACK_SPEED_ARRAY = "prefPlaybackSpeedArray";
@@ -448,6 +451,13 @@ public abstract class UserPreferences {
 
     public static boolean isAutoDelete() {
         return prefs.getBoolean(PREF_AUTO_DELETE, false);
+    }
+
+    public static long getAutoDeleteDelayMillis() {
+        if (!prefs.getBoolean(PREF_AUTO_DELETE_DELAY_ENABLED, false)) {
+            return 0;
+        }
+        return TimeUnit.DAYS.toMillis(Integer.parseInt(prefs.getString(PREF_AUTO_DELETE_DELAY, "1")));
     }
 
     public static boolean isAutoDeleteLocal() {

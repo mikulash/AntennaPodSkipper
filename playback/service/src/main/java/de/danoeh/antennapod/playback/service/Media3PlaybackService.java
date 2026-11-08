@@ -610,7 +610,7 @@ public class Media3PlaybackService extends MediaLibraryService {
                         || (action == FeedPreferences.AutoDeleteAction.GLOBAL && autoDeleteEnabledGlobally);
                 if (shouldAutoDelete && (!item.isTagged(FeedItem.TAG_FAVORITE)
                         || !UserPreferences.shouldFavoriteKeepEpisode())) {
-                    DBWriter.deleteFeedMediaOfItem(this, media);
+                    DelayedEpisodeDeletionWorker.deleteAfterPlayback(this, media);
                 }
             }
         }

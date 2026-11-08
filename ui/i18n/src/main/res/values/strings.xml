@@ -480,6 +480,12 @@
     <string name="pref_followQueue_sum">Jump to next queue item when playback completes</string>
     <string name="pref_auto_delete_playback_sum">Delete episode when playback completes</string>
     <string name="pref_auto_delete_playback_title">Delete after playing</string>
+    <string name="pref_auto_delete_delay_title">Delay for deletion</string>
+    <string name="pref_auto_delete_delay_sum">Delay deletion after playback completes. Listening again resets the timer. Background deletion may be delayed by Android.</string>
+    <string name="pref_auto_delete_delay_time_title">Delete after</string>
+    <string name="auto_delete_delay_one_day">1 day</string>
+    <string name="auto_delete_delay_three_days">3 days</string>
+    <string name="auto_delete_delay_one_week">1 week</string>
     <string name="pref_auto_delete_title">Automatic deletion</string>
     <string name="pref_auto_delete_sum">Delete episodes after playing or when automatic download needs space</string>
     <string name="pref_auto_local_delete_title">Auto delete from local folders</string>
