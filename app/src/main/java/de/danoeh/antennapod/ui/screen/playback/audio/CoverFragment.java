@@ -33,6 +33,7 @@ import com.bumptech.glide.request.RequestOptions;
 import de.danoeh.antennapod.BuildConfig;
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.event.MessageEvent;
+import de.danoeh.antennapod.event.FeedItemEvent;
 import de.danoeh.antennapod.event.PlayerStatusEvent;
 import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.playback.service.PlaybackService;
@@ -313,6 +314,14 @@ public class CoverFragment extends Fragment {
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onPlayerStatusEvent(PlayerStatusEvent event) {
         loadMediaInfo(false);
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onItemsUpdate(FeedItemEvent event) {
+        if (event.items.isEmpty() || media instanceof FeedMedia
+                && FeedItemEvent.indexOfItemWithId(event.items, ((FeedMedia) media).getItemId()) != -1) {
+            loadMediaInfo(false);
+        }
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
