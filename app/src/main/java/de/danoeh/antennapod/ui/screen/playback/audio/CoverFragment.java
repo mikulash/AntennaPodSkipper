@@ -104,13 +104,15 @@ public class CoverFragment extends Fragment {
         });
         viewBinding.openDescription.setOnClickListener(view -> ((AudioPlayerFragment) requireParentFragment())
                 .scrollToPage(AudioPlayerFragment.POS_DESCRIPTION, true));
-        viewBinding.openAdSegments.setOnClickListener(view -> ((AudioPlayerFragment) requireParentFragment())
-                .scrollToAdSegments());
+        viewBinding.openAdAnalysis.setOnClickListener(view -> ((AudioPlayerFragment) requireParentFragment())
+                .scrollToPage(AudioPlayerFragment.POS_AD_ANALYSIS, true));
         ColorFilter colorFilter = BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
                 viewBinding.txtvPodcastTitle.getCurrentTextColor(), BlendModeCompat.SRC_IN);
         viewBinding.butNextChapter.setColorFilter(colorFilter);
         viewBinding.butPrevChapter.setColorFilter(colorFilter);
         viewBinding.descriptionIcon.setColorFilter(colorFilter);
+        viewBinding.adAnalysisIcon.setColorFilter(colorFilter);
+        updateAdAnalysisButtonVisibility();
         viewBinding.chapterButton.setOnClickListener(v ->
                 new ChaptersFragment().show(getChildFragmentManager(), ChaptersFragment.TAG));
         viewBinding.butPrevChapter.setOnClickListener(v -> seekToPrevChapter());
@@ -149,8 +151,6 @@ public class CoverFragment extends Fragment {
     }
 
     private void displayMediaInfo(@NonNull Playable media) {
-        viewBinding.openAdSegments.setVisibility(UserPreferences.isAdSkipEnabled()
-                && media instanceof FeedMedia ? View.VISIBLE : View.GONE);
         String pubDateStr = DateFormatter.formatAbbrev(getActivity(), media.getPubDate());
         viewBinding.txtvPodcastTitle.setText(StringUtils.stripToEmpty(media.getFeedTitle())
                 + "\u00A0"
@@ -196,6 +196,12 @@ public class CoverFragment extends Fragment {
         displayedChapterIndex = -1;
         refreshChapterData(Chapter.getAfterPosition(media.getChapters(), media.getPosition()));
         updateChapterControlVisibility();
+        updateAdAnalysisButtonVisibility();
+    }
+
+    private void updateAdAnalysisButtonVisibility() {
+        boolean visible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && UserPreferences.isAdSkipEnabled();
+        viewBinding.openAdAnalysis.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
     private void openFeed(Feed feed) {

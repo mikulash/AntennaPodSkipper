@@ -127,23 +127,41 @@
 
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/openAdSegments"
+            <LinearLayout
+                android:id="@+id/openAdAnalysis"
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
+                android:layout_height="wrap_content"
                 android:layout_marginHorizontal="8dp"
-                android:layout_weight="1"
                 android:paddingHorizontal="8dp"
                 android:background="@drawable/grey_border"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center"
-                android:maxLines="2"
-                android:text="@string/ad_skipper_label"
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="16sp"
-                android:visibility="gone"
-                tools:visibility="visible" />
+                android:layout_weight="1"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/ad_analysis_icon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:contentDescription="@string/ad_segments_title"
+                    android:padding="2dp"
+                    app:srcCompat="@drawable/ic_ad_analysis" />
+
+                <TextView
+                    android:id="@+id/ad_analysis_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="none"
+                    android:layout_marginLeft="2dp"
+                    android:layout_marginStart="2dp"
+                    android:gravity="center_horizontal"
+                    android:maxLines="2"
+                    android:text="@string/ad_segments_title"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="16sp" />
+
+            </LinearLayout>
 
         </LinearLayout>
 

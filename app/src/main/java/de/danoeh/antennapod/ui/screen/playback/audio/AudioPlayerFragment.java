@@ -87,7 +87,8 @@ public class AudioPlayerFragment extends Fragment implements
     public static final String TAG = "AudioPlayerFragment";
     public static final int POS_COVER = 0;
     public static final int POS_DESCRIPTION = 1;
-    private static final int NUM_CONTENT_FRAGMENTS = 2;
+    public static final int POS_AD_ANALYSIS = 2;
+    private static final int NUM_CONTENT_FRAGMENTS = 3;
 
     private TextView txtvPlaybackSpeed;
     private ViewPager2 pager;
@@ -110,6 +111,7 @@ public class AudioPlayerFragment extends Fragment implements
     private boolean showTimeLeft;
     private boolean seekedToChapterStart = false;
     private int currentChapterIndex = -1;
+    private int pagerItemCount;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -152,6 +154,7 @@ public class AudioPlayerFragment extends Fragment implements
 
         pager = root.findViewById(R.id.pager);
         pager.setAdapter(new AudioPlayerPagerAdapter(this));
+        pagerItemCount = pager.getAdapter().getItemCount();
         //noinspection WrongConstant
         pager.setOffscreenPageLimit(NUM_CONTENT_FRAGMENTS);
         pager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
@@ -208,10 +211,11 @@ public class AudioPlayerFragment extends Fragment implements
             return;
         }
         float[][] normalized = new float[result.getSegments().size()][];
+        double offsetSeconds = UserPreferences.getAdSkipOffset();
         for (int i = 0; i < result.getSegments().size(); i++) {
             AdSegment seg = result.getSegments().get(i);
-            float start = (float) (seg.getStartSeconds() * 1000 / (double) duration);
-            float end = (float) (seg.getEndSeconds() * 1000 / (double) duration);
+            float start = (float) ((seg.getStartSeconds() - offsetSeconds) * 1000 / (double) duration);
+            float end = (float) ((seg.getEndSeconds() + offsetSeconds) * 1000 / (double) duration);
             start = Math.max(0f, Math.min(1f, start));
             end = Math.max(0f, Math.min(1f, end));
             normalized[i] = new float[]{start, end};
@@ -372,6 +376,14 @@ public class AudioPlayerFragment extends Fragment implements
     @Override
     public void onStart() {
         super.onStart();
+        int itemCount = pager.getAdapter().getItemCount();
+        if (itemCount != pagerItemCount) {
+            if (pager.getCurrentItem() >= itemCount) {
+                pager.setCurrentItem(POS_COVER, false);
+            }
+            pagerItemCount = itemCount;
+            pager.getAdapter().notifyDataSetChanged();
+        }
         loadMediaInfo(false);
         EventBus.getDefault().register(this);
         txtvRev.setText(NumberFormat.getInstance().format(UserPreferences.getRewindSecs()));
@@ -595,6 +607,11 @@ public class AudioPlayerFragment extends Fragment implements
             switch (position) {
                 case POS_COVER:
                     return new CoverFragment();
+                case POS_AD_ANALYSIS:
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        return new ItemAdAnalysisFragment();
+                    }
+                    return new ItemDescriptionFragment();
                 default:
                 case POS_DESCRIPTION:
                     return new ItemDescriptionFragment();
@@ -603,7 +620,8 @@ public class AudioPlayerFragment extends Fragment implements
 
         @Override
         public int getItemCount() {
-            return NUM_CONTENT_FRAGMENTS;
+            return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && UserPreferences.isAdSkipEnabled()
+                    ? NUM_CONTENT_FRAGMENTS : NUM_CONTENT_FRAGMENTS - 1;
         }
     }
 
@@ -622,13 +640,5 @@ public class AudioPlayerFragment extends Fragment implements
 
     public void scrollToPage(int page) {
         scrollToPage(page, false);
-    }
-
-    public void scrollToAdSegments() {
-        scrollToPage(POS_DESCRIPTION, true);
-        Fragment description = getChildFragmentManager().findFragmentByTag("f" + POS_DESCRIPTION);
-        if (description instanceof ItemDescriptionFragment) {
-            ((ItemDescriptionFragment) description).scrollToAdSegments();
-        }
     }
 }

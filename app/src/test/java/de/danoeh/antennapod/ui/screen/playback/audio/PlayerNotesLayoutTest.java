@@ -52,14 +52,14 @@ public class PlayerNotesLayoutTest {
         Context context = getContext();
         View root = LayoutInflater.from(context).inflate(R.layout.cover_fragment, null);
         View shownotes = root.findViewById(R.id.openDescription);
-        View adSegments = root.findViewById(R.id.openAdSegments);
+        View adAnalysis = root.findViewById(R.id.openAdAnalysis);
         View chapters = root.findViewById(R.id.chapterButton);
         TextView label = root.findViewById(R.id.chapters_label);
-        adSegments.setVisibility(View.VISIBLE);
+        adAnalysis.setVisibility(View.VISIBLE);
         chapters.setVisibility(View.VISIBLE);
         measureAndLayout(root, dp(context, widthDp), dp(context, 600));
 
-        assertEquals(shownotes.getParent(), adSegments.getParent());
+        assertEquals(shownotes.getParent(), adAnalysis.getParent());
         assertTrue(chapters.getTop() >= ((View) shownotes.getParent()).getBottom());
         assertTrue(label.getWidth() >= label.getPaint().measureText(label.getText().toString()));
         assertEquals(dp(context, 36), root.findViewById(R.id.butPrevChapter).getWidth());
