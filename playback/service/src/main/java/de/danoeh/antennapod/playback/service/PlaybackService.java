@@ -1252,8 +1252,7 @@ public class PlaybackService extends MediaBrowserServiceCompat {
                         || (action == FeedPreferences.AutoDeleteAction.GLOBAL && autoDeleteEnabledGlobally);
                 if (shouldAutoDelete && (!item.isTagged(FeedItem.TAG_FAVORITE)
                         || !UserPreferences.shouldFavoriteKeepEpisode())) {
-                    DBWriter.deleteFeedMediaOfItem(PlaybackService.this, media);
-                    Log.d(TAG, "Episode Deleted");
+                    DelayedEpisodeDeletionWorker.deleteAfterPlayback(PlaybackService.this, media);
                 }
                 notifyChildrenChanged(getString(R.string.queue_label));
             }

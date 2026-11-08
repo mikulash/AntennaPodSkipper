@@ -287,7 +287,7 @@ public class PreferencesTest {
     public void testEpisodeCleanupFavoriteOnly() {
         clickPreference(R.string.downloads_pref);
         onView(withText(R.string.pref_auto_delete_title)).perform(click());
-        onView(withText(R.string.pref_episode_cleanup_title)).perform(click());
+        clickPreference(R.string.pref_episode_cleanup_title);
         onView(withId(R.id.select_dialog_listview)).perform(swipeDown());
         onView(withText(R.string.episode_cleanup_except_favorite_removal)).perform(click());
         Awaitility.await().atMost(1000, MILLISECONDS)
@@ -298,7 +298,7 @@ public class PreferencesTest {
     public void testEpisodeCleanupQueueOnly() {
         clickPreference(R.string.downloads_pref);
         onView(withText(R.string.pref_auto_delete_title)).perform(click());
-        onView(withText(R.string.pref_episode_cleanup_title)).perform(click());
+        clickPreference(R.string.pref_episode_cleanup_title);
         onView(withId(R.id.select_dialog_listview)).perform(swipeDown());
         onView(withText(R.string.episode_cleanup_queue_removal)).perform(click());
         Awaitility.await().atMost(1000, MILLISECONDS)
@@ -309,7 +309,7 @@ public class PreferencesTest {
     public void testEpisodeCleanupNeverAlg() {
         clickPreference(R.string.downloads_pref);
         onView(withText(R.string.pref_auto_delete_title)).perform(click());
-        onView(withText(R.string.pref_episode_cleanup_title)).perform(click());
+        clickPreference(R.string.pref_episode_cleanup_title);
         onView(withId(R.id.select_dialog_listview)).perform(swipeUp());
         onView(withText(R.string.episode_cleanup_never)).perform(click());
         Awaitility.await().atMost(1000, MILLISECONDS)
@@ -320,7 +320,7 @@ public class PreferencesTest {
     public void testEpisodeCleanupClassic() {
         clickPreference(R.string.downloads_pref);
         onView(withText(R.string.pref_auto_delete_title)).perform(click());
-        onView(withText(R.string.pref_episode_cleanup_title)).perform(click());
+        clickPreference(R.string.pref_episode_cleanup_title);
         onView(withId(R.id.select_dialog_listview)).perform(swipeDown());
         onView(withText(R.string.episode_cleanup_after_listening)).perform(click());
         Awaitility.await().atMost(1000, MILLISECONDS)

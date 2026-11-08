@@ -10,6 +10,19 @@
         android:title="@string/pref_auto_delete_playback_title"/>
     <SwitchPreferenceCompat
         android:defaultValue="false"
+        android:key="prefAutoDeleteDelayEnabled"
+        android:summary="@string/pref_auto_delete_delay_sum"
+        android:title="@string/pref_auto_delete_delay_title"/>
+    <de.danoeh.antennapod.ui.preferences.preference.MaterialListPreference
+        android:defaultValue="1"
+        android:dependency="prefAutoDeleteDelayEnabled"
+        android:entries="@array/auto_delete_delay_entries"
+        android:entryValues="@array/auto_delete_delay_values"
+        android:key="prefAutoDeleteDelay"
+        android:summary="%s"
+        android:title="@string/pref_auto_delete_delay_time_title"/>
+    <SwitchPreferenceCompat
+        android:defaultValue="false"
         android:enabled="true"
         android:key="prefAutoDeleteLocal"
         android:summary="@string/pref_auto_local_delete_sum"
