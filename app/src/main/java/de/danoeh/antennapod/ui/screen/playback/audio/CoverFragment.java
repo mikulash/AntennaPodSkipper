@@ -33,12 +33,14 @@ import com.bumptech.glide.request.RequestOptions;
 import de.danoeh.antennapod.BuildConfig;
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.event.MessageEvent;
+import de.danoeh.antennapod.event.FeedItemEvent;
 import de.danoeh.antennapod.event.PlayerStatusEvent;
 import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.playback.service.PlaybackService;
 import de.danoeh.antennapod.playback.service.PlaybackServiceStarter;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
+import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.appstartintent.MainActivityStarter;
 import de.danoeh.antennapod.ui.appstartintent.MediaButtonStarter;
 import de.danoeh.antennapod.ui.appstartintent.OnlineFeedviewActivityStarter;
@@ -102,6 +104,8 @@ public class CoverFragment extends Fragment {
         });
         viewBinding.openDescription.setOnClickListener(view -> ((AudioPlayerFragment) requireParentFragment())
                 .scrollToPage(AudioPlayerFragment.POS_DESCRIPTION, true));
+        viewBinding.openAdSegments.setOnClickListener(view -> ((AudioPlayerFragment) requireParentFragment())
+                .scrollToAdSegments());
         ColorFilter colorFilter = BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
                 viewBinding.txtvPodcastTitle.getCurrentTextColor(), BlendModeCompat.SRC_IN);
         viewBinding.butNextChapter.setColorFilter(colorFilter);
@@ -145,6 +149,8 @@ public class CoverFragment extends Fragment {
     }
 
     private void displayMediaInfo(@NonNull Playable media) {
+        viewBinding.openAdSegments.setVisibility(UserPreferences.isAdSkipEnabled()
+                && media instanceof FeedMedia ? View.VISIBLE : View.GONE);
         String pubDateStr = DateFormatter.formatAbbrev(getActivity(), media.getPubDate());
         viewBinding.txtvPodcastTitle.setText(StringUtils.stripToEmpty(media.getFeedTitle())
                 + "\u00A0"
@@ -301,6 +307,11 @@ public class CoverFragment extends Fragment {
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onPlayerStatusEvent(PlayerStatusEvent event) {
+        loadMediaInfo(false);
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onItemsUpdate(FeedItemEvent event) {
         loadMediaInfo(false);
     }
 
