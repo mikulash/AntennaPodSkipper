@@ -11,9 +11,9 @@
         android:id="@+id/name"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        tools:text="Model Name"
         android:textSize="16sp"
         android:textStyle="bold"
+        tools:text="Model Name"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toStartOf="@id/actionButton" />
@@ -22,8 +22,8 @@
         android:id="@+id/size"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        tools:text="40 MB"
         android:layout_marginTop="4dp"
+        tools:text="40 MB"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/name" />
 
