@@ -312,7 +312,10 @@ public class CoverFragment extends Fragment {
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onItemsUpdate(FeedItemEvent event) {
-        loadMediaInfo(false);
+        if (event.items.isEmpty() || media instanceof FeedMedia
+                && FeedItemEvent.indexOfItemWithId(event.items, ((FeedMedia) media).getItemId()) != -1) {
+            loadMediaInfo(false);
+        }
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)

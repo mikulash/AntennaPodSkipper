@@ -34,6 +34,7 @@ import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.common.Converter;
 import de.danoeh.antennapod.ui.cleaner.ShownotesCleaner;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.playback.Playable;
 import de.danoeh.antennapod.ui.view.ShownotesWebView;
 import io.reactivex.rxjava3.core.Maybe;
@@ -83,13 +84,15 @@ public class ItemDescriptionFragment extends Fragment {
             // Restoring the scroll position might not always work
             scrollView.postDelayed(() -> {
                 if (showingAdSegments) {
-                    scrollToAdSegments();
+                    scrollToAdSegmentsPosition();
                 } else {
                     restoreFromPreference();
                 }
             }, 50);
         });
 
+        root.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
+                webvDescription.setMinimumHeight(bottom - top));
         registerForContextMenu(webvDescription);
         return root;
     }
@@ -142,6 +145,9 @@ public class ItemDescriptionFragment extends Fragment {
                 .subscribe(data -> {
                     updateAdSegments(data.second);
                     if (TextUtils.equals(loadedData, data.first)) {
+                        if (showingAdSegments) {
+                            scrollToAdSegmentsPosition();
+                        }
                         return;
                     }
                     loadedData = data.first;
@@ -232,6 +238,11 @@ public class ItemDescriptionFragment extends Fragment {
 
     public void scrollToAdSegments() {
         showingAdSegments = true;
+        load();
+        scrollToAdSegmentsPosition();
+    }
+
+    private void scrollToAdSegmentsPosition() {
         scrollView.post(() -> {
             if (showingAdSegments) {
                 scrollView.scrollTo(0, adSegmentsContainer.getTop());
@@ -264,6 +275,16 @@ public class ItemDescriptionFragment extends Fragment {
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onItemsUpdate(FeedItemEvent event) {
-        load();
+        if (event.items.isEmpty()) {
+            load();
+            return;
+        }
+        for (FeedItem item : event.items) {
+            if (item != null && item.getMedia() != null
+                    && item.getMedia().getId() == PlaybackPreferences.getCurrentlyPlayingFeedMediaId()) {
+                load();
+                break;
+            }
+        }
     }
 }
